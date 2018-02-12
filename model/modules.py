@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.optim
 from torch.autograd import Variable
-import torch.nn.functional as F
 
 
 class Encoder(nn.Module):
@@ -11,25 +10,25 @@ class Encoder(nn.Module):
     """
 
     def __init__(self, hidden_dim, embedding_dim, learning_rate, use_cuda):
-
         super(Encoder, self).__init__()
         self._use_cuda = use_cuda
         self._hidden_dim = hidden_dim
-
-        self._optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
 
         self._embedding = None
 
         self._gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim,
                            num_layers=1, bidirectional=False)
 
+        self._optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+
     def forward(self, inputs, hidden):
         """
         :param inputs:
         :param hidden:
-        :return: tuple, containing the
+        :return:
         """
-        embedded = self._embedding(inputs)
+        print(inputs)
+        embedded = self._embedding(inputs.view(1, 1, -1))
         output, hidden = self.gru(embedded, hidden)
 
         return output, hidden
@@ -40,7 +39,7 @@ class Encoder(nn.Module):
         :return: Variable, (1, 1, hidden_dim) with zeros as initial values.
         """
         result = Variable(torch.zeros(1, 1, self._hidden_dim))
-        if self.use_cuda:
+        if self._use_cuda:
             return result.cuda()
         else:
             return result
@@ -79,6 +78,7 @@ class Encoder(nn.Module):
         """
         self._embedding = nn.Embedding(embedding.size(0), embedding.size(1))
         self._embedding.weight = nn.Parameter(embedding)
+        self._embedding.weight.requires_grad = False
 
     @property
     def hidden_size(self):
@@ -99,13 +99,12 @@ class Decoder(nn.Module):
         self._use_cuda = use_cuda
         self._hidden_dim = hidden_dim
 
-        self._optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
         self._attention = Attention()
 
         self._embedding = None
 
-        self.gru = torch.nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim,
-                                )
+        self.gru = torch.nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim)
+        self._optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def forward(self, inputs, hidden):
         """
