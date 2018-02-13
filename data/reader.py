@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 import sklearn.utils
+import abc
 import re
 import copy
 
@@ -110,11 +111,9 @@ class DataQueue:
     A queue object for the data feed. This can be later configured to load the data to
     memory asynchronously.
     """
-    def __init__(self, data_path, full_load):
+    def __init__(self, data_path):
         """
         :param data_path: str, location of the data.
-        :param full_load: boolean, if true, the data will be fully loaded to the memory else,
-                            it will be loaded into smaller data chunks.
         """
         self._MAX_LEN = 3
         self._MAX_CHUNK_SIZE = 5000
@@ -138,27 +137,54 @@ class DataQueue:
                     yield temp_data_chunk
             yield data_chunk  # the chunk is not filled, returning with the remaining values
 
+    def data_loader(self):
+        """
+        Loader function for the
+        :return:
+        """
+        data = []
+        with open(self._data_path, 'r') as file:
+            for line in file:
+                data.append(line)
+        if len(data) == 0:
+            raise ValueError('The given file is empty.')
+        return data
 
-class Reader:
+
+class Reader(metaclass=abc.ABCMeta):
     """
-    Input stream generator class for the seq2seq model.
+    Derived classes should implement the reading logic for the seq2seq model.
     """
-    def __init__(self, language, data_path, batch_size, full_load, use_cuda):
+    @abc.abstractmethod
+    def batch_generator(self):
+        """
+        The role of this function is to generate batches for the seq2seq model. The batch generation
+        should include the logic of shuffling the samples. A full iteration should include
+        all of the data samples.
+        :return: PyTorch padded-sequence object.
+        """
+
+
+class FileReader(Reader):
+    """
+    An implementation of the reader class. Batches are read from the source in file real-time.
+    This version of the reader should only be used if the source file is too large to be stored
+    in memory.
+    """
+    def __init__(self, language, data_path, batch_size, use_cuda):
         self._language = language
         self._use_cuda = use_cuda
         self._batch_size = batch_size
-        self._data_queue = DataQueue(data_path, full_load)
-        self._data_chunk_generator = self._data_queue.data_generator
+        self._data_queue = DataQueue(data_path)
 
     def batch_generator(self):
         """
-        Generator for mini-batches. Data is read indirectly from a file through a DataQueue object,
-        or if the full_load option is active, it is read from a list.
+        Generator for mini-batches. Data is read indirectly from a file through a DataQueue object.
         :return: Torch padded-sequence object
         """
-        for data_chunk in self._data_chunk_generator():
+        for data_chunk in self._data_queue.data_generator():
             shuffled_data_chunk = sklearn.utils.shuffle(data_chunk)
-            for index in range(0, len(shuffled_data_chunk), self._batch_size):
+            for index in range(0, len(shuffled_data_chunk)-self._batch_size, self._batch_size):
                 batch = sorted(shuffled_data_chunk[index:index + self._batch_size],
                                key=lambda x: len(x), reverse=True)
                 yield self._variable_from_sentences(batch)
@@ -196,3 +222,32 @@ class Reader:
         """
         return self._language
 
+
+class FastReader(Reader):
+    """
+    A faster implementation of reader class than FileReader. The source data is fully loaded into
+    the memory. It
+    """
+    def __init__(self, language, data_path, batch_size, use_cuda):
+        self._language = language
+        self._use_cuda = use_cuda
+        self._batch_size = batch_size
+        self._data_queue = DataQueue(data_path)
+        self._data_numpy = self._process(self._data_queue.data_loader())
+
+    def batch_generator(self):
+        pass
+
+    def _process(self, data):
+        return data
+
+    def _chunk_generator(self):
+        pass
+
+    @property
+    def language(self):
+        """
+        Property for the reader object's source language.
+        :return: Language object, the source language.
+        """
+        return self._language

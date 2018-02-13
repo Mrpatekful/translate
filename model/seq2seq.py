@@ -22,8 +22,8 @@ class Model:
 
         # self._tgt = reader.Language()
 
-        self.reader_src = reader.Reader(language=self._src, data_path=SRC_DATA_PATH,
-                                        batch_size=32, full_load=False, use_cuda=USE_CUDA)
+        self.reader_src = reader.FastReader(language=self._src, data_path=SRC_DATA_PATH,
+                                            batch_size=32, use_cuda=USE_CUDA)
 
         # self.reader_tgt = reader.Reader(tgt, TGT_DATA_PATH, USE_CUDA)
 
