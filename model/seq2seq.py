@@ -1,7 +1,7 @@
 import torch
 
-from data import reader
 from model import modules
+from utils import reader
 
 USE_CUDA = torch.cuda.is_available()
 

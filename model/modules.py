@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.optim
 from torch.autograd import Variable
 
+from utils import utils
+
 
 class Encoder(nn.Module):
     """
@@ -27,11 +29,11 @@ class Encoder(nn.Module):
         :param hidden:
         :return:
         """
-        print(inputs)
-        embedded = self._embedding(inputs.view(1, 1, -1))
-        output, hidden = self.gru(embedded, hidden)
+        embedded = self._embedding(inputs)
+        padded_sequence = utils.embedding_to_padded_sequence(embedded)
+        padded_sequence, hidden = self._gru(padded_sequence, hidden)
 
-        return output, hidden
+        return padded_sequence, hidden
 
     def init_hidden(self):
         """

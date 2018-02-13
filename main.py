@@ -1,5 +1,4 @@
-from model import seq2seq
-from data import reader
+from utils import reader
 
 FILE_SEG = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_seg'  # correctly segmented and tokenized file
 FILE_TOK = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_tok'  # tokenized text file
@@ -12,8 +11,7 @@ def main():
     reader.vocab_creator(FILE_TOK)
     lang = reader.Language()
     lang.load_vocab(VOCAB_PATH)
-    r = reader.Reader(data_path=FILE_SEG,
-                      batch_size=2, language=lang, full_load=False, use_cuda=True)
+    r = reader.FileReader(data_path=FILE_SEG, batch_size=2, language=lang, use_cuda=True)
     for epoch in r.batch_generator():
         print('asd')
 

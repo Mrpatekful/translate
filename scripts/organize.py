@@ -7,7 +7,7 @@ FILE_INPUT = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_tok'
 FILE_OUTPUT = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_org'
 
 
-BUFFER_MAX_LENGTH = 5000
+BUFFER_MAX_LENGTH = 100000
 
 
 def insert_to_buffer(line_buffer, line_dict):
@@ -83,7 +83,7 @@ def main():
             else:
                 write_to_temp_file(data_buffer=data_buffer, temp_files=temp_files)
 
-        # if the chunk is larger than the leftover sentences write the leftover to a file
+        # if the chunk is larger than the leftover sentences then write the leftover to a file
         if len(data_buffer) > 0:
             write_to_temp_file(data_buffer=data_buffer, temp_files=temp_files)
 
@@ -120,4 +120,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
