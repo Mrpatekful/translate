@@ -1,6 +1,6 @@
 import torch
 
-from model import modules
+from modules import encoder, decoder
 from utils import reader
 
 USE_CUDA = torch.cuda.is_available()
@@ -27,10 +27,10 @@ class Model:
 
         # self.reader_tgt = reader.Reader(tgt, TGT_DATA_PATH, USE_CUDA)
 
-        self.encoder = modules.Encoder(embedding_dim=self._src.embedding_size, use_cuda=USE_CUDA,
+        self.encoder = encoder.Encoder(embedding_dim=self._src.embedding_size, use_cuda=USE_CUDA,
                                        hidden_dim=32, learning_rate=0.001)
 
-        self.decoder = modules.Decoder(embedding_dim=self._src.embedding_size, use_cuda=USE_CUDA,
+        self.decoder = decoder.Decoder(embedding_dim=self._src.embedding_size, use_cuda=USE_CUDA,
                                        hidden_dim=32, learning_rate=0.001)
 
         # self.discriminator = modules.Discriminator()

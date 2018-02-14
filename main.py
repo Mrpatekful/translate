@@ -11,9 +11,9 @@ def main():
     reader.vocab_creator(FILE_TOK)
     lang = reader.Language()
     lang.load_vocab(VOCAB_PATH)
-    r = reader.FileReader(data_path=FILE_SEG, batch_size=2, language=lang, use_cuda=True)
-    for epoch in r.batch_generator():
-        print('asd')
+    r = reader.FastReader(data_path=FILE_SEG, batch_size=2, language=lang, use_cuda=True)
+    for index, epoch in enumerate(r.batch_generator()):
+        print(index)
 
 
 if __name__ == '__main__':

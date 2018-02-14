@@ -17,7 +17,7 @@ LANG_SRC_VOC = None
 LANG_TGT_TOK = None
 LANG_SRC_TOK = None
 
-MAX_SEGMENT_SIZE = 5000  # this constant is used by DataQueue and FastReader to divide the data into smaller segments
+MAX_SEGMENT_SIZE = 1000000  # this constant is used by DataQueue and FastReader to divide the data into smaller segments
 
 
 def vocab_creator(path):
@@ -93,7 +93,7 @@ class Language:
             first_line = file.readline().split(' ')
             num_of_words = int(first_line[0])
             embedding_dim = int(first_line[1])
-            self._embedding = np.empty((num_of_words, embedding_dim + 4), dtype=float)
+            self._embedding = np.empty((num_of_words + 4, embedding_dim), dtype=float)
 
             for index, line in enumerate(file):
                 line_as_list = list(line.split(' '))
@@ -175,7 +175,9 @@ class DataQueue:
 
 class Reader(metaclass=abc.ABCMeta):
     """
-    Derived classes should implement the reading logic for the seq2seq model.
+    Derived classes should implement the reading logic for the seq2seq model. Readers divide the
+    data into segments. The purpose of this behaviour, is to keep the sentences with similar lengths
+    in segments, so they can be freely shuffled without mixing them together with larger sentences.
     """
     @abc.abstractmethod
     def batch_generator(self):
@@ -261,7 +263,7 @@ class FastReader(Reader):
             for index in range(0, len(shuffled_data_chunk)-self._batch_size, self._batch_size):
                 batch = np.array(sorted(shuffled_data_chunk[index:index + self._batch_size],
                                         key=lambda x: x[0, -1], reverse=True))
-                yield Variable(torch.from_numpy(batch[:, :-1])), batch[:, -1]
+                yield Variable(torch.from_numpy(batch[:, :, :-1])), batch[:, :, -1]
 
     def _process(self, data):
         """
@@ -271,7 +273,8 @@ class FastReader(Reader):
         """
         data_to_ids = []
         for index in range(0, len(data), MAX_SEGMENT_SIZE):
-            segment_length = len(data[index + MAX_SEGMENT_SIZE].split(' '))  # length of the longest line in the segment
+            # length of the longest line in the segment
+            segment_length = len(data[index:index + MAX_SEGMENT_SIZE][-1].split(' '))
             for line in data[index:index + MAX_SEGMENT_SIZE]:
                 ids = ids_from_sentence(self._language, line)
                 ids_len = len(ids)
