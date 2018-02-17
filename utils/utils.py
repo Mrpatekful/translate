@@ -19,4 +19,8 @@ def padded_sequence_to_embedding(padded_sequence):
     :param padded_sequence:
     :return:
     """
-    return pad_packed_sequence()
+    return pad_packed_sequence(padded_sequence)
+
+
+def apply_noise(input_batch):
+    return input_batch

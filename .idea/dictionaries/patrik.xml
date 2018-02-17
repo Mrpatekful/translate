@@ -2,6 +2,7 @@
   <dictionary name="patrik">
     <words>
       <w>cuda</w>
+      <w>dtype</w>
       <w>tokenized</w>
     </words>
   </dictionary>

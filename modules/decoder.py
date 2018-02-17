@@ -18,18 +18,19 @@ class Decoder(nn.Module):
 
         self._embedding = None
 
-        self.gru = torch.nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim)
+        self._gru = torch.nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim)
         self._optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
 
-    def forward(self, inputs, hidden):
+    def forward(self, inputs, lengths, hidden):
         """
 
         :param inputs:
+        :param lengths:
         :param hidden:
         :return:
         """
-        embedded = self.embedding(inputs)
-        output, hidden = self.gru(embedded, hidden)
+        embedded = self._embedding(inputs)
+        output, hidden = self._gru(embedded, hidden)
 
         return output, hidden
 
@@ -49,3 +50,22 @@ class Decoder(nn.Module):
         :return:
         """
         self._optimizer = value
+
+    @property
+    def embedding(self):
+        """
+
+        :return:
+        """
+        return self._embedding
+
+    @embedding.setter
+    def embedding(self, embedding):
+        """
+
+        :param embedding:
+        :return:
+        """
+        self._embedding = nn.Embedding(embedding.size(0), embedding.size(1))
+        self._embedding.weight = nn.Parameter(embedding)
+        self._embedding.weight.requires_grad = False

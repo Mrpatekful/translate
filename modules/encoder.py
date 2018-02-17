@@ -24,14 +24,15 @@ class Encoder(nn.Module):
 
         self._optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
 
-    def forward(self, inputs, hidden):
+    def forward(self, inputs, lengths, hidden):
         """
         :param inputs:
+        :param lengths:
         :param hidden:
         :return:
         """
         embedded = self._embedding(inputs)
-        padded_sequence = utils.embedding_to_padded_sequence(embedded)
+        padded_sequence = utils.embedding_to_padded_sequence(embedded, lengths)
         padded_sequence, hidden = self._gru(padded_sequence, hidden)
 
         return padded_sequence, hidden

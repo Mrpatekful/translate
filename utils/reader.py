@@ -17,7 +17,7 @@ LANG_SRC_VOC = None
 LANG_TGT_TOK = None
 LANG_SRC_TOK = None
 
-MAX_SEGMENT_SIZE = 1000000  # this constant is used by DataQueue and FastReader to divide the data into smaller segments
+MAX_SEGMENT_SIZE = 1000  # this constant is used by DataQueue and FastReader to divide the data into smaller segments
 
 
 def vocab_creator(path):
@@ -78,6 +78,7 @@ class Language:
     """
     def __init__(self):
         self._word_to_id = {}
+        self._id_to_word = {}
         self._word_to_count = {}
 
         self._embedding = None
@@ -105,6 +106,9 @@ class Language:
             self._word_to_id['<EOS>'] = len(self._word_to_id)
             self._word_to_id['<UNK>'] = len(self._word_to_id)
 
+            self._id_to_word = dict(zip(self._word_to_id.values(),
+                                        self._word_to_id.keys()))
+
             self._embedding[0, :] = np.zeros(embedding_dim)
             self._embedding[-1, :] = np.zeros(embedding_dim)
             self._embedding[-2, :] = np.zeros(embedding_dim)
@@ -116,7 +120,7 @@ class Language:
     def embedding(self):
         """
         Property for the embedding matrix.
-        :return: A PyTorch Variable object, with disabled gradient, that contains the embedding matrix
+        :return: A PyTorch Variable object, that contains the embedding matrix
                 for the language.
         """
         if self._embedding is None:
@@ -140,6 +144,14 @@ class Language:
         :return: dict, containing the word-id pairs.
         """
         return self._word_to_id
+
+    @property
+    def id_to_word(self):
+        """
+        Property for the word to id dictionary.
+        :return: dict, containing the word-id pairs.
+        """
+        return self._id_to_word
 
 
 class DataQueue:
@@ -170,7 +182,7 @@ class DataQueue:
                     temp_data_segment = copy.deepcopy(data_segment)
                     del data_segment[:]
                     yield temp_data_segment
-            yield data_segment  # the chunk is not filled, returning with the remaining values
+            yield data_segment  # the segment is not filled, returning with the remaining values
 
 
 class Reader(metaclass=abc.ABCMeta):
@@ -206,13 +218,14 @@ class FileReader(Reader):
         Generator for mini-batches. Data is read indirectly from a file through a DataQueue object.
         :return: Torch padded-sequence object
         """
+        # TODO length for the sentences and padding
         for data_segment in self._data_queue.data_generator():
             shuffled_data_segment = sklearn.utils.shuffle(data_segment)
             for index in range(0, len(shuffled_data_segment)-self._batch_size, self._batch_size):
                 batch = sorted(shuffled_data_segment[index:index + self._batch_size],
                                key=lambda x: len(x), reverse=True)
 
-                yield self._variable_from_sentences(batch),
+                yield self._variable_from_sentences(batch)
 
     def _variable_from_sentences(self, sentences):
         """
@@ -242,57 +255,140 @@ class FileReader(Reader):
 class FastReader(Reader):
     """
     A faster implementation of reader class than FileReader. The source data is fully loaded into
-    the memory. It
+    the memory.
     """
     def __init__(self, language, data_path, batch_size, use_cuda):
         self._data_path = data_path
         self._language = language
         self._use_cuda = use_cuda
         self._batch_size = batch_size
-        self._data = self._process(data_loader(data_path))
-        # TODO large numpy matrices or lines of numpy vectors?
+        self._data_processor = self.PrePadding(language)  # PrePadding <-> PostPadding
+        self._data = self._data_processor(data_loader(data_path))
 
     def batch_generator(self):
         """
         Generator for mini-batches. Data is read from memory.
-        :return:
+        :return: tuple, a PyTorch Variable of dimension (Batch_size, Sequence_length), containing
+                 the ids of words, sorted by their length in descending order. Each sample is
+                 padded to the length of the longest sequence in the batch/segment.
+                 The latter behaviour may vary. Second element of the tuple is a numpy array
+                 of the lengths of the original sequences (without padding).
         """
         for data_segment in self._segment_generator():
-            shuffled_data_chunk = sklearn.utils.shuffle(data_segment)
+            shuffled_data_segment = sklearn.utils.shuffle(data_segment)
             # batches must always be the same size so len(..) - batch_size is the termination index
-            for index in range(0, len(shuffled_data_chunk)-self._batch_size, self._batch_size):
-                batch = np.array(sorted(shuffled_data_chunk[index:index + self._batch_size],
-                                        key=lambda x: x[0, -1], reverse=True))
-                yield Variable(torch.from_numpy(batch[:, :, :-1])), batch[:, :, -1]
+            for index in range(0, len(shuffled_data_segment)-self._batch_size, self._batch_size):
+                batch = self._data_processor.create_batch(shuffled_data_segment[index:index + self._batch_size])
 
-    def _process(self, data):
-        """
-        Converts the data of (string) sentences to ids of the words.
-        :param data: list, strings of the sentences.
-        :return: list, list of (int) ids of the words in the sentences.
-        """
-        data_to_ids = []
-        for index in range(0, len(data), MAX_SEGMENT_SIZE):
-            # length of the longest line in the segment
-            segment_length = len(data[index:index + MAX_SEGMENT_SIZE][-1].split(' '))
-            for line in data[index:index + MAX_SEGMENT_SIZE]:
-                ids = ids_from_sentence(self._language, line)
-                ids_len = len(ids)
-                while len(ids) != segment_length:
-                    ids.insert(-1, 0)
-                data_line = np.zeros((1, segment_length+1), dtype='int')
-                data_line[0, :-1] = ids
-                data_line[0, -1] = ids_len
-                data_to_ids.append(data_line)
-        return data_to_ids
+                yield Variable(torch.from_numpy(batch[:, :-1])), batch[:, -1]
 
     def _segment_generator(self):
         """
-
-        :return:
+        Divides the data to segments of size MAX_SEGMENT_SIZE.
         """
         for index in range(0, len(self._data), MAX_SEGMENT_SIZE):
-            yield self._data[index:index+MAX_SEGMENT_SIZE]
+            yield self._data[index:index + MAX_SEGMENT_SIZE]
+
+    # =============================================================================== #
+    # Two versions of FastReader:                                                     #
+    #       1. PrePadding:                                                            #
+    #          Padding is located in the process __call__ function, so _create_batch  #
+    #          only has to sort the batch. The draw back is there might be batches,   #
+    #          where even the longest sequence is padded.                             #
+    #       2. PostPadding:                                                           #
+    #          Padding is located in _create_batch function, this way the sentences   #
+    #          are padded to the length of the longest sentence in the batch, but     #
+    #          input feeding is slower.                                               #
+    # =============================================================================== #
+
+    # =============================================================================== #
+    # ----------------------------------Version 1.----------------------------------- #
+    # =============================================================================== #
+
+    class PrePadding:
+        """
+        Data is padded previously to the training iterations. The padding is determined
+        by the longest sequence in the data segment.
+        """
+
+        def __init__(self, language):
+            self._language = language
+
+        def __call__(self, data):
+            """
+            Converts the data of (string) sentences to ids of the words.
+            Sentences are padded to the length of the longest sentence in the data segment.
+            Length of a segment is determined by MAX_SEGMENT_SIZE.
+            :param data: list, strings of the sentences.
+            :return: list, list of (int) ids of the words in the sentences.
+            """
+            data_to_ids = []
+            for index in range(0, len(data), MAX_SEGMENT_SIZE):
+                # length of the longest line in the segment
+                segment_length = len(ids_from_sentence(self._language,
+                                                       data[index:index + MAX_SEGMENT_SIZE][0]))
+                for line in data[index:index + MAX_SEGMENT_SIZE]:
+                    ids = ids_from_sentence(self._language, line)
+                    ids_len = len(ids)
+                    while len(ids) < segment_length:
+                        ids.append(0)
+                    data_line = np.zeros((segment_length + 1), dtype='int')
+                    data_line[:-1] = ids
+                    data_line[-1] = ids_len
+                    data_to_ids.append(data_line)
+            return data_to_ids
+
+        @staticmethod
+        def create_batch(data):
+            """
+            Creates the batch, by sorting the elements in descending order with respect to the
+            lengths of the sequences.
+            :param data: list, containing lists of the ids.
+            :return: Numpy Array, sorted batch.
+            """
+            return np.array(sorted(data, key=lambda x: x[-1], reverse=True))
+
+    # =============================================================================== #
+    # ----------------------------------Version 2.----------------------------------- #
+    # =============================================================================== #
+
+    class PostPadding:
+        """
+        Data is padded during the training iterations. Padding is determined by the longest
+        sequence in the batch.
+        """
+
+        def __init__(self, language):
+            self._language = language
+
+        def __call__(self, data):
+            """
+            Converts the data of (string) sentences to ids of the words.
+            :param data: list, strings of the sentences.
+            :return: list, list of (int) ids of the words in the sentences.
+            """
+            data_to_ids = []
+            for index in range(0, len(data), MAX_SEGMENT_SIZE):
+                for line in data[index:index + MAX_SEGMENT_SIZE]:
+                    ids = ids_from_sentence(self._language, line)
+                    ids.append(len(ids))
+                    data_to_ids.append(ids)
+            return data_to_ids
+
+        @staticmethod
+        def create_batch(data):
+            """
+            Creates a sorted batch from the data. Each line of the data is padded to the
+            length of the longest sequence in the batch.
+            :param data:
+            :return:
+            """
+            sorted_data = sorted(data, key=lambda x: x[-1], reverse=True)
+            batch_length = sorted_data[0][-1]  # length of the longest sequence in the batch
+            for index in range(len(sorted_data)):
+                while len(sorted_data[index])-1 < batch_length:  # subtracting the length [-1] element
+                    sorted_data[index].insert(-1, 0)
+            return np.array(sorted_data, dtype='int')
 
     @property
     def language(self):
