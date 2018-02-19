@@ -26,7 +26,7 @@ def vocab_creator(path):
     embedding weights.
     :param path: string, the absolute path of the text to create a vocab of.
     """
-    def _add_word(w, voc):
+    def add_word(w, voc):
         if w not in voc:
             voc[w] = [n for n in np.random.rand(EMBEDDING_DIM)]
 
@@ -35,7 +35,7 @@ def vocab_creator(path):
         for line in file:
             line_as_list = re.split(r"[\s|\n]+", line)
             for token in line_as_list:
-                _add_word(token, vocab)
+                add_word(token, vocab)
 
     with open(VOCAB_PATH, 'w') as file:
         file.write('{0} {1}\n'.format(len(vocab), EMBEDDING_DIM))
@@ -76,6 +76,7 @@ class Language:
     """
     Wrapper class for the lookup tables of the languages.
     """
+
     def __init__(self):
         self._word_to_id = {}
         self._id_to_word = {}
@@ -94,7 +95,7 @@ class Language:
             first_line = file.readline().split(' ')
             num_of_words = int(first_line[0])
             embedding_dim = int(first_line[1])
-            self._embedding = np.empty((num_of_words + 4, embedding_dim), dtype=float)
+            self._embedding = np.empty((num_of_words + 4, embedding_dim), dtype='float')
 
             for index, line in enumerate(file):
                 line_as_list = list(line.split(' '))
@@ -114,7 +115,7 @@ class Language:
             self._embedding[-2, :] = np.zeros(embedding_dim)
             self._embedding[-3, :] = np.zeros(embedding_dim)
 
-            self._embedding = torch.from_numpy(self._embedding)
+            self._embedding = torch.from_numpy(self._embedding).float().cuda()
 
     @property
     def embedding(self):
@@ -135,7 +136,7 @@ class Language:
         """
         if self._embedding is None:
             raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding.shape[1]
+        return self._embedding.shape
 
     @property
     def word_to_id(self):
@@ -159,6 +160,7 @@ class DataQueue:
     A queue object for the data feed. This can be later configured to load the data to
     memory asynchronously.
     """
+
     def __init__(self, data_path):
         """
         :param data_path: str, location of the data.
@@ -191,6 +193,7 @@ class Reader(metaclass=abc.ABCMeta):
     data into segments. The purpose of this behaviour, is to keep the sentences with similar lengths
     in segments, so they can be freely shuffled without mixing them together with larger sentences.
     """
+
     @abc.abstractmethod
     def batch_generator(self):
         """
@@ -207,6 +210,7 @@ class FileReader(Reader):
     This version of the reader should only be used if the source file is too large to be stored
     in memory.
     """
+
     def __init__(self, language, data_path, batch_size, use_cuda):
         self._language = language
         self._use_cuda = use_cuda
@@ -257,12 +261,13 @@ class FastReader(Reader):
     A faster implementation of reader class than FileReader. The source data is fully loaded into
     the memory.
     """
+
     def __init__(self, language, data_path, batch_size, use_cuda):
         self._data_path = data_path
         self._language = language
         self._use_cuda = use_cuda
         self._batch_size = batch_size
-        self._data_processor = self.PrePadding(language)  # PrePadding <-> PostPadding
+        self._data_processor = self.PostPadding(language)  # PrePadding <-> PostPadding
         self._data = self._data_processor(data_loader(data_path))
 
     def batch_generator(self):
@@ -280,14 +285,14 @@ class FastReader(Reader):
             for index in range(0, len(shuffled_data_segment)-self._batch_size, self._batch_size):
                 batch = self._data_processor.create_batch(shuffled_data_segment[index:index + self._batch_size])
 
-                yield Variable(torch.from_numpy(batch[:, :-1])), batch[:, -1]
+                yield Variable(torch.from_numpy(batch[:, :-1]).cuda()), batch[:, -1]
 
     def _segment_generator(self):
         """
         Divides the data to segments of size MAX_SEGMENT_SIZE.
         """
         for index in range(0, len(self._data), MAX_SEGMENT_SIZE):
-            yield self._data[index:index + MAX_SEGMENT_SIZE]
+            yield copy.deepcopy(self._data[index:index + MAX_SEGMENT_SIZE])
 
     # =============================================================================== #
     # Two versions of FastReader:                                                     #
@@ -388,6 +393,7 @@ class FastReader(Reader):
             for index in range(len(sorted_data)):
                 while len(sorted_data[index])-1 < batch_length:  # subtracting the length [-1] element
                     sorted_data[index].insert(-1, 0)
+
             return np.array(sorted_data, dtype='int')
 
     @property

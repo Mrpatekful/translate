@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 import torch.optim
 from torch.autograd import Variable
@@ -19,30 +19,32 @@ class Encoder(nn.Module):
 
         self._embedding = None
 
-        self._gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim,
-                           num_layers=1, bidirectional=False)
+        self._gru = torch.nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim,
+                                 num_layers=1, bidirectional=False, batch_first=True).cuda()
 
         self._optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def forward(self, inputs, lengths, hidden):
         """
+
         :param inputs:
         :param lengths:
         :param hidden:
         :return:
         """
         embedded = self._embedding(inputs)
-        padded_sequence = utils.embedding_to_padded_sequence(embedded, lengths)
-        padded_sequence, hidden = self._gru(padded_sequence, hidden)
+        padded_sequence = utils.batch_to_padded_sequence(embedded, lengths)
+        output, hidden = self._gru(padded_sequence, hidden)
+        output, _ = utils.padded_sequence_to_batch(output)
 
-        return padded_sequence, hidden
+        return output, hidden
 
-    def init_hidden(self):
+    def init_hidden(self, batch_size):
         """
         Initializes the hidden state of the encoder module.
         :return: Variable, (1, 1, hidden_dim) with zeros as initial values.
         """
-        result = Variable(torch.zeros(1, 1, self._hidden_dim))
+        result = Variable(torch.zeros(1, batch_size, self._hidden_dim))
         if self._use_cuda:
             return result.cuda()
         else:
