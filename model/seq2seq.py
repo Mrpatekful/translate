@@ -65,6 +65,8 @@ class Model:
                                                                         lengths=lengths,
                                                                         hidden=decoder_hidden)
 
+        print(symbols)
+
         loss = loss_function(decoder_output.view(-1, self.decoder.output_dim), input_batch.view(-1))
 
         loss.backward()
@@ -92,7 +94,7 @@ class Model:
                                          loss_function=loss_function,
                                          noise_function=utils.apply_noise)
 
-            print(loss)
+            print(epoch, loss)
 
             # self.encoder.embedding = self._tgt.embedding
             # self.decoder.embedding = self._tgt.embedding
