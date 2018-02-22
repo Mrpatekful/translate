@@ -1,6 +1,6 @@
 import torch
 
-from modules import encoder, decoder, discriminator
+from modules import encoder, decoder, discriminator, attention
 from utils import reader, utils
 
 USE_CUDA = torch.cuda.is_available()
@@ -26,19 +26,23 @@ class Model:
         # self._tgt = reader.Language()
         # self._tgt.load_vocab(SRC_VOCAB_PATH)
 
-        self.reader_src = reader.FastReader(language=self._src, data_path=SRC_DATA_PATH,
-                                            batch_size=32, use_cuda=USE_CUDA)
+        self._reader_src = reader.FastReader(language=self._src, data_path=SRC_DATA_PATH,
+                                             batch_size=32, use_cuda=USE_CUDA)
 
         # self.reader_tgt = reader.FastReader(language=self._tgt, data_path=TGT_DATA_PATH,
         #                                     batch_size=32, use_cuda=USE_CUDA)
 
-        self.encoder = encoder.Encoder(embedding_dim=self._src.embedding_size[1], use_cuda=USE_CUDA,
-                                       hidden_dim=50, learning_rate=0.001)
+        self._encoder = encoder.RNNEncoder(embedding_dim=self._src.embedding_dim, use_cuda=USE_CUDA,
+                                           hidden_size=50, learning_rate=0.001, recurrent_layer='GRU')
 
-        self.decoder = decoder.Decoder(embedding_dim=self._src.embedding_size[1], use_cuda=USE_CUDA,
-                                       hidden_dim=50, output_dim=self._src.embedding_size[0], learning_rate=0.001)
+        self._decoder = decoder.RNNDecoder(embedding_dim=self._src.embedding_dim, use_cuda=USE_CUDA,
+                                           hidden_size=50, output_dim=self._src.vocab_size,
+                                           learning_rate=0.001, recurrent_layer='GRU')
 
-        self.discriminator = discriminator.Discriminator()
+        # self._decoder.attention = attention.LuongAttention
+
+        self.discriminator = discriminator.Discriminator(hidden_dim=1024, input_dim=2,
+                                                         learning_rate=0.0005, use_cuda=USE_CUDA)
 
     def _train_step(self, input_batch, lengths, noise_function, loss_function):
         """
@@ -47,32 +51,29 @@ class Model:
         :param lengths:
         :return:
         """
-        encoder_hidden = self.encoder.init_hidden(input_batch.shape[0])
+        encoder_state = self._encoder.init_hidden(input_batch.shape[0])
 
-        self.encoder.optimizer.zero_grad()
-        self.decoder.optimizer.zero_grad()
+        self._encoder.optimizer.zero_grad()
+        self._decoder.optimizer.zero_grad()
 
         noisy_input = noise_function(input_batch)
 
-        encoder_output, encoder_hidden = self.encoder.forward(inputs=noisy_input,
-                                                              lengths=lengths,
-                                                              hidden=encoder_hidden)
-
-        decoder_hidden = encoder_hidden
+        encoder_outputs, encoder_state = self._encoder.forward(inputs=noisy_input,
+                                                               lengths=lengths,
+                                                               hidden_state=encoder_state)
+        decoder_state = encoder_state
 
         # auto encoding -> inputs and targets are the same
-        decoder_output, symbols, decoder_hidden, = self.decoder.forward(inputs=input_batch,
-                                                                        lengths=lengths,
-                                                                        hidden=decoder_hidden)
-
-        print(symbols)
-
-        loss = loss_function(decoder_output.view(-1, self.decoder.output_dim), input_batch.view(-1))
+        loss, symbols = self._decoder.forward(inputs=input_batch,
+                                              encoder_outputs=encoder_outputs,
+                                              lengths=lengths,
+                                              hidden_state=decoder_state,
+                                              loss_function=loss_function)
 
         loss.backward()
 
-        self.encoder.optimizer.step()
-        self.decoder.optimizer.step()
+        self._encoder.optimizer.step()
+        self._decoder.optimizer.step()
 
         return loss
 
@@ -85,10 +86,10 @@ class Model:
 
         for epoch in range(epochs):
             loss = 0
-            self.encoder.embedding = self._src.embedding
-            self.decoder.embedding = self._src.embedding
+            self._encoder.embedding = self._src.embedding
+            self._decoder.embedding = self._src.embedding
 
-            for batch, lengths in self.reader_src.batch_generator():
+            for batch, lengths in self._reader_src.batch_generator():
                 loss += self._train_step(input_batch=batch,
                                          lengths=lengths,
                                          loss_function=loss_function,
@@ -132,25 +133,6 @@ class Model:
         :param lengths:
         :return:
         """
-        encoder_hidden = self.encoder.init_hidden()
-
-        encoder_output, encoder_hidden = self.encoder.forward(inputs=inputs,
-                                                              lengths=lengths,
-                                                              hidden=encoder_hidden)
-
-        decoder_hidden = encoder_hidden
-
-        # for di in range(max_length):
-        #     decoder_output, decoder_hidden, decoder_attention = self.decoder.forward(decoder_input,
-        #                                                                 decoder_hidden, encoder_outputs)
-        #     decoder_attentions[di] = decoder_attention.data
-        #     topv, topi = decoder_output.data.topk(1)
-        #     ni = topi[0][0]
-        #     if ni == EOS_token:
-        #         decoded_words.append('<EOS>')
-        #         break
-        #     else:
-        #         decoded_words.append(output_lang.index2word[ni])
 
 
 class Logger:

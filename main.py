@@ -7,7 +7,7 @@ VOCAB_PATH = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_voc'  # vocabulary fi
 
 def main():
     auto_encoder = seq2seq.Model()
-    auto_encoder.fit(10)
+    auto_encoder.fit(epochs=10)
 
 
 if __name__ == '__main__':

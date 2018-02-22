@@ -20,6 +20,9 @@ LANG_SRC_TOK = None
 MAX_SEGMENT_SIZE = 1000  # this constant is used by DataQueue and FastReader to divide the data into smaller segments
 
 
+USE_CUDA = torch.cuda.is_available()
+
+
 def vocab_creator(path):
     """
     Temporary function for testing purposes. Creates a vocab file from a text, with random
@@ -115,7 +118,10 @@ class Language:
             self._embedding[-2, :] = np.zeros(embedding_dim)
             self._embedding[-3, :] = np.zeros(embedding_dim)
 
-            self._embedding = torch.from_numpy(self._embedding).float().cuda()
+            self._embedding = torch.from_numpy(self._embedding).float()
+
+            if USE_CUDA:
+                self._embedding = self._embedding.cuda()
 
     @property
     def embedding(self):
@@ -129,14 +135,24 @@ class Language:
         return self._embedding
 
     @property
-    def embedding_size(self):
+    def embedding_dim(self):
         """
         Property for the dimension of the embeddings.
         :return: int, length of the embedding vectors (dim 1 of the embedding matrix).
         """
         if self._embedding is None:
             raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding.shape
+        return self._embedding.shape[1]
+
+    @property
+    def vocab_size(self):
+        """
+        Property for the dimension of the embeddings.
+        :return: int, length of the vocabulary (dim 1 of the embedding matrix).
+        """
+        if self._embedding is None:
+            raise ValueError('The vocabulary has not been initialized for the language.')
+        return self._embedding.shape[0]
 
     @property
     def word_to_id(self):
@@ -284,8 +300,11 @@ class FastReader(Reader):
             # batches must always be the same size so len(..) - batch_size is the termination index
             for index in range(0, len(shuffled_data_segment)-self._batch_size, self._batch_size):
                 batch = self._data_processor.create_batch(shuffled_data_segment[index:index + self._batch_size])
-
-                yield Variable(torch.from_numpy(batch[:, :-1]).cuda()), batch[:, -1]
+                ids = torch.from_numpy(batch[:, :-1])
+                lengths = batch[:, -1]
+                if self._use_cuda:
+                    ids = ids.cuda()
+                yield Variable(ids), lengths
 
     def _segment_generator(self):
         """

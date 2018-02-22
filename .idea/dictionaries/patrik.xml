@@ -1,8 +1,10 @@
 <component name="ProjectDictionaryState">
   <dictionary name="patrik">
     <words>
+      <w>bahdanau</w>
       <w>cuda</w>
       <w>dtype</w>
+      <w>luong</w>
       <w>tokenized</w>
     </words>
   </dictionary>
