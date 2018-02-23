@@ -88,7 +88,8 @@ class Language:
         self._embedding = None
         self._train_data = None
 
-    def load_vocab(self, path):
+    def load_vocab(self,
+                   path):
         """
         Loads the vocabulary from a file. Path is assumed to be a text
         file, where each line contains a word and its corresponding embedding weights, separated by spaces.
@@ -177,7 +178,8 @@ class DataQueue:
     memory asynchronously.
     """
 
-    def __init__(self, data_path):
+    def __init__(self,
+                 data_path):
         """
         :param data_path: str, location of the data.
         """
@@ -227,7 +229,18 @@ class FileReader(Reader):
     in memory.
     """
 
-    def __init__(self, language, data_path, batch_size, use_cuda):
+    def __init__(self,
+                 language,
+                 data_path,
+                 batch_size,
+                 use_cuda):
+        """
+
+        :param language:
+        :param data_path:
+        :param batch_size:
+        :param use_cuda:
+        """
         self._language = language
         self._use_cuda = use_cuda
         self._batch_size = batch_size
@@ -247,7 +260,8 @@ class FileReader(Reader):
 
                 yield self._variable_from_sentences(batch)
 
-    def _variable_from_sentences(self, sentences):
+    def _variable_from_sentences(self,
+                                 sentences):
         """
         Creates PyTorch Variable object from a tokenized sequence.
         :param sentences: string, a tokenized sequence of words.
@@ -278,7 +292,18 @@ class FastReader(Reader):
     the memory.
     """
 
-    def __init__(self, language, data_path, batch_size, use_cuda):
+    def __init__(self,
+                 language,
+                 data_path,
+                 batch_size,
+                 use_cuda):
+        """
+
+        :param language:
+        :param data_path:
+        :param batch_size:
+        :param use_cuda:
+        """
         self._data_path = data_path
         self._language = language
         self._use_cuda = use_cuda
@@ -335,7 +360,12 @@ class FastReader(Reader):
         by the longest sequence in the data segment.
         """
 
-        def __init__(self, language):
+        def __init__(self,
+                     language):
+            """
+
+            :param language:
+            """
             self._language = language
 
         def __call__(self, data):
@@ -382,7 +412,12 @@ class FastReader(Reader):
         sequence in the batch.
         """
 
-        def __init__(self, language):
+        def __init__(self,
+                     language):
+            """
+
+            :param language:
+            """
             self._language = language
 
         def __call__(self, data):

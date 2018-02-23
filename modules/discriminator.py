@@ -2,11 +2,24 @@ import torch
 from torch import nn
 
 
-class Discriminator(nn.Module):
+class MLPDiscriminator(nn.Module):
+    """
 
-    def __init__(self, input_dim, hidden_dim,
-                 learning_rate, use_cuda):
-        super(Discriminator, self).__init__()
+    """
+
+    def __init__(self,
+                 input_dim,
+                 hidden_dim,
+                 learning_rate,
+                 use_cuda):
+        """
+
+        :param input_dim:
+        :param hidden_dim:
+        :param learning_rate:
+        :param use_cuda:
+        """
+        super(MLPDiscriminator, self).__init__()
 
         self._input_layer = nn.Linear(input_dim, hidden_dim)
         self._hidden_layer_1 = nn.Linear(hidden_dim, hidden_dim)
@@ -23,7 +36,13 @@ class Discriminator(nn.Module):
 
         self._optimizer = torch.optim.RMSprop(self.parameters(), lr=learning_rate)
 
-    def forward(self, inputs):
+    def forward(self,
+                inputs):
+        """
+
+        :param inputs:
+        :return:
+        """
         output = self._activation(self._input_layer(inputs))
         output = self._activation(self._hidden_layer_1(output))
         output = self._activation(self._hidden_layer_2(output))
@@ -47,3 +66,27 @@ class Discriminator(nn.Module):
         :return:
         """
         self._optimizer = optimizer
+
+
+class RNNDiscriminator(nn.Module):
+    """
+
+    """
+
+    def __init__(self,
+                 input_dim,
+                 hidden_dim,
+                 learning_rate,
+                 use_cuda):
+        """
+
+        :param input_dim:
+        :param hidden_dim:
+        :param learning_rate:
+        :param use_cuda:
+        """
+        super(RNNDiscriminator, self).__init__()
+        pass
+
+    def forward(self, inputs):
+        pass

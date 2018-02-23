@@ -12,13 +12,26 @@ class RNNEncoder(nn.Module):
     Encoder module of the sequence to sequence model.
     """
 
-    def __init__(self, hidden_size, recurrent_layer,
-                 embedding_dim, learning_rate,
+    def __init__(self,
+                 hidden_size,
+                 recurrent_layer,
+                 num_layers,
+                 embedding_dim,
+                 learning_rate,
                  use_cuda):
+        """
+
+        :param hidden_size:
+        :param recurrent_layer:
+        :param embedding_dim:
+        :param learning_rate:
+        :param use_cuda:
+        """
         super(RNNEncoder, self).__init__()
 
-        self._use_cuda = use_cuda
-        self._hidden_dim = hidden_size
+        self.__use_cuda = use_cuda
+        self.__hidden_dim = hidden_size
+        self.__num_layers = num_layers
 
         self._embedding = None
 
@@ -27,15 +40,18 @@ class RNNEncoder(nn.Module):
         else:
             unit_type = torch.nn.GRU
 
-        self._recurrent_layer = unit_type(input_size=embedding_dim, hidden_size=hidden_size,
-                                          num_layers=1, bidirectional=False, batch_first=True)
+        self.__recurrent_layer = unit_type(input_size=embedding_dim, hidden_size=hidden_size,
+                                           num_layers=num_layers, bidirectional=False, batch_first=True)
 
         if use_cuda:
-            self._recurrent_layer = self._recurrent_layer.cuda()
+            self.__recurrent_layer = self.__recurrent_layer.cuda()
 
-        self._optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+        self.__optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
 
-    def forward(self, inputs, lengths, hidden_state):
+    def forward(self,
+                inputs,
+                lengths,
+                hidden_state):
         """
 
         :param inputs:
@@ -45,8 +61,8 @@ class RNNEncoder(nn.Module):
         """
         embedded_inputs = self._embedding(inputs)
         padded_sequence = utils.batch_to_padded_sequence(embedded_inputs, lengths)
-        self._recurrent_layer.flatten_parameters()
-        outputs, final_hidden_state = self._recurrent_layer(padded_sequence, hidden_state)
+        self.__recurrent_layer.flatten_parameters()
+        outputs, final_hidden_state = self.__recurrent_layer(padded_sequence, hidden_state)
         outputs, _ = utils.padded_sequence_to_batch(outputs)
 
         return outputs, final_hidden_state
@@ -56,13 +72,12 @@ class RNNEncoder(nn.Module):
         Initializes the hidden state of the encoder module.
         :return: Variable, (1, 1, hidden_dim) with zeros as initial values.
         """
+        result = Variable(torch.zeros(self.__num_layers, batch_size, self.__hidden_dim))
 
-        result = Variable(torch.zeros(1, batch_size, self._hidden_dim))
-
-        if self._use_cuda:
+        if self.__use_cuda:
             result = result.cuda()
 
-        if isinstance(self._recurrent_layer, torch.nn.LSTM):
+        if isinstance(self.__recurrent_layer, torch.nn.LSTM):
             return result, result
         else:
             return result
@@ -73,7 +88,7 @@ class RNNEncoder(nn.Module):
 
         :return:
         """
-        return self._optimizer
+        return self.__optimizer
 
     @optimizer.setter
     def optimizer(self, optimizer):
@@ -82,7 +97,7 @@ class RNNEncoder(nn.Module):
         :param optimizer:
         :return:
         """
-        self._optimizer = optimizer
+        self.__optimizer = optimizer
 
     @property
     def embedding(self):
