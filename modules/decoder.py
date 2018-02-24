@@ -1,9 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional
-from torch.autograd import Variable
 
-import random
 
 import numpy as np
 
@@ -15,34 +13,36 @@ class RNNDecoder(nn.Module):
 
     def __init__(self,
                  hidden_size,
-                 embedding_dim,
+                 embedding_size,
                  recurrent_layer,
-                 output_dim,
+                 output_size,
                  learning_rate,
                  max_length,
                  num_layers,
                  use_cuda,
                  attention=None,
-                 teacher_forcing_ratio=0):
+                 tf_ratio=0):
         """
 
         :param hidden_size:
-        :param embedding_dim:
+        :param embedding_size:
         :param recurrent_layer:
-        :param output_dim:
+        :param output_size:
         :param learning_rate:
         :param max_length:
         :param use_cuda:
         :param num_layers:
         :param attention:
-        :param teacher_forcing_ratio:
+        :param tf_ratio:
         """
         super(RNNDecoder, self).__init__()
 
         self.__use_cuda = use_cuda
         self.__hidden_size = hidden_size
-        self.__output_dim = output_dim
+        self.__output_size = output_size
         self.__num_layers = num_layers
+        self.__max_length = max_length
+        self.__tf_ratio = tf_ratio
 
         self.__attention = attention
         self.__embedding_layer = None
@@ -52,24 +52,29 @@ class RNNDecoder(nn.Module):
         else:
             unit_type = torch.nn.GRU
 
-        self.__input_layer = nn.Linear(self.__hidden_size + embedding_dim, self.__hidden_size)
+        if attention is not None:
+            input_size = self.__attention.input_size
+        else:
+            input_size = embedding_size
 
-        self.__recurrent_layer = unit_type(input_size=self.__hidden_size,
+        self.__recurrent_layer = unit_type(input_size=input_size,
                                            hidden_size=self.__hidden_size,
                                            num_layers=self.__num_layers,
                                            bidirectional=False,
                                            batch_first=True)
 
-        self.__projection_layer = nn.Linear(self.__hidden_size * 2 + embedding_dim, self.__hidden_size)
-        self.__output_layer = nn.Linear(self.__hidden_size, self.__output_dim)
+        self.__output_layer = nn.Linear(self.__hidden_size, self.__output_size)
 
         if use_cuda:
-            self.__input_layer = self.__input_layer.cuda()
             self.__recurrent_layer = self.__recurrent_layer.cuda()
-            self.__projection_layer = self.__projection_layer.cuda()
             self.__output_layer = self.__output_layer.cuda()
 
-        self.__optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+        params = self.parameters()
+        if attention is not None:
+            self.__attention._recurrent_layer = self.__recurrent_layer
+            params = list(list(params) + list(self.__attention.parameters()))
+
+        self.__optimizer = torch.optim.Adam(params, lr=learning_rate)
 
     def _decode_step(self,
                      step_input,
@@ -87,19 +92,15 @@ class RNNDecoder(nn.Module):
         :return:
         """
         embedded_input = self.embedding(step_input)
-        context, attn_weights = self.__attention.forward(encoder_outputs=encoder_outputs,
-                                                         batch_size=batch_size,
-                                                         sequence_length=sequence_length,
-                                                         hidden_state=(hidden_state[0][-1] if
-                                                                       isinstance(hidden_state, tuple) else
-                                                                       hidden_state[-1]))
 
-        concatenated_input = self.__input_layer(torch.cat((embedded_input.squeeze(1).unsqueeze(0), context), 2))
-        output, hidden_state = self.__recurrent_layer(concatenated_input.squeeze(0).unsqueeze(1), hidden_state)
-        # TODO output, context size mismatch
-        output = self.__projection_layer(torch.cat((output, context), 2))
+        output, hidden_state, attn_weights = self.__attention.forward(step_input=embedded_input,
+                                                                      hidden_state=hidden_state,
+                                                                      encoder_outputs=encoder_outputs,
+                                                                      batch_size=batch_size,
+                                                                      sequence_length=sequence_length)
+
         output = functional.log_softmax(self.__output_layer(output.contiguous().view(-1, self.__hidden_size)),
-                                        dim=1).view(batch_size, -1, self.__output_dim)
+                                        dim=1).view(batch_size, -1, self.__output_size)
 
         return output, hidden_state, attn_weights
 
@@ -117,7 +118,7 @@ class RNNDecoder(nn.Module):
         embedded_inputs = self.embedding(inputs)
         outputs, hidden_state = self.__recurrent_layer(embedded_inputs, hidden_state)
         outputs = functional.log_softmax(self.__output_layer(outputs.contiguous().view(-1, self.__hidden_size)),
-                                         dim=1).view(batch_size, -1, self.__output_dim)
+                                         dim=1).view(batch_size, -1, self.__output_size)
 
         return outputs, hidden_state
 
@@ -149,8 +150,8 @@ class RNNDecoder(nn.Module):
         if use_teacher_forcing:
             if self.__attention is not None:
                 for step in range(sequence_length):
-                    step_output, hidden_state, attn_weights = self._decode_step(step_input=inputs[:, step]
-                                                                                .unsqueeze(-1),
+                    step_input = inputs[:, step].unsqueeze(-1)
+                    step_output, hidden_state, attn_weights = self._decode_step(step_input=step_input,
                                                                                 hidden_state=hidden_state,
                                                                                 encoder_outputs=encoder_outputs,
                                                                                 batch_size=batch_size,
@@ -167,7 +168,7 @@ class RNNDecoder(nn.Module):
                 for step in range(sequence_length):
                     symbols[:, step] = outputs[:, step, :].topk(1)[1].squeeze(-1).data.cpu().numpy()
 
-                loss = loss_function(outputs.view(-1, self.__output_dim), inputs.view(-1))
+                loss = loss_function(outputs.view(-1, self.__output_size), inputs.view(-1))
 
         else:
             step_output = inputs[:, 0]
@@ -218,7 +219,7 @@ class RNNDecoder(nn.Module):
 
         :return:
         """
-        return self.__output_dim
+        return self.__output_size
 
     @property
     def embedding(self):

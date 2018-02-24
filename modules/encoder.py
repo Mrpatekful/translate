@@ -40,8 +40,11 @@ class RNNEncoder(nn.Module):
         else:
             unit_type = torch.nn.GRU
 
-        self.__recurrent_layer = unit_type(input_size=embedding_dim, hidden_size=hidden_size,
-                                           num_layers=num_layers, bidirectional=False, batch_first=True)
+        self.__recurrent_layer = unit_type(input_size=embedding_dim,
+                                           hidden_size=hidden_size,
+                                           num_layers=num_layers,
+                                           bidirectional=False,
+                                           batch_first=True)
 
         if use_cuda:
             self.__recurrent_layer = self.__recurrent_layer.cuda()
@@ -67,10 +70,11 @@ class RNNEncoder(nn.Module):
 
         return outputs, final_hidden_state
 
-    def init_hidden(self, batch_size):
+    def init_hidden(self,
+                    batch_size):
         """
         Initializes the hidden state of the encoder module.
-        :return: Variable, (1, 1, hidden_dim) with zeros as initial values.
+        :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
         """
         result = Variable(torch.zeros(self.__num_layers, batch_size, self.__hidden_dim))
 
@@ -135,7 +139,10 @@ class ConvEncoder(nn.Module):
         self._embedding = None
         self._optimizer = None
 
-    def forward(self, inputs, lengths, hidden):
+    def forward(self,
+                inputs,
+                lengths,
+                hidden):
         """
         :param inputs:
         :param lengths:

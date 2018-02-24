@@ -136,7 +136,7 @@ class Language:
         return self._embedding
 
     @property
-    def embedding_dim(self):
+    def embedding_size(self):
         """
         Property for the dimension of the embeddings.
         :return: int, length of the embedding vectors (dim 1 of the embedding matrix).

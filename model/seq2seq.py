@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 from modules import encoder, decoder, discriminator
 from modules.attention import *
@@ -19,40 +20,53 @@ class Model:
     """
 
     def __init__(self):
-        self.__logger = Logger()
+        torch.manual_seed(1)
+        np.random.seed(1)
 
         self.__src = reader.Language()
         self.__src.load_vocab(SRC_VOCAB_PATH)
 
-        # self._tgt = reader.Language()
-        # self._tgt.load_vocab(SRC_VOCAB_PATH)
+        embedding_size = self.__src.embedding_size
+        vocab_size = self.__src.vocab_size
 
         self.__reader_src = reader.FastReader(language=self.__src,
                                               data_path=SRC_DATA_PATH,
                                               batch_size=32,
                                               use_cuda=USE_CUDA)
 
-        # self.reader_tgt = reader.FastReader(language=self._tgt, data_path=TGT_DATA_PATH,
-        #                                     batch_size=32, use_cuda=USE_CUDA)
-
-        self.__encoder = encoder.RNNEncoder(embedding_dim=self.__src.embedding_dim,
-                                            use_cuda=USE_CUDA,
-                                            hidden_size=100,
+        self.__encoder = encoder.RNNEncoder(embedding_dim=embedding_size,
+                                            hidden_size=50,
                                             learning_rate=0.001,
-                                            recurrent_layer='LSTM',
-                                            num_layers=4)
+                                            recurrent_layer='GRU',
+                                            num_layers=2,
+                                            use_cuda=USE_CUDA)
 
-        self.__decoder = decoder.RNNDecoder(embedding_dim=self.__src.embedding_dim,
-                                            use_cuda=USE_CUDA,
-                                            hidden_size=100,
-                                            output_dim=self.__src.vocab_size,
+        # attention = BahdanauAttention(hidden_size=50,
+        #                               embedding_size=embedding_size,
+        #                               use_cuda=USE_CUDA)
+
+        # attention = General(hidden_size=50,
+        #                     embedding_size=embedding_size,
+        #                     use_cuda=USE_CUDA)
+
+        # attention = Dot(hidden_size=50,
+        #                 embedding_size=embedding_size,
+        #                 use_cuda=USE_CUDA)
+
+        attention = Concat(hidden_size=50,
+                           embedding_size=embedding_size,
+                           use_cuda=USE_CUDA)
+
+        self.__decoder = decoder.RNNDecoder(embedding_size=embedding_size,
+                                            output_size=vocab_size,
+                                            hidden_size=50,
                                             learning_rate=0.001,
-                                            recurrent_layer='LSTM',
-                                            num_layers=4,
+                                            recurrent_layer='GRU',
+                                            num_layers=2,
                                             max_length=15,
-                                            teacher_forcing_ratio=0,
-                                            attention=BahdanauAttention(hidden_dim=100,
-                                                                        use_cuda=USE_CUDA))
+                                            tf_ratio=0,
+                                            use_cuda=USE_CUDA,
+                                            attention=attention)
 
         self.__discriminator = discriminator.MLPDiscriminator(hidden_dim=1024,
                                                               input_dim=2,
@@ -79,8 +93,6 @@ class Model:
 
             print(epoch, loss)
 
-            self.__logger.save_log(loss)
-
     def _train_step(self, input_batch, lengths, noise_function, loss_function):
         """
         :param input_batch:
@@ -100,7 +112,6 @@ class Model:
                                                                 hidden_state=encoder_state)
         decoder_state = encoder_state
 
-        # auto encoding -> inputs and targets are the same
         loss, symbols = self.__decoder.forward(inputs=input_batch,
                                                encoder_outputs=encoder_outputs,
                                                lengths=lengths,
