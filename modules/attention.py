@@ -101,15 +101,6 @@ class AttentionRNNDecoder(RNNDecoder):
 
         return NotImplementedError
 
-    @property
-    def input_size(self):
-        """
-        Property for the size of the recurrent unit's input layer, which will be
-        determined by the currently used attention implementation.
-        :return self._input_size: int, size of the required input size for the RNN.
-        """
-        return self._input_size
-
 
 class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
     """
@@ -164,7 +155,6 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
             tr = tr.cuda()
 
         self._transformer = nn.Parameter(tr)
-
         return self
 
     def _decode(self,

@@ -81,8 +81,7 @@ class RNNDecoder(nn.Module):
         """
         Initializes the optimizer for the decoder.
         """
-        print(self, len((list(self.parameters()))))
-        self._optimizer = torch.optim.Adam(self.parameters(), lr=self._learning_rate.value)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self._learning_rate.value)
 
         return self
 

@@ -17,8 +17,8 @@ class Model:
     """
 
     def __init__(self):
-        torch.manual_seed(2)
-        np.random.seed(2)
+        torch.manual_seed(0)
+        np.random.seed(0)
 
         self.__src = reader.Language()
         self.__src.load_vocab(SRC_VOCAB_PATH)
@@ -36,7 +36,7 @@ class Model:
             '_embedding_size': embedding_size,
             '_recurrent_type': 'LSTM',
             '_num_layers': 2,
-            '_learning_rate': 0.001,
+            '_learning_rate': 0.01,
             '_use_cuda': USE_CUDA
         })
 
@@ -46,7 +46,7 @@ class Model:
             '_output_size': vocab_size,
             '_recurrent_type': 'LSTM',
             '_num_layers': 2,
-            '_learning_rate': 0.001,
+            '_learning_rate': 0.01,
             '_max_length': 15,
             '_tf_ratio': 0,
             '_use_cuda': USE_CUDA
@@ -54,7 +54,7 @@ class Model:
 
         self.__encoder = RNNEncoder(encoder_params).init_parameters().init_optimizer()
 
-        self.__decoder = BahdanauAttentionRNNDecoder(decoder_params).init_parameters().init_optimizer()
+        self.__decoder = RNNDecoder(decoder_params).init_parameters().init_optimizer()
 
     def fit(self, epochs):
         """
@@ -93,12 +93,11 @@ class Model:
         encoder_outputs, encoder_state = self.__encoder.forward(inputs=noisy_input,
                                                                 lengths=lengths,
                                                                 hidden_state=encoder_state)
-        decoder_state = encoder_state
 
         loss, symbols = self.__decoder.forward(inputs=input_batch,
                                                encoder_outputs=encoder_outputs,
                                                lengths=lengths,
-                                               hidden_state=decoder_state,
+                                               hidden_state=encoder_state,
                                                loss_function=loss_function,
                                                tf_ratio=1)
 

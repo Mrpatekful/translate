@@ -35,7 +35,7 @@ class RNNEncoder(nn.Module):
 
         self.__embedding = None
         self.__optimizer = None
-        self.__recurrent_layer = None
+        self._recurrent_layer = None
 
     def init_parameters(self):
         """
@@ -50,14 +50,14 @@ class RNNEncoder(nn.Module):
         else:
             unit_type = torch.nn.GRU
 
-        self.__recurrent_layer = unit_type(input_size=self._embedding_size.value,
-                                           hidden_size=self._hidden_size.value,
-                                           num_layers=self._num_layers.value,
-                                           bidirectional=False,
-                                           batch_first=True)
+        self._recurrent_layer = unit_type(input_size=self._embedding_size.value,
+                                          hidden_size=self._hidden_size.value,
+                                          num_layers=self._num_layers.value,
+                                          bidirectional=False,
+                                          batch_first=True)
 
         if self._use_cuda.value:
-            self.__recurrent_layer = self.__recurrent_layer.cuda()
+            self._recurrent_layer = self._recurrent_layer.cuda()
 
         return self
 
@@ -85,8 +85,8 @@ class RNNEncoder(nn.Module):
         """
         embedded_inputs = self.__embedding(inputs)
         padded_sequence = utils.batch_to_padded_sequence(embedded_inputs, lengths)
-        self.__recurrent_layer.flatten_parameters()
-        outputs, final_hidden_state = self.__recurrent_layer(padded_sequence, hidden_state)
+        self._recurrent_layer.flatten_parameters()
+        outputs, final_hidden_state = self._recurrent_layer(padded_sequence, hidden_state)
         outputs, _ = utils.padded_sequence_to_batch(outputs)
 
         return outputs, final_hidden_state
@@ -101,7 +101,7 @@ class RNNEncoder(nn.Module):
         if self._use_cuda.value:
             result = result.cuda()
 
-        if isinstance(self.__recurrent_layer, torch.nn.LSTM):
+        if isinstance(self._recurrent_layer, torch.nn.LSTM):
             return result, result
         else:
             return result
