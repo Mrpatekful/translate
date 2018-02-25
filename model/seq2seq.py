@@ -34,32 +34,30 @@ class Model:
                                               batch_size=32,
                                               use_cuda=USE_CUDA)
 
-        self.__encoder = encoder.RNNEncoder(embedding_size=embedding_size,
-                                            hidden_size=50,
-                                            learning_rate=0.001,
-                                            recurrent_layer='LSTM',
-                                            num_layers=1,
-                                            use_cuda=USE_CUDA)
+        encoder_params = utils.ParameterSetter({
+            '_hidden_size': 50,
+            '_embedding_size': embedding_size,
+            '_recurrent_type': 'LSTM',
+            '_num_layers': 1,
+            '_learning_rate': 0.001,
+            '_use_cuda': USE_CUDA
+        })
 
-        attention = GeneralAttention(hidden_size=50,
-                                     embedding_size=embedding_size,
-                                     use_cuda=USE_CUDA)
+        decoder_params = utils.ParameterSetter({
+            '_hidden_size': 50,
+            '_embedding_size': embedding_size,
+            '_output_size': vocab_size,
+            '_recurrent_type': 'LSTM',
+            '_num_layers': 1,
+            '_learning_rate': 0.001,
+            '_max_length': 15,
+            '_tf_ratio': 0,
+            '_use_cuda': USE_CUDA
+        })
 
-        self.__decoder = decoder.RNNDecoder(embedding_size=embedding_size,
-                                            output_size=vocab_size,
-                                            hidden_size=50,
-                                            learning_rate=0.001,
-                                            recurrent_layer='LSTM',
-                                            num_layers=1,
-                                            max_length=15,
-                                            tf_ratio=0,
-                                            use_cuda=USE_CUDA,
-                                            attention=attention)
+        self.__encoder = encoder.RNNEncoder(encoder_params)
 
-        self.__discriminator = discriminator.MLPDiscriminator(hidden_dim=1024,
-                                                              input_dim=2,
-                                                              learning_rate=0.0005,
-                                                              use_cuda=USE_CUDA)
+        self.__decoder = decoder.RNNDecoder(decoder_params)
 
     def fit(self, epochs):
         """

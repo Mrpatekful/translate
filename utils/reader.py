@@ -235,11 +235,11 @@ class FileReader(Reader):
                  batch_size,
                  use_cuda):
         """
-
-        :param language:
-        :param data_path:
-        :param batch_size:
-        :param use_cuda:
+        An instance of a file reader.
+        :param language: Language, instance of the used language object.
+        :param data_path: str, absolute path of the data location.
+        :param batch_size: int, size of the input batches.
+        :param use_cuda: bool, True if the device has cuda support.
         """
         self._language = language
         self._use_cuda = use_cuda
@@ -298,11 +298,11 @@ class FastReader(Reader):
                  batch_size,
                  use_cuda):
         """
-
-        :param language:
-        :param data_path:
-        :param batch_size:
-        :param use_cuda:
+        An instance of a fast reader.
+        :param language: Language, instance of the used language object.
+        :param data_path: str, absolute path of the data location.
+        :param batch_size: int, size of the input batches.
+        :param use_cuda: bool, True if the device has cuda support.
         """
         self._data_path = data_path
         self._language = language
@@ -363,12 +363,13 @@ class FastReader(Reader):
         def __init__(self,
                      language):
             """
-
-            :param language:
+            An instance of a pre-padder object.
+            :param language: Language, instance of the used language object.
             """
             self._language = language
 
-        def __call__(self, data):
+        def __call__(self,
+                     data):
             """
             Converts the data of (string) sentences to ids of the words.
             Sentences are padded to the length of the longest sentence in the data segment.
@@ -415,12 +416,13 @@ class FastReader(Reader):
         def __init__(self,
                      language):
             """
-
-            :param language:
+            An instance of a post-padder object.
+            :param language: Language, instance of the used language object.
             """
             self._language = language
 
-        def __call__(self, data):
+        def __call__(self,
+                     data):
             """
             Converts the data of (string) sentences to ids of the words.
             :param data: list, strings of the sentences.

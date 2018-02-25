@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 from torch.nn import functional
+from utils.utils import Parameter
+from modules import attention
 
 
 import numpy as np
@@ -12,69 +14,78 @@ class RNNDecoder(nn.Module):
     """
 
     def __init__(self,
-                 hidden_size,
-                 embedding_size,
-                 recurrent_layer,
-                 output_size,
-                 learning_rate,
-                 max_length,
-                 num_layers,
-                 use_cuda,
-                 attention,
-                 tf_ratio):
+                 parameter_setter):
         """
         A recurrent decoder module for the sequence to sequence model.
-        :param hidden_size: int, size of recurrent layer of the LSTM/GRU.
-        :param embedding_size: int, dimension of the word embeddings.
-        :param recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
-        :param output_size: int, size of the (vocabulary) output layer of the decoder.
-        :param learning_rate: float, learning rate.
-        :param max_length: int, maximum length of the sequence decoding.
-        :param use_cuda: bool, True if the device has cuda support.
-        :param num_layers: int, number of stacked RNN layers.
-        :param attention: RNNAttention, reference for the attention object.
-        :param tf_ratio: float, teacher forcing ratio.
+        :param parameter_setter: required parameters for the setter object.
+            :parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
+            :parameter embedding_size: int, dimension of the word embeddings.
+            :parameter output_size: int, size of the (vocabulary) output layer of the decoder.
+            :parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
+            :parameter num_layers: int, number of stacked RNN layers.
+            :parameter learning_rate: float, learning rate.
+            :parameter max_length: int, maximum length of the sequence decoding.
+            :parameter use_cuda: bool, True if the device has cuda support.
+            :parameter tf_ratio: float, teacher forcing ratio.
         """
         super(RNNDecoder, self).__init__()
+        self._parameter_setter = parameter_setter
 
-        self.__use_cuda = use_cuda
-        self.__hidden_size = hidden_size
-        self.__output_size = output_size
-        self.__num_layers = num_layers
-        self.__max_length = max_length
-        self.__tf_ratio = tf_ratio
+        self._hidden_size = Parameter(name='_hidden_size',       doc='int, size of recurrent layer of the LSTM/GRU.')
+        self._embedding_size = Parameter(name='_embedding_size', doc='int, dimension of the word embeddings.')
+        self._output_size = Parameter(name='_output_size',       doc='int, size of the output layer of the decoder.')
+        self._recurrent_type = Parameter(name='_recurrent_type', doc='str, name of the recurrent layer (GRU, LSTM).')
+        self._num_layers = Parameter(name='_num_layers',         doc='int, number of stacked RNN layers.')
+        self._learning_rate = Parameter(name='_learning_rate',   doc='float, learning rate.')
+        self._max_length = Parameter(name='_max_length',         doc='int, maximum length of the sequence decoding.')
+        self._use_cuda = Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.')
+        self._tf_ratio = Parameter(name='_tf_ratio',             doc='float, teacher forcing ratio.')
 
-        self.__attention = attention
+        self.__attention = None
+
         self.__embedding_layer = None
+        self.__recurrent_layer = None
+        self.__optimizer = None
 
-        if recurrent_layer == 'LSTM':
+        self._init_parameters()
+        self._init_optimizer()
+
+    def _init_parameters(self):
+        self._parameter_setter(self.__dict__)
+
+        self.__attention = attention.GeneralAttention(hidden_size=50,
+                                                      embedding_size=self._embedding_size.value,
+                                                      use_cuda=self._use_cuda.value)
+
+        if self._recurrent_type.value == 'LSTM':
             unit_type = torch.nn.LSTM
         else:
             unit_type = torch.nn.GRU
 
-        if attention is not None:
+        if self.__attention is not None:
             input_size = self.__attention.input_size
         else:
-            input_size = embedding_size
+            input_size = self._embedding_size.value
 
         self.__recurrent_layer = unit_type(input_size=input_size,
-                                           hidden_size=self.__hidden_size,
-                                           num_layers=self.__num_layers,
+                                           hidden_size=self._hidden_size.value,
+                                           num_layers=self._num_layers.value,
                                            bidirectional=False,
                                            batch_first=True)
 
-        self.__output_layer = nn.Linear(self.__hidden_size, self.__output_size)
+        self.__output_layer = nn.Linear(self._hidden_size.value, self._output_size.value)
 
-        if use_cuda:
+        if self._use_cuda:
             self.__recurrent_layer = self.__recurrent_layer.cuda()
             self.__output_layer = self.__output_layer.cuda()
 
+    def _init_optimizer(self):
         params = self.parameters()
         if attention is not None:
             self.__attention._recurrent_layer = self.__recurrent_layer
             params = list(list(params) + list(self.__attention.parameters()))
 
-        self.__optimizer = torch.optim.Adam(params, lr=learning_rate)
+        self.__optimizer = torch.optim.Adam(params, lr=self._learning_rate.value)
 
     def _decode_step(self,
                      step_input,
@@ -102,8 +113,8 @@ class RNNDecoder(nn.Module):
                                                                       batch_size=batch_size,
                                                                       sequence_length=sequence_length)
 
-        output = functional.log_softmax(self.__output_layer(output.contiguous().view(-1, self.__hidden_size)),
-                                        dim=1).view(batch_size, -1, self.__output_size)
+        output = functional.log_softmax(self.__output_layer(output.contiguous().view(-1, self._hidden_size.value)),
+                                        dim=1).view(batch_size, -1, self._output_size.value)
 
         return output, hidden_state, attn_weights
 
@@ -122,8 +133,8 @@ class RNNDecoder(nn.Module):
         """
         embedded_inputs = self.embedding(inputs)
         outputs, hidden_state = self.__recurrent_layer(embedded_inputs, hidden_state)
-        outputs = functional.log_softmax(self.__output_layer(outputs.contiguous().view(-1, self.__hidden_size)),
-                                         dim=1).view(batch_size, -1, self.__output_size)
+        outputs = functional.log_softmax(self.__output_layer(outputs.contiguous().view(-1, self._hidden_size.value)),
+                                         dim=1).view(batch_size, -1, self._output_size.value)
 
         return outputs, hidden_state
 
@@ -175,24 +186,7 @@ class RNNDecoder(nn.Module):
                 for step in range(sequence_length):
                     symbols[:, step] = outputs[:, step, :].topk(1)[1].squeeze(-1).data.cpu().numpy()
 
-                loss = loss_function(outputs.view(-1, self.__output_size), inputs.view(-1))
-
-        else:
-            step_output = inputs[:, 0]
-            if self.__attention is not None:
-                for step in range(sequence_length):
-
-                    if isinstance(hidden_state, tuple):
-                        hidden_state = (self._attention(hidden_state[0], encoder_outputs), hidden_state[1])
-                    else:
-                        hidden_state = self._attention(hidden_state, encoder_outputs)
-
-                    loss += loss_function(step_output.squeeze(1), inputs[:, step])
-                    symbols[:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
-
-            else:
-                for step in range(sequence_length):
-                  pass
+                loss = loss_function(outputs.view(-1, self._output_size.value), inputs.view(-1))
 
         return loss, symbols
 
@@ -218,7 +212,7 @@ class RNNDecoder(nn.Module):
         Property for the output size of the decoder. This is also the size of the vocab.
         :return: int, size of the output at the decoder's final layer.
         """
-        return self.__output_size
+        return self._output_size.value
 
     @property
     def embedding(self):
