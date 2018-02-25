@@ -104,7 +104,7 @@ class RNNDecoder(nn.Module):
 
         output = functional.log_softmax(self.__output_layer(output.contiguous().view(-1, self.__hidden_size)),
                                         dim=1).view(batch_size, -1, self.__output_size)
-        print(attn_weights)
+
         return output, hidden_state, attn_weights
 
     def _decode(self,
@@ -133,7 +133,7 @@ class RNNDecoder(nn.Module):
                 lengths,
                 hidden_state,
                 loss_function,
-                teacher_forcing_ratio=0):
+                tf_ratio):
         """
         A forward step of the decoder. Processing can be done with different methods, with or
         without attention mechanism and teacher forcing.
@@ -141,9 +141,10 @@ class RNNDecoder(nn.Module):
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param lengths: Ndarray, an array for storing the real lengths of the sequences in the batch.
         :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :param loss_function:
-        :param teacher_forcing_ratio: int,
-        :return:
+        :param loss_function: loss function of the decoder.
+        :param tf_ratio: int, if 1, teacher forcing is always used. Set to 0 to disable teacher forcing.
+        :return loss: int, loss of the decoding
+        :return symbols: Ndarray, the decoded word ids.
         """
         batch_size = inputs.size(0)
         sequence_length = inputs.size(1)
@@ -180,10 +181,6 @@ class RNNDecoder(nn.Module):
             step_output = inputs[:, 0]
             if self.__attention is not None:
                 for step in range(sequence_length):
-                    step_output, hidden_state = self._decode(step_input=step_output,
-                                                             hidden_state=hidden_state,
-                                                             batch_size=batch_size,
-                                                             activation=functional.log_softmax)
 
                     if isinstance(hidden_state, tuple):
                         hidden_state = (self._attention(hidden_state[0], encoder_outputs), hidden_state[1])
@@ -195,52 +192,47 @@ class RNNDecoder(nn.Module):
 
             else:
                 for step in range(sequence_length):
-                    step_output, hidden_state = self._decode(step_input=step_output,
-                                                             hidden_state=hidden_state,
-                                                             batch_size=batch_size,
-                                                             activation=functional.log_softmax)
+                  pass
 
         return loss, symbols
 
     @property
     def optimizer(self):
         """
-
-        :return:
+        Property for the optimizer of the decoder.
+        :return self.__optimizer: Optimizer, the currently used optimizer of the decoder.
         """
         return self.__optimizer
 
     @optimizer.setter
     def optimizer(self, optimizer):
         """
-
-        :param optimizer:
-        :return:
+        Setter for the optimizer of the decoder.
+        :param optimizer: Optimizer, instance to be set as the new optimizer for the decoder.
         """
         self.__optimizer = optimizer
 
     @property
     def output_dim(self):
         """
-
-        :return:
+        Property for the output size of the decoder. This is also the size of the vocab.
+        :return: int, size of the output at the decoder's final layer.
         """
         return self.__output_size
 
     @property
     def embedding(self):
         """
-
-        :return:
+        Property for the decoder's embedding layer.
+        :return: The currently used embeddings of the decoder.
         """
         return self.__embedding_layer
 
     @embedding.setter
     def embedding(self, embedding):
         """
-
-        :param embedding:
-        :return:
+        Setter for the decoder's embedding layer.
+        :param embedding: Embedding, to be set as the embedding layer of the decoder.
         """
         self.__embedding_layer = nn.Embedding(embedding.size(0), embedding.size(1))
         self.__embedding_layer.weight = nn.Parameter(embedding)

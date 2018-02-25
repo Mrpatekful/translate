@@ -34,7 +34,7 @@ class Model:
                                               batch_size=32,
                                               use_cuda=USE_CUDA)
 
-        self.__encoder = encoder.RNNEncoder(embedding_dim=embedding_size,
+        self.__encoder = encoder.RNNEncoder(embedding_size=embedding_size,
                                             hidden_size=50,
                                             learning_rate=0.001,
                                             recurrent_layer='LSTM',
@@ -104,7 +104,8 @@ class Model:
                                                encoder_outputs=encoder_outputs,
                                                lengths=lengths,
                                                hidden_state=decoder_state,
-                                               loss_function=loss_function)
+                                               loss_function=loss_function,
+                                               tf_ratio=1)
 
         loss.backward()
 

@@ -2,6 +2,7 @@
   <dictionary name="patrik">
     <words>
       <w>bahdanau</w>
+      <w>convolutional</w>
       <w>cuda</w>
       <w>darray</w>
       <w>dtype</w>

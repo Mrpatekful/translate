@@ -9,23 +9,23 @@ from utils import utils
 
 class RNNEncoder(nn.Module):
     """
-    Encoder module of the sequence to sequence model.
+    Recurrent encoder module of the sequence to sequence model.
     """
 
     def __init__(self,
                  hidden_size,
                  recurrent_layer,
                  num_layers,
-                 embedding_dim,
+                 embedding_size,
                  learning_rate,
                  use_cuda):
         """
-
-        :param hidden_size:
-        :param recurrent_layer:
-        :param embedding_dim:
-        :param learning_rate:
-        :param use_cuda:
+        A recurrent encoder module for the sequence to sequence model.
+        :param hidden_size: int, size of recurrent layer of the LSTM/GRU.
+        :param recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
+        :param embedding_size: int, dimension of the word embeddings.
+        :param learning_rate: float, learning rate.
+        :param use_cuda: bool, True if the device has cuda support.
         """
         super(RNNEncoder, self).__init__()
 
@@ -40,7 +40,7 @@ class RNNEncoder(nn.Module):
         else:
             unit_type = torch.nn.GRU
 
-        self.__recurrent_layer = unit_type(input_size=embedding_dim,
+        self.__recurrent_layer = unit_type(input_size=embedding_size,
                                            hidden_size=hidden_size,
                                            num_layers=num_layers,
                                            bidirectional=False,
@@ -56,11 +56,14 @@ class RNNEncoder(nn.Module):
                 lengths,
                 hidden_state):
         """
-
-        :param inputs:
-        :param lengths:
-        :param hidden_state:
-        :return:
+        A forward step of the encoder. The batch of sequences with word ids are
+        packed into padded_sequence object, which are processed by the recurrent layer.
+        :param inputs: Variable, (batch_size, sequence_length) containing the ids of the words.
+        :param lengths: Ndarray, containing the real lengths of the sequences in the batch (prior to padding).
+        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :return outputs: Variable, (batch_size, sequence_length, vocab_size) the output at each time
+                         step of the encoder.
+        :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
         """
         embedded_inputs = self._embedding(inputs)
         padded_sequence = utils.batch_to_padded_sequence(embedded_inputs, lengths)
@@ -89,34 +92,32 @@ class RNNEncoder(nn.Module):
     @property
     def optimizer(self):
         """
-
-        :return:
+        Property for the optimizer of the encoder.
+        :return self.__optimizer: Optimizer, the currently used optimizer of the encoder.
         """
         return self.__optimizer
 
     @optimizer.setter
     def optimizer(self, optimizer):
         """
-
-        :param optimizer:
-        :return:
+        Setter for the optimizer of the encoder.
+        :param optimizer: Optimizer, instance to be set as the new optimizer for the encoder.
         """
         self.__optimizer = optimizer
 
     @property
     def embedding(self):
         """
-
-        :return:
+        Property for the encoder's embedding layer.
+        :return: The currently used embeddings of the encoder.
         """
         return self._embedding
 
     @embedding.setter
     def embedding(self, embedding):
         """
-
-        :param embedding:
-        :return:
+        Setter for the encoder's embedding layer.
+        :param embedding: Embedding, to be set as the embedding layer of the encoder.
         """
         self._embedding = nn.Embedding(embedding.size(0), embedding.size(1))
         self._embedding.weight = nn.Parameter(embedding)
@@ -131,7 +132,10 @@ class RNNEncoder(nn.Module):
         return self._hidden_size
 
 
-class ConvEncoder(nn.Module):
+class ConvEncoder(nn.Module):  # TODO
+    """
+    Convolutional encoder module of the sequence to sequence model.
+    """
 
     def __init__(self, ):
         super(ConvEncoder, self).__init__()
