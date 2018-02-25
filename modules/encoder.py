@@ -35,6 +35,7 @@ class RNNEncoder(nn.Module):
 
         self.__embedding = None
         self.__optimizer = None
+
         self._recurrent_layer = None
 
     def init_parameters(self):

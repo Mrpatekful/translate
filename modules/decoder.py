@@ -102,6 +102,7 @@ class RNNDecoder(nn.Module):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
+        print('NORMAL_DECODE')
         embedded_input = self.embedding(decoder_input)
         output, hidden_state = self._recurrent_layer(embedded_input, hidden_state)
         output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size.value)),
@@ -132,7 +133,7 @@ class RNNDecoder(nn.Module):
         sequence_length = inputs.size(1)
 
         symbols = np.zeros((batch_size, sequence_length), dtype='int')
-
+        print('NORMAL_FORWARD')
         use_teacher_forcing = True
         loss = 0
         if use_teacher_forcing:

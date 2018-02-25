@@ -2,6 +2,7 @@ from modules.attention import *
 from modules.encoder import *
 from utils import reader, utils
 
+
 USE_CUDA = torch.cuda.is_available()
 
 SRC_DATA_PATH = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_seg'
@@ -17,8 +18,8 @@ class Model:
     """
 
     def __init__(self):
-        torch.manual_seed(0)
-        np.random.seed(0)
+        torch.manual_seed(2)
+        np.random.seed(2)
 
         self.__src = reader.Language()
         self.__src.load_vocab(SRC_VOCAB_PATH)
@@ -54,7 +55,7 @@ class Model:
 
         self.__encoder = RNNEncoder(encoder_params).init_parameters().init_optimizer()
 
-        self.__decoder = RNNDecoder(decoder_params).init_parameters().init_optimizer()
+        self.__decoder = BahdanauAttentionRNNDecoder(decoder_params).init_parameters().init_optimizer()
 
     def fit(self, epochs):
         """

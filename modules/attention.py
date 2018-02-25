@@ -129,7 +129,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
             :parameter use_cuda: bool, True if the device has cuda support.
             :parameter tf_ratio: float, teacher forcing ratio.
         """
-        super().__init__(parameter_setter=parameter_setter+{'_input_size': '_hidden_size'})
+        super().__init__(parameter_setter=parameter_setter+{'_input_size': '_hidden_size+_embedding_size'})
 
         self._attention_layer = None
         self._projection_layer = None
@@ -143,18 +143,16 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         super().init_parameters()
 
         self._attention_layer = nn.Linear(self._hidden_size.value * 2, self._hidden_size.value)
-        self._projection_layer = nn.Linear(self._hidden_size.value + self._embedding_size.value,
-                                           self._hidden_size.value)
 
         tr = torch.rand(self._hidden_size.value, 1)
 
         if self._use_cuda:
             self._attention_layer = self._attention_layer.cuda()
-            self._projection_layer = self._projection_layer.cuda()
 
             tr = tr.cuda()
 
         self._transformer = nn.Parameter(tr)
+
         return self
 
     def _decode(self,
@@ -183,7 +181,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
                                                         batch_size=batch_size,
                                                         sequence_length=sequence_length)
 
-        concat_input = self._projection_layer(torch.cat((embedded_input, context), dim=2))
+        concat_input = torch.cat((embedded_input, context), dim=2)
         output, hidden_state = self._recurrent_layer(concat_input, hidden_state)
 
         output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size.value)),
