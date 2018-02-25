@@ -13,8 +13,7 @@ class RNNEncoder(nn.Module):
     Recurrent encoder module of the sequence to sequence model.
     """
 
-    def __init__(self,
-                 parameter_setter):
+    def __init__(self, parameter_setter):
         """
         A recurrent encoder module for the sequence to sequence model.
         :param parameter_setter: required parameters for the setter object.
@@ -36,11 +35,14 @@ class RNNEncoder(nn.Module):
 
         self.__embedding = None
         self.__optimizer = None
+        self.__recurrent_layer = None
 
-        self._init_parameters()
-        self._init_optimizer()
-
-    def _init_parameters(self):
+    def init_parameters(self):
+        """
+        Calls the parameter setter, which initializes the Parameter type attributes.
+        After initialization, the main components of the encoder, which require the previously
+        initialized parameter values, are created as well.
+        """
         self._parameter_setter(self.__dict__)
 
         if self._recurrent_type.value == 'LSTM':
@@ -57,8 +59,15 @@ class RNNEncoder(nn.Module):
         if self._use_cuda.value:
             self.__recurrent_layer = self.__recurrent_layer.cuda()
 
-    def _init_optimizer(self):
+        return self
+
+    def init_optimizer(self):
+        """
+        Initializes the optimizer for the encoder.
+        """
         self.__optimizer = torch.optim.Adam(self.parameters(), lr=self._learning_rate.value)
+
+        return self
 
     def forward(self,
                 inputs,
@@ -82,8 +91,7 @@ class RNNEncoder(nn.Module):
 
         return outputs, final_hidden_state
 
-    def init_hidden(self,
-                    batch_size):
+    def init_hidden(self, batch_size):
         """
         Initializes the hidden state of the encoder module.
         :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.

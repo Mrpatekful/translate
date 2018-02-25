@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from torch.nn import functional
 from utils.utils import Parameter
-from modules import attention
 
 
 import numpy as np
@@ -13,8 +12,7 @@ class RNNDecoder(nn.Module):
     Decoder module of the sequence to sequence model.
     """
 
-    def __init__(self,
-                 parameter_setter):
+    def __init__(self, parameter_setter):
         """
         A recurrent decoder module for the sequence to sequence model.
         :param parameter_setter: required parameters for the setter object.
@@ -34,6 +32,7 @@ class RNNDecoder(nn.Module):
         self._hidden_size = Parameter(name='_hidden_size',       doc='int, size of recurrent layer of the LSTM/GRU.')
         self._embedding_size = Parameter(name='_embedding_size', doc='int, dimension of the word embeddings.')
         self._output_size = Parameter(name='_output_size',       doc='int, size of the output layer of the decoder.')
+        self._input_size = Parameter(name='_input_size',         doc='int, size of the input layer of the RNN.')
         self._recurrent_type = Parameter(name='_recurrent_type', doc='str, name of the recurrent layer (GRU, LSTM).')
         self._num_layers = Parameter(name='_num_layers',         doc='int, number of stacked RNN layers.')
         self._learning_rate = Parameter(name='_learning_rate',   doc='float, learning rate.')
@@ -41,62 +40,61 @@ class RNNDecoder(nn.Module):
         self._use_cuda = Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.')
         self._tf_ratio = Parameter(name='_tf_ratio',             doc='float, teacher forcing ratio.')
 
-        self.__attention = None
+        self._recurrent_layer = None
+        self._embedding_layer = None
+        self._output_layer = None
+        self._optimizer = None
 
-        self.__embedding_layer = None
-        self.__recurrent_layer = None
-        self.__optimizer = None
-
-        self._init_parameters()
-        self._init_optimizer()
-
-    def _init_parameters(self):
+    def init_parameters(self):
+        """
+        Calls the parameter setter, which initializes the Parameter type attributes.
+        After initialization, the main components of the decoder, which require the previously
+        initialized parameter values, are created as well.
+        """
         self._parameter_setter(self.__dict__)
-
-        self.__attention = attention.GeneralAttention(hidden_size=50,
-                                                      embedding_size=self._embedding_size.value,
-                                                      use_cuda=self._use_cuda.value)
 
         if self._recurrent_type.value == 'LSTM':
             unit_type = torch.nn.LSTM
         else:
             unit_type = torch.nn.GRU
 
-        if self.__attention is not None:
-            input_size = self.__attention.input_size
-        else:
+        try:
+            input_size = self._input_size.value
+        except ValueError:
             input_size = self._embedding_size.value
 
-        self.__recurrent_layer = unit_type(input_size=input_size,
-                                           hidden_size=self._hidden_size.value,
-                                           num_layers=self._num_layers.value,
-                                           bidirectional=False,
-                                           batch_first=True)
+        self._recurrent_layer = unit_type(input_size=input_size,
+                                          hidden_size=self._hidden_size.value,
+                                          num_layers=self._num_layers.value,
+                                          bidirectional=False,
+                                          batch_first=True)
 
-        self.__output_layer = nn.Linear(self._hidden_size.value, self._output_size.value)
+        self._output_layer = nn.Linear(self._hidden_size.value, self._output_size.value)
 
         if self._use_cuda:
-            self.__recurrent_layer = self.__recurrent_layer.cuda()
-            self.__output_layer = self.__output_layer.cuda()
+            self._recurrent_layer = self._recurrent_layer.cuda()
+            self._output_layer = self._output_layer.cuda()
 
-    def _init_optimizer(self):
-        params = self.parameters()
-        if attention is not None:
-            self.__attention._recurrent_layer = self.__recurrent_layer
-            params = list(list(params) + list(self.__attention.parameters()))
+        return self
 
-        self.__optimizer = torch.optim.Adam(params, lr=self._learning_rate.value)
-
-    def _decode_step(self,
-                     step_input,
-                     hidden_state,
-                     encoder_outputs,
-                     batch_size,
-                     sequence_length):
+    def init_optimizer(self):
         """
-        A single step decoder function. Attention is applied to the batches. The recurrent unit
-        calculates the t-th hidden state inside the attention mechanism's forward call.
-        :param step_input: Variable, with size of (batch_size, 1), containing word ids for step t.
+        Initializes the optimizer for the decoder.
+        """
+        print(self, len((list(self.parameters()))))
+        self._optimizer = torch.optim.Adam(self.parameters(), lr=self._learning_rate.value)
+
+        return self
+
+    def _decode(self,
+                decoder_input,
+                hidden_state,
+                encoder_outputs,
+                batch_size,
+                sequence_length):
+        """
+        Decoding of a given input. It can be a single time step or a full sequence as well.
+        :param decoder_input: Variable, with size of (batch_size, X), containing word ids for step t.
         :param hidden_state: Variable, with size of (num_layers * directions, batch_size, hidden_size).
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param batch_size: int, size of the input batches.
@@ -105,38 +103,12 @@ class RNNDecoder(nn.Module):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
-        embedded_input = self.embedding(step_input)
-
-        output, hidden_state, attn_weights = self.__attention.forward(step_input=embedded_input,
-                                                                      hidden_state=hidden_state,
-                                                                      encoder_outputs=encoder_outputs,
-                                                                      batch_size=batch_size,
-                                                                      sequence_length=sequence_length)
-
-        output = functional.log_softmax(self.__output_layer(output.contiguous().view(-1, self._hidden_size.value)),
+        embedded_input = self.embedding(decoder_input)
+        output, hidden_state = self._recurrent_layer(embedded_input, hidden_state)
+        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size.value)),
                                         dim=1).view(batch_size, -1, self._output_size.value)
 
-        return output, hidden_state, attn_weights
-
-    def _decode(self,
-                inputs,
-                hidden_state,
-                batch_size):
-        """
-        A full 'roll-out' of the RNN. The sequence is fully decoded, and the outputs are returned
-        for each time step. Attention is not used, but the calculations are must faster.
-        :param inputs: Variable, (batch_size, sequence_length) containing the ids of the words.
-        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :param batch_size: int, size of the batch.
-        :return outputs: Variable, (batch_size, sequence_length, vocab_size)the output at each time step of the decoder.
-        :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
-        """
-        embedded_inputs = self.embedding(inputs)
-        outputs, hidden_state = self.__recurrent_layer(embedded_inputs, hidden_state)
-        outputs = functional.log_softmax(self.__output_layer(outputs.contiguous().view(-1, self._hidden_size.value)),
-                                         dim=1).view(batch_size, -1, self._output_size.value)
-
-        return outputs, hidden_state
+        return output, hidden_state
 
     def forward(self,
                 inputs,
@@ -159,34 +131,34 @@ class RNNDecoder(nn.Module):
         """
         batch_size = inputs.size(0)
         sequence_length = inputs.size(1)
-        decoded_lengths = np.zeros(batch_size)
 
         symbols = np.zeros((batch_size, sequence_length), dtype='int')
 
         use_teacher_forcing = True
         loss = 0
         if use_teacher_forcing:
-            if self.__attention is not None:
-                for step in range(sequence_length):
-                    step_input = inputs[:, step].unsqueeze(-1)
-                    step_output, hidden_state, attn_weights = self._decode_step(step_input=step_input,
-                                                                                hidden_state=hidden_state,
-                                                                                encoder_outputs=encoder_outputs,
-                                                                                batch_size=batch_size,
-                                                                                sequence_length=sequence_length)
+            outputs, hidden_state = self._decode(decoder_input=inputs,
+                                                 hidden_state=hidden_state,
+                                                 encoder_outputs=None,
+                                                 batch_size=batch_size,
+                                                 sequence_length=None)
 
-                    loss += loss_function(step_output.squeeze(1), inputs[:, step])
-                    symbols[:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
+            for step in range(sequence_length):
+                symbols[:, step] = outputs[:, step, :].topk(1)[1].squeeze(-1).data.cpu().numpy()
 
-            else:
-                outputs, hidden_state = self._decode(inputs=inputs,
-                                                     hidden_state=hidden_state,
-                                                     batch_size=batch_size)
+            loss = loss_function(outputs.view(-1, self._output_size.value), inputs.view(-1))
 
-                for step in range(sequence_length):
-                    symbols[:, step] = outputs[:, step, :].topk(1)[1].squeeze(-1).data.cpu().numpy()
+        else:
+            for step in range(sequence_length):
+                step_input = inputs[:, step].unsqueeze(-1)
+                step_output, hidden_state = self._decode(decoder_input=step_input,
+                                                         hidden_state=hidden_state,
+                                                         encoder_outputs=None,
+                                                         batch_size=batch_size,
+                                                         sequence_length=sequence_length)
 
-                loss = loss_function(outputs.view(-1, self._output_size.value), inputs.view(-1))
+                loss += loss_function(step_output.squeeze(1), inputs[:, step])
+                symbols[:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
 
         return loss, symbols
 
@@ -196,7 +168,7 @@ class RNNDecoder(nn.Module):
         Property for the optimizer of the decoder.
         :return self.__optimizer: Optimizer, the currently used optimizer of the decoder.
         """
-        return self.__optimizer
+        return self._optimizer
 
     @optimizer.setter
     def optimizer(self, optimizer):
@@ -204,7 +176,7 @@ class RNNDecoder(nn.Module):
         Setter for the optimizer of the decoder.
         :param optimizer: Optimizer, instance to be set as the new optimizer for the decoder.
         """
-        self.__optimizer = optimizer
+        self._optimizer = optimizer
 
     @property
     def output_dim(self):
@@ -220,7 +192,7 @@ class RNNDecoder(nn.Module):
         Property for the decoder's embedding layer.
         :return: The currently used embeddings of the decoder.
         """
-        return self.__embedding_layer
+        return self._embedding_layer
 
     @embedding.setter
     def embedding(self, embedding):
@@ -228,9 +200,9 @@ class RNNDecoder(nn.Module):
         Setter for the decoder's embedding layer.
         :param embedding: Embedding, to be set as the embedding layer of the decoder.
         """
-        self.__embedding_layer = nn.Embedding(embedding.size(0), embedding.size(1))
-        self.__embedding_layer.weight = nn.Parameter(embedding)
-        self.__embedding_layer.weight.requires_grad = False
+        self._embedding_layer = nn.Embedding(embedding.size(0), embedding.size(1))
+        self._embedding_layer.weight = nn.Parameter(embedding)
+        self._embedding_layer.weight.requires_grad = False
 
 
 class BeamDecoder:

@@ -1,8 +1,5 @@
-import torch
-import numpy as np
-
-from modules import encoder, decoder, discriminator
 from modules.attention import *
+from modules.encoder import *
 from utils import reader, utils
 
 USE_CUDA = torch.cuda.is_available()
@@ -20,8 +17,8 @@ class Model:
     """
 
     def __init__(self):
-        torch.manual_seed(1)
-        np.random.seed(1)
+        torch.manual_seed(2)
+        np.random.seed(2)
 
         self.__src = reader.Language()
         self.__src.load_vocab(SRC_VOCAB_PATH)
@@ -38,7 +35,7 @@ class Model:
             '_hidden_size': 50,
             '_embedding_size': embedding_size,
             '_recurrent_type': 'LSTM',
-            '_num_layers': 1,
+            '_num_layers': 2,
             '_learning_rate': 0.001,
             '_use_cuda': USE_CUDA
         })
@@ -48,16 +45,16 @@ class Model:
             '_embedding_size': embedding_size,
             '_output_size': vocab_size,
             '_recurrent_type': 'LSTM',
-            '_num_layers': 1,
+            '_num_layers': 2,
             '_learning_rate': 0.001,
             '_max_length': 15,
             '_tf_ratio': 0,
             '_use_cuda': USE_CUDA
         })
 
-        self.__encoder = encoder.RNNEncoder(encoder_params)
+        self.__encoder = RNNEncoder(encoder_params).init_parameters().init_optimizer()
 
-        self.__decoder = decoder.RNNDecoder(decoder_params)
+        self.__decoder = BahdanauAttentionRNNDecoder(decoder_params).init_parameters().init_optimizer()
 
     def fit(self, epochs):
         """

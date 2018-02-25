@@ -114,23 +114,67 @@ class ParameterSetter:
                            as Parameter objects in the given class. Only those attributes will be
                            set, which are created this way.
         """
+        try:
+            for key in param_dict:
+                if isinstance(param_dict[key], str) and param_dict[key] in param_dict.keys():
+                    raise ValueError('Parameter initialization can not contain reference to other parameters.')
+
+        except IndexError:
+            print('Invalid value for parameter: Empty string.')
         self.__param_dict = param_dict
 
     def __call__(self, obj_dict):
         """
-        Invocation of a parameter object will initialize the object's Parameter type
-        attributes.
+        Invocation of a parameter object will initialize the object's Parameter type attributes.
         :param obj_dict: dict, a reference to the object's attribute dictionary (obj.__dict__).
         """
         obj_parameters = [parameter for parameter in obj_dict.keys()
                           if isinstance(obj_dict[parameter], Parameter)]
 
         try:
-
-            for parameter in obj_parameters:
-                obj_dict[parameter].value = self.__param_dict[parameter]
+            for parameter in self.__param_dict:
+                if parameter in obj_parameters:
+                    obj_dict[parameter].value = self.__param_dict[parameter]
+                else:
+                    raise ValueError('Parameter is not a member of the object parameters.')
 
         except KeyError:
             print('Object requires a parameter (name: < {0} >), which hasn\'t '
                   'been given to the parameter dictionary.'.format(parameter))
             return
+
+    def __add__(self, new_parameters):
+        """
+        Adds parameters to the ParameterSetter object.
+        By adding a dict with a value of a string, that is the key of an already existing value in the dictionary,
+        the value of the new key will be set to be the same as the referenced key's value.
+        :param new_parameters: dict, parameters to be added to the parameter list.
+        :return: ParameterSetter, the new instance.
+        """
+        try:
+
+            for key in new_parameters:
+                if isinstance(new_parameters[key], str):
+                    refs = new_parameters[key].split('+')
+                    if len(refs) > 1:
+                        new_parameters[key] = 0
+                        for ref_key in refs:
+                            if ref_key in self.__param_dict.keys():
+                                new_parameters[key] += self.__param_dict[ref_key]
+                            else:
+                                raise KeyError()
+                    else:
+                        new_parameters[key] = self.__param_dict[new_parameters[key]]
+
+        except IndexError:
+            print('Invalid value for parameter: Empty string.')
+            return
+
+        except KeyError:
+            print('The referenced parameter is not an element of the dictionary.')
+            return
+
+        self.__param_dict.update(new_parameters)
+
+        return self
+
