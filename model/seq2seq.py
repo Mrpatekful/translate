@@ -37,32 +37,20 @@ class Model:
         self.__encoder = encoder.RNNEncoder(embedding_dim=embedding_size,
                                             hidden_size=50,
                                             learning_rate=0.001,
-                                            recurrent_layer='GRU',
-                                            num_layers=2,
+                                            recurrent_layer='LSTM',
+                                            num_layers=1,
                                             use_cuda=USE_CUDA)
 
-        # attention = BahdanauAttention(hidden_size=50,
-        #                               embedding_size=embedding_size,
-        #                               use_cuda=USE_CUDA)
-
-        # attention = General(hidden_size=50,
-        #                     embedding_size=embedding_size,
-        #                     use_cuda=USE_CUDA)
-
-        # attention = Dot(hidden_size=50,
-        #                 embedding_size=embedding_size,
-        #                 use_cuda=USE_CUDA)
-
-        attention = Concat(hidden_size=50,
-                           embedding_size=embedding_size,
-                           use_cuda=USE_CUDA)
+        attention = GeneralAttention(hidden_size=50,
+                                     embedding_size=embedding_size,
+                                     use_cuda=USE_CUDA)
 
         self.__decoder = decoder.RNNDecoder(embedding_size=embedding_size,
                                             output_size=vocab_size,
                                             hidden_size=50,
                                             learning_rate=0.001,
-                                            recurrent_layer='GRU',
-                                            num_layers=2,
+                                            recurrent_layer='LSTM',
+                                            num_layers=1,
                                             max_length=15,
                                             tf_ratio=0,
                                             use_cuda=USE_CUDA,
@@ -124,32 +112,3 @@ class Model:
         self.__decoder.optimizer.step()
 
         return loss
-
-    def translate(self, inputs, lengths):
-        """
-
-        :param inputs:
-        :param lengths:
-        :return:
-        """
-
-
-class Logger:
-    """
-
-    """
-
-    def __init__(self):
-        pass
-
-    def save_log(self, loss):
-        pass
-
-    def create_checkpoint(self):
-        pass
-
-    def save_model(self):
-        pass
-
-    def load_model(self):
-        pass

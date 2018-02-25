@@ -3,8 +3,10 @@
     <words>
       <w>bahdanau</w>
       <w>cuda</w>
+      <w>darray</w>
       <w>dtype</w>
       <w>luong</w>
+      <w>ndarray</w>
       <w>tokenized</w>
     </words>
   </dictionary>

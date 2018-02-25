@@ -26,5 +26,26 @@ def apply_noise(input_batch):
     return input_batch
 
 
-def create_mask():
+class Logger:
+    """
+
+    """
+
+    def __init__(self):
+        pass
+
+    def save_log(self, loss):
+        pass
+
+    def create_checkpoint(self):
+        pass
+
+    def save_model(self):
+        pass
+
+    def load_model(self):
+        pass
+
+
+class Parser:
     pass

@@ -20,20 +20,20 @@ class RNNDecoder(nn.Module):
                  max_length,
                  num_layers,
                  use_cuda,
-                 attention=None,
-                 tf_ratio=0):
+                 attention,
+                 tf_ratio):
         """
-
-        :param hidden_size:
-        :param embedding_size:
-        :param recurrent_layer:
-        :param output_size:
-        :param learning_rate:
-        :param max_length:
-        :param use_cuda:
-        :param num_layers:
-        :param attention:
-        :param tf_ratio:
+        A recurrent decoder module for the sequence to sequence model.
+        :param hidden_size: int, size of recurrent layer of the LSTM/GRU.
+        :param embedding_size: int, dimension of the word embeddings.
+        :param recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
+        :param output_size: int, size of the (vocabulary) output layer of the decoder.
+        :param learning_rate: float, learning rate.
+        :param max_length: int, maximum length of the sequence decoding.
+        :param use_cuda: bool, True if the device has cuda support.
+        :param num_layers: int, number of stacked RNN layers.
+        :param attention: RNNAttention, reference for the attention object.
+        :param tf_ratio: float, teacher forcing ratio.
         """
         super(RNNDecoder, self).__init__()
 
@@ -83,13 +83,16 @@ class RNNDecoder(nn.Module):
                      batch_size,
                      sequence_length):
         """
-
-        :param step_input:
-        :param hidden_state:
-        :param encoder_outputs:
-        :param batch_size:
-        :param sequence_length:
-        :return:
+        A single step decoder function. Attention is applied to the batches. The recurrent unit
+        calculates the t-th hidden state inside the attention mechanism's forward call.
+        :param step_input: Variable, with size of (batch_size, 1), containing word ids for step t.
+        :param hidden_state: Variable, with size of (num_layers * directions, batch_size, hidden_size).
+        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param batch_size: int, size of the input batches.
+        :param sequence_length: int, size of the sequence of the input batch.
+        :return output: Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
+        :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
+        :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
         embedded_input = self.embedding(step_input)
 
@@ -101,7 +104,7 @@ class RNNDecoder(nn.Module):
 
         output = functional.log_softmax(self.__output_layer(output.contiguous().view(-1, self.__hidden_size)),
                                         dim=1).view(batch_size, -1, self.__output_size)
-
+        print(attn_weights)
         return output, hidden_state, attn_weights
 
     def _decode(self,
@@ -109,11 +112,13 @@ class RNNDecoder(nn.Module):
                 hidden_state,
                 batch_size):
         """
-
-        :param inputs:
-        :param hidden_state:
-        :param batch_size:
-        :return:
+        A full 'roll-out' of the RNN. The sequence is fully decoded, and the outputs are returned
+        for each time step. Attention is not used, but the calculations are must faster.
+        :param inputs: Variable, (batch_size, sequence_length) containing the ids of the words.
+        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param batch_size: int, size of the batch.
+        :return outputs: Variable, (batch_size, sequence_length, vocab_size)the output at each time step of the decoder.
+        :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
         """
         embedded_inputs = self.embedding(inputs)
         outputs, hidden_state = self.__recurrent_layer(embedded_inputs, hidden_state)
@@ -130,13 +135,14 @@ class RNNDecoder(nn.Module):
                 loss_function,
                 teacher_forcing_ratio=0):
         """
-
-        :param inputs:
-        :param encoder_outputs:
-        :param lengths:
-        :param hidden_state:
+        A forward step of the decoder. Processing can be done with different methods, with or
+        without attention mechanism and teacher forcing.
+        :param inputs: Variable, (batch_size, sequence_length) a batch of word ids.
+        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param lengths: Ndarray, an array for storing the real lengths of the sequences in the batch.
+        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
         :param loss_function:
-        :param teacher_forcing_ratio:
+        :param teacher_forcing_ratio: int,
         :return:
         """
         batch_size = inputs.size(0)

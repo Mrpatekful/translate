@@ -5,6 +5,9 @@ from torch.nn import functional
 
 
 class RNNAttention(nn.Module):
+    """
+
+    """
 
     def __init__(self,
                  hidden_size,
@@ -211,10 +214,11 @@ class LuongAttention(RNNAttention):
         return output, hidden_state, attn_weights
 
 
-class General(LuongAttention):  # TODO
+class GeneralAttention(LuongAttention):
     """
 
     """
+
     def __init__(self,
                  hidden_size,
                  embedding_size,
@@ -229,7 +233,7 @@ class General(LuongAttention):  # TODO
                          embedding_size=embedding_size,
                          use_cuda=use_cuda)
 
-        self.__attention_layer = nn.Linear(hidden_size, hidden_size)
+        self.__attention_layer = nn.Linear(self._hidden_size, self._hidden_size)
 
         if use_cuda:
             self.__attention_layer = self.__attention_layer.cuda()
@@ -244,13 +248,11 @@ class General(LuongAttention):  # TODO
         :return:
         """
         energy = self.__attention_layer(encoder_output)
-        print(decoder_state.shape, energy.shape)
-        energy = torch.mm(decoder_state.transpose(0, 1), energy)
-        print(energy)
+        energy = torch.bmm(decoder_state.unsqueeze(1), energy.unsqueeze(1).transpose(1, 2)).squeeze(-1)
         return energy
 
 
-class Dot(LuongAttention):  # TODO
+class DotAttention(LuongAttention):
     """
 
     """
@@ -271,17 +273,17 @@ class Dot(LuongAttention):  # TODO
 
     def _score(self,
                encoder_output,
-               decoder_hidden):
+               decoder_state):
         """
 
         :param encoder_output:
-        :param decoder_hidden:
+        :param decoder_state:
         :return:
         """
-        return decoder_hidden.dot(encoder_output)
+        return torch.bmm(decoder_state.unsqueeze(1), encoder_output.unsqueeze(1).transpose(1, 2)).squeeze(-1)
 
 
-class Concat(LuongAttention):
+class ConcatAttention(LuongAttention):
     """
 
     """
