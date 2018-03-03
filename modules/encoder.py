@@ -1,10 +1,10 @@
 import torch
-from torch import nn
-
+import torch.nn as nn
+import torch.autograd as autograd
 import torch.optim
-from torch.autograd import Variable
 
-from utils import utils
+from utils.utils import padded_sequence_to_batch
+from utils.utils import batch_to_padded_sequence
 from utils.utils import Parameter
 
 
@@ -85,10 +85,12 @@ class RNNEncoder(nn.Module):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
         """
         embedded_inputs = self.__embedding(inputs)
-        padded_sequence = utils.batch_to_padded_sequence(embedded_inputs, lengths)
+        padded_sequence = batch_to_padded_sequence(embedded_inputs, lengths)
+
         self._recurrent_layer.flatten_parameters()
+
         outputs, final_hidden_state = self._recurrent_layer(padded_sequence, hidden_state)
-        outputs, _ = utils.padded_sequence_to_batch(outputs)
+        outputs, _ = padded_sequence_to_batch(outputs)
 
         return outputs, final_hidden_state
 
@@ -97,7 +99,7 @@ class RNNEncoder(nn.Module):
         Initializes the hidden state of the encoder module.
         :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
         """
-        result = Variable(torch.zeros(self._num_layers.value, batch_size, self._hidden_size.value))
+        result = autograd.Variable(torch.zeros(self._num_layers.value, batch_size, self._hidden_size.value))
 
         if self._use_cuda.value:
             result = result.cuda()
@@ -150,13 +152,13 @@ class RNNEncoder(nn.Module):
         return self._hidden_size.value
 
 
-class ConvEncoder(nn.Module):  # TODO
+class CNNEncoder(nn.Module):  # TODO
     """
     Convolutional encoder module of the sequence to sequence model.
     """
 
     def __init__(self, ):
-        super(ConvEncoder, self).__init__()
+        super(CNNEncoder, self).__init__()
 
         self._embedding = None
         self._optimizer = None

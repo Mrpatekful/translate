@@ -1,13 +1,22 @@
-from model import seq2seq
+import numpy
+import torch
 
-FILE_SEG = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_seg'  # correctly segmented and tokenized file
-FILE_TOK = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_tok'  # tokenized text file
-VOCAB_PATH = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_voc'  # vocabulary file
+from utils import parser
+from utils import trainer
+from utils import reader
+
+from models.seqtoseq import SeqToSeq
+
+numpy.random.seed(2)
+torch.manual_seed(2)
+
+CONFIG_PATH = 'configs/rnn.json'
 
 
 def main():
-    auto_encoder = seq2seq.Model()
-    auto_encoder.fit(epochs=10)
+    parameters = parser.parse_params(CONFIG_PATH)
+    seq2seq_trainer = trainer.UnsupervisedTrainer(**parameters)
+    seq2seq_trainer.fit(epochs=10)
 
 
 if __name__ == '__main__':

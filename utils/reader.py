@@ -20,9 +20,6 @@ LANG_SRC_TOK = None
 MAX_SEGMENT_SIZE = 1000  # this constant is used by DataQueue and FastReader to divide the data into smaller segments
 
 
-USE_CUDA = torch.cuda.is_available()
-
-
 def vocab_creator(path):
     """
     Temporary function for testing purposes. Creates a vocab file from a text, with random
@@ -73,102 +70,6 @@ def ids_from_sentence(language, sentence):
     """
     # TODO [1:-1] for \n and <ENG> is out of place
     return [language.word_to_id[word] for word in sentence.split(' ')[1:-1]]
-
-
-class Language:
-    """
-    Wrapper class for the lookup tables of the languages.
-    """
-
-    def __init__(self):
-        self._word_to_id = {}
-        self._id_to_word = {}
-        self._word_to_count = {}
-
-        self._embedding = None
-        self._train_data = None
-
-    def load_vocab(self, path):
-        """
-        Loads the vocabulary from a file. Path is assumed to be a text
-        file, where each line contains a word and its corresponding embedding weights, separated by spaces.
-        :param path: string, the absolute path of the vocab.
-        """
-        with open(path, 'r') as file:
-            first_line = file.readline().split(' ')
-            num_of_words = int(first_line[0])
-            embedding_dim = int(first_line[1])
-            self._embedding = np.empty((num_of_words + 4, embedding_dim), dtype='float')
-
-            for index, line in enumerate(file):
-                line_as_list = list(line.split(' '))
-                self._word_to_id[line_as_list[0]] = index + 1  # all values are incremented by 1 because 0 is <PAD>
-                self._embedding[index + 1, :] = np.array([float(element) for element in line_as_list[1:]], dtype=float)
-
-            self._word_to_id['<PAD>'] = 0
-            self._word_to_id['<SOS>'] = len(self._word_to_id)
-            self._word_to_id['<EOS>'] = len(self._word_to_id)
-            self._word_to_id['<UNK>'] = len(self._word_to_id)
-
-            self._id_to_word = dict(zip(self._word_to_id.values(),
-                                        self._word_to_id.keys()))
-
-            self._embedding[0, :] = np.zeros(embedding_dim)
-            self._embedding[-1, :] = np.zeros(embedding_dim)
-            self._embedding[-2, :] = np.zeros(embedding_dim)
-            self._embedding[-3, :] = np.zeros(embedding_dim)
-
-            self._embedding = torch.from_numpy(self._embedding).float()
-
-            if USE_CUDA:
-                self._embedding = self._embedding.cuda()
-
-    @property
-    def embedding(self):
-        """
-        Property for the embedding matrix.
-        :return: A PyTorch Variable object, that contains the embedding matrix
-                for the language.
-        """
-        if self._embedding is None:
-            raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding
-
-    @property
-    def embedding_size(self):
-        """
-        Property for the dimension of the embeddings.
-        :return: int, length of the embedding vectors (dim 1 of the embedding matrix).
-        """
-        if self._embedding is None:
-            raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding.shape[1]
-
-    @property
-    def vocab_size(self):
-        """
-        Property for the dimension of the embeddings.
-        :return: int, length of the vocabulary (dim 1 of the embedding matrix).
-        """
-        if self._embedding is None:
-            raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding.shape[0]
-
-    @property
-    def word_to_id(self):
-        """
-        Property for the word to id dictionary.
-        :return: dict, containing the word-id pairs.
-        """
-        return self._word_to_id
-
-    @property
-    def id_to_word(self):
-        """
-        Property for the word to id dictionary.
-        :return: dict, containing the word-id pairs.
-        """
-        return self._id_to_word
 
 
 class DataQueue:
@@ -305,8 +206,11 @@ class FastReader(Reader):
         self._language = language
         self._use_cuda = use_cuda
         self._batch_size = batch_size
-        self._data_processor = self.PostPadding(language)  # PrePadding <-> PostPadding
+        self._data_processor = self.PostPadding(language)
         self._data = self._data_processor(data_loader(data_path))
+
+        self._num_steps = (MAX_SEGMENT_SIZE // batch_size) * (len(self._data) // MAX_SEGMENT_SIZE)
+        self._step = 0
 
     def batch_generator(self):
         """
@@ -326,6 +230,7 @@ class FastReader(Reader):
                 lengths = batch[:, -1]
                 if self._use_cuda:
                     ids = ids.cuda()
+                self._step += 1
                 yield Variable(ids), lengths
 
     def _segment_generator(self):
@@ -374,7 +279,6 @@ class FastReader(Reader):
             """
             data_to_ids = []
             for index in range(0, len(data), MAX_SEGMENT_SIZE):
-                # length of the longest line in the segment
                 segment_length = len(ids_from_sentence(self._language,
                                                        data[index:index + MAX_SEGMENT_SIZE][0]))
                 for line in data[index:index + MAX_SEGMENT_SIZE]:
@@ -386,6 +290,7 @@ class FastReader(Reader):
                     data_line[:-1] = ids
                     data_line[-1] = ids_len
                     data_to_ids.append(data_line)
+
             return data_to_ids
 
         @staticmethod
@@ -438,9 +343,9 @@ class FastReader(Reader):
             :return:
             """
             sorted_data = sorted(data, key=lambda x: x[-1], reverse=True)
-            batch_length = sorted_data[0][-1]  # length of the longest sequence in the batch
+            batch_length = sorted_data[0][-1]
             for index in range(len(sorted_data)):
-                while len(sorted_data[index])-1 < batch_length:  # subtracting the length [-1] element
+                while len(sorted_data[index])-1 < batch_length:
                     sorted_data[index].insert(-1, 0)
 
             return np.array(sorted_data, dtype='int')
@@ -452,3 +357,11 @@ class FastReader(Reader):
         :return: Language object, the source language.
         """
         return self._language
+
+    @property
+    def progress(self):
+        """
+
+        :return:
+        """
+        return self._num_steps / self._step

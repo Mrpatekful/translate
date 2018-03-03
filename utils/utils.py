@@ -1,6 +1,13 @@
+from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pad_packed_sequence
+
+from functools import wraps
+
+import time
+import pickle
+import os.path
+import numpy
 import torch
-from torch.autograd import Variable
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
 def batch_to_padded_sequence(batch, lengths):
@@ -22,33 +29,112 @@ def padded_sequence_to_batch(padded_sequence):
     return pad_packed_sequence(padded_sequence, batch_first=True)
 
 
-def apply_noise(input_batch):
-    return input_batch
-
-
-class Logger:
-    """
-
-    """
+class NoiseModel:
 
     def __init__(self):
         pass
 
-    def save_log(self, loss):
-        pass
-
-    def create_checkpoint(self):
-        pass
-
-    def save_model(self):
-        pass
-
-    def load_model(self):
-        pass
+    def __call__(self, input_batch):
+        return input_batch
 
 
-class Parser:
-    pass
+def logging(logger):
+    """
+    Decorator for the functions to get logs from. The function which is decorated
+    with logging must return its values as a dictionary.
+    :param logger: Logger object, which handles the data.
+    :return: wrapper of the function.
+    """
+    def log_wrapper(func):
+        """
+        Wraps the wrapper of the function.
+        :param func: the decorated function.
+        :return: wrapper
+        """
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return logger(*args, func=func, **kwargs)
+        return wrapper
+    return log_wrapper
+
+
+class Logger:
+    """
+    Logger class for saving the progress of training.
+    """
+    _log_dir = None
+
+    def __init__(self,
+                 params,
+                 dump_interval=100):
+        """
+        A logger instance. Instantiation should happen as a parameter of logging decorator.
+        :param params: tuple, name of the input parameters, which will be logged.
+        :param dump_interval: int, number of iteration, between two log dumps.
+        """
+
+        self._id = 1
+        self._params = params
+        self._dump_interval = dump_interval
+        self._log_dict = {}
+
+    def __call__(self, *args, func, **kwargs):
+        """
+        Invocation of a logger object will execute the given function, record the time required
+        for this operation, and then save the results and given input parameters to the log dictionary.
+        :param args: arguments of the function, which will be executed.
+        :param func: function to be executed.
+        :param kwargs: keyword arguments of the function to be executed.
+        :return: result of the execution.
+        """
+        exec_time = time.time()
+        result = func(*args, **kwargs)
+        exec_time = time.time() - exec_time
+        self._save_log({'exec_time': exec_time,
+                        **{param: kwargs[param] for param in self._params},
+                        **result
+                        })
+
+        return result
+
+    def _save_log(self, log):
+        """
+        Saves the log to the log dictionary. When the log id reaches the dump interval, the
+        dictionary is serialized, and then deleted from the memory.
+        :param log: dict, the log to be saved.
+        """
+        self._log_dict[self._id] = log
+        if self._id % self._dump_interval == 0:
+            self._dump_log()
+        self._id += 1
+
+    def _dump_log(self):
+        """
+        Serializes the log dictionary.
+        """
+        pickle.dump(obj=self._log_dict,
+                    file=open(os.path.join(self.log_dir, 'iter_%d-%d' %
+                                           (self._id-self._dump_interval, self._id)), 'wb'))
+        del self._log_dict
+        self._log_dict = {}
+
+    @property
+    def log_dir(self):
+        """
+
+        :return:
+        """
+        if self._log_dir is None:
+            raise ValueError('Log directory has not been defined.')
+        return self._log_dir
+
+    @log_dir.setter
+    def log_dir(self, log_dir):
+        """
+
+        :param log_dir:
+        """
+        self._log_dir = log_dir
 
 
 class Parameter:
@@ -178,3 +264,98 @@ class ParameterSetter:
 
         return self
 
+
+class Language:
+    """
+    Wrapper class for the lookup tables of the languages.
+    """
+
+    def __init__(self, path):
+        self._word_to_id = {}
+        self._id_to_word = {}
+        self._word_to_count = {}
+
+        self._embedding = None
+        self._load_vocab(path=path)
+
+    def _load_vocab(self, path):
+        """
+        Loads the vocabulary from a file. Path is assumed to be a text
+        file, where each line contains a word and its corresponding embedding weights, separated by spaces.
+        :param path: string, the absolute path of the vocab.
+        """
+        with open(path, 'r') as file:
+            first_line = file.readline().split(' ')
+            num_of_words = int(first_line[0])
+            embedding_dim = int(first_line[1])
+            self._embedding = numpy.empty((num_of_words + 4, embedding_dim), dtype='float')
+
+            for index, line in enumerate(file):
+                line_as_list = list(line.split(' '))
+                self._word_to_id[line_as_list[0]] = index + 1  # all values are incremented by 1 because 0 is <PAD>
+                self._embedding[index + 1, :] = numpy.array([float(element) for element in line_as_list[1:]], dtype=float)
+
+            self._word_to_id['<PAD>'] = 0
+            self._word_to_id['<SOS>'] = len(self._word_to_id)
+            self._word_to_id['<EOS>'] = len(self._word_to_id)
+            self._word_to_id['<UNK>'] = len(self._word_to_id)
+
+            self._id_to_word = dict(zip(self._word_to_id.values(),
+                                        self._word_to_id.keys()))
+
+            self._embedding[0, :] = numpy.zeros(embedding_dim)
+            self._embedding[-1, :] = numpy.zeros(embedding_dim)
+            self._embedding[-2, :] = numpy.zeros(embedding_dim)
+            self._embedding[-3, :] = numpy.zeros(embedding_dim)
+
+            self._embedding = torch.from_numpy(self._embedding).float()
+
+            if torch.cuda.is_available():
+                self._embedding = self._embedding.cuda()
+
+    @property
+    def embedding(self):
+        """
+        Property for the embedding matrix.
+        :return: A PyTorch Variable object, that contains the embedding matrix
+                for the language.
+        """
+        if self._embedding is None:
+            raise ValueError('The vocabulary has not been initialized for the language.')
+        return self._embedding
+
+    @property
+    def embedding_size(self):
+        """
+        Property for the dimension of the embeddings.
+        :return: int, length of the embedding vectors (dim 1 of the embedding matrix).
+        """
+        if self._embedding is None:
+            raise ValueError('The vocabulary has not been initialized for the language.')
+        return self._embedding.shape[1]
+
+    @property
+    def vocab_size(self):
+        """
+        Property for the dimension of the embeddings.
+        :return: int, length of the vocabulary (dim 1 of the embedding matrix).
+        """
+        if self._embedding is None:
+            raise ValueError('The vocabulary has not been initialized for the language.')
+        return self._embedding.shape[0]
+
+    @property
+    def word_to_id(self):
+        """
+        Property for the word to id dictionary.
+        :return: dict, containing the word-id pairs.
+        """
+        return self._word_to_id
+
+    @property
+    def id_to_word(self):
+        """
+        Property for the word to id dictionary.
+        :return: dict, containing the word-id pairs.
+        """
+        return self._id_to_word

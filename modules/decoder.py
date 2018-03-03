@@ -1,8 +1,10 @@
 import torch
-from torch import nn
-from torch.nn import functional
-from utils.utils import Parameter
+import torch.nn as nn
+import torch.nn.functional as functional
 
+from utils.utils import Parameter
+from utils.utils import Logger
+from utils.utils import logging
 
 import numpy as np
 
@@ -26,7 +28,7 @@ class RNNDecoder(nn.Module):
             :parameter use_cuda: bool, True if the device has cuda support.
             :parameter tf_ratio: float, teacher forcing ratio.
         """
-        super(RNNDecoder, self).__init__()
+        super().__init__()
         self._parameter_setter = parameter_setter
 
         self._hidden_size = Parameter(name='_hidden_size',       doc='int, size of recurrent layer of the LSTM/GRU.')
@@ -44,6 +46,8 @@ class RNNDecoder(nn.Module):
         self._embedding_layer = None
         self._output_layer = None
         self._optimizer = None
+
+        self.decoder_outputs = {'loss': None, 'symbols': None, 'attention': None}
 
     def init_parameters(self):
         """
@@ -100,9 +104,7 @@ class RNNDecoder(nn.Module):
         :param sequence_length: int, size of the sequence of the input batch.
         :return output: Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
-        :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
-        print('NORMAL_DECODE')
         embedded_input = self.embedding(decoder_input)
         output, hidden_state = self._recurrent_layer(embedded_input, hidden_state)
         output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size.value)),
@@ -110,8 +112,11 @@ class RNNDecoder(nn.Module):
 
         return output, hidden_state
 
+    _logging_params = ('inputs', 'encoder_outputs', 'hidden_state')
+
+    @logging(logger=Logger(_logging_params))
     def forward(self,
-                inputs,
+                targets,
                 encoder_outputs,
                 lengths,
                 hidden_state,
@@ -120,7 +125,7 @@ class RNNDecoder(nn.Module):
         """
         A forward step of the decoder. Processing can be done with different methods, with or
         without attention mechanism and teacher forcing.
-        :param inputs: Variable, (batch_size, sequence_length) a batch of word ids.
+        :param targets: Variable, (batch_size, sequence_length) a batch of word ids.
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param lengths: Ndarray, an array for storing the real lengths of the sequences in the batch.
         :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
@@ -129,38 +134,41 @@ class RNNDecoder(nn.Module):
         :return loss: int, loss of the decoding
         :return symbols: Ndarray, the decoded word ids.
         """
-        batch_size = inputs.size(0)
-        sequence_length = inputs.size(1)
+        batch_size = targets.size(0)
+        sequence_length = targets.size(1)
 
-        symbols = np.zeros((batch_size, sequence_length), dtype='int')
-        print('NORMAL_FORWARD')
+        self.decoder_outputs['symbols'] = np.zeros((batch_size, sequence_length), dtype='int')
+        self.decoder_outputs['loss'] = 0
+
         use_teacher_forcing = True
-        loss = 0
+
         if use_teacher_forcing:
-            outputs, hidden_state = self._decode(decoder_input=inputs,
+            outputs, hidden_state = self._decode(decoder_input=targets,
                                                  hidden_state=hidden_state,
                                                  encoder_outputs=None,
                                                  batch_size=batch_size,
                                                  sequence_length=None)
 
             for step in range(sequence_length):
-                symbols[:, step] = outputs[:, step, :].topk(1)[1].squeeze(-1).data.cpu().numpy()
+                self.decoder_outputs['symbols'][:, step] = outputs[:, step, :].topk(1)[1]\
+                    .squeeze(-1).data.cpu().numpy()
 
-            loss = loss_function(outputs.view(-1, self._output_size.value), inputs.view(-1))
+            self.decoder_outputs['loss'] = loss_function(outputs.view(-1, self._output_size.value), targets.view(-1))
 
         else:
             for step in range(sequence_length):
-                step_input = inputs[:, step].unsqueeze(-1)
+                step_input = targets[:, step].unsqueeze(-1)
                 step_output, hidden_state = self._decode(decoder_input=step_input,
                                                          hidden_state=hidden_state,
                                                          encoder_outputs=None,
                                                          batch_size=batch_size,
                                                          sequence_length=sequence_length)
 
-                loss += loss_function(step_output.squeeze(1), inputs[:, step])
-                symbols[:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
+                self.decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
+                self.decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1)\
+                    .squeeze(-1).cpu().numpy()
 
-        return loss, symbols
+        return self.decoder_outputs
 
     @property
     def optimizer(self):
@@ -205,14 +213,19 @@ class RNNDecoder(nn.Module):
         self._embedding_layer.weight.requires_grad = False
 
 
-class BeamDecoder:
+class CNNDecoder(nn.Module):
 
     def __init__(self):
+        super().__init__()
+
+    def forward(self):
         pass
 
 
-class ConvDecoder:
-
+class QRNNDecoder(nn.Module):
     def __init__(self):
+        super().__init__()
+
+    def forward(self):
         pass
 

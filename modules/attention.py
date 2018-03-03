@@ -1,8 +1,17 @@
-from .decoder import *
-from torch.autograd import Variable
+import torch
+import torch.nn as nn
+import torch.nn.functional as functional
+import torch.autograd as autograd
+
+from . import decoder
+
+from utils.utils import Logger
+from utils.utils import logging
+
+import numpy as np
 
 
-class AttentionRNNDecoder(RNNDecoder):
+class AttentionRNNDecoder(decoder.RNNDecoder):
     """
     Abstract base class for the attentional variation of recurrent decoder unit.
     """
@@ -30,7 +39,7 @@ class AttentionRNNDecoder(RNNDecoder):
         :return context: Variable, the weighted sum of the encoder outputs.
         :return attn_weights: Variable, weights used in the calculation of the context.
         """
-        attn_energies = Variable(torch.zeros([batch_size, sequence_length]))
+        attn_energies = autograd.Variable(torch.zeros([batch_size, sequence_length]))
 
         if self._use_cuda.value:
             attn_energies = attn_energies.cuda()
@@ -44,8 +53,11 @@ class AttentionRNNDecoder(RNNDecoder):
 
         return context, attn_weights
 
+    _logging_params = ('inputs', 'encoder_outputs', 'hidden_state')
+
+    @logging(logger=Logger(_logging_params))
     def forward(self,
-                inputs,
+                targets,
                 encoder_outputs,
                 lengths,
                 hidden_state,
@@ -53,7 +65,7 @@ class AttentionRNNDecoder(RNNDecoder):
                 tf_ratio):
         """
         An attentional forward step. The calculations can be done with or without teacher fording.
-        :param inputs: Variable, (batch_size, sequence_length) a batch of word ids.
+        :param targets: Variable, (batch_size, sequence_length) a batch of word ids.
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param lengths: Ndarray, an array for storing the real lengths of the sequences in the batch.
         :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
@@ -62,38 +74,44 @@ class AttentionRNNDecoder(RNNDecoder):
         :return loss: int, loss of the decoding
         :return symbols: Ndarray, the decoded word ids.
         """
-        batch_size = inputs.size(0)
-        sequence_length = inputs.size(1)
+        batch_size = targets.size(0)
+        sequence_length = targets.size(1)
 
-        symbols = np.zeros((batch_size, sequence_length), dtype='int')
+        self.decoder_outputs['symbols'] = np.zeros((batch_size, sequence_length), dtype='int')
+        self.decoder_outputs['attention'] = np.zeros((batch_size, sequence_length, sequence_length))
+        self.decoder_outputs['loss'] = 0
 
         use_teacher_forcing = True
-        loss = 0
+
         if use_teacher_forcing:
             for step in range(sequence_length):
-                step_input = inputs[:, step].unsqueeze(-1)
+                step_input = targets[:, step].unsqueeze(-1)
                 step_output, hidden_state, attn_weights = self._decode(decoder_input=step_input,
                                                                        hidden_state=hidden_state,
                                                                        encoder_outputs=encoder_outputs,
                                                                        batch_size=batch_size,
                                                                        sequence_length=sequence_length)
 
-                loss += loss_function(step_output.squeeze(1), inputs[:, step])
-                symbols[:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
+                self.decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
+                self.decoder_outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+                self.decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1)\
+                    .squeeze(-1).cpu().numpy()
 
         else:
             for step in range(sequence_length):
-                step_input = inputs[:, step].unsqueeze(-1)
+                step_input = targets[:, step].unsqueeze(-1)
                 step_output, hidden_state, attn_weights = self._decode(decoder_input=step_input,
                                                                        hidden_state=hidden_state,
                                                                        encoder_outputs=encoder_outputs,
                                                                        batch_size=batch_size,
                                                                        sequence_length=sequence_length)
 
-                loss += loss_function(step_output.squeeze(1), inputs[:, step])
-                symbols[:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
+                self.decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
+                self.decoder_outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+                self.decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1)\
+                    .squeeze(-1).cpu().numpy()
 
-        return loss, symbols
+        return self.decoder_outputs
 
     def _score(self,
                encoder_outputs,
@@ -143,12 +161,10 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         super().init_parameters()
 
         self._attention_layer = nn.Linear(self._hidden_size.value * 2, self._hidden_size.value)
-
         tr = torch.rand(self._hidden_size.value, 1)
 
         if self._use_cuda:
             self._attention_layer = self._attention_layer.cuda()
-
             tr = tr.cuda()
 
         self._transformer = nn.Parameter(tr)
@@ -189,9 +205,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
         return output, hidden_state, attn_weights
 
-    def _score(self,
-               encoder_output,
-               decoder_state):
+    def _score(self, encoder_output, decoder_state):
         """
         Scoring function of the Bahdanau style attention. The states are concatenated and fed through
         a non-linear activation layer, and the multiplied by a vector to project the attention energies
@@ -319,9 +333,7 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         return self
 
-    def _score(self,
-               encoder_output,
-               decoder_state):
+    def _score(self, encoder_output, decoder_state):
         """
         The score computation is as follows:
             h_d * (W_a * h_eT)
@@ -368,9 +380,7 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         return self
 
-    def _score(self,
-               encoder_output,
-               decoder_state):
+    def _score(self, encoder_output, decoder_state):
         """
         The score computation is as follows:
             h_d * h_eT
@@ -430,9 +440,7 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         return self
 
-    def _score(self,
-               encoder_output,
-               decoder_state):
+    def _score(self, encoder_output, decoder_state):
         """
         The score computation is as follows:
             v_t * tanh(W_a * [h_d ; h_e])
@@ -445,3 +453,8 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
         energy = functional.tanh(self.__attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self.__transformer)
         return energy
+
+
+class AttentionCNNDecoder(decoder.CNNDecoder):
+    # TODO
+    pass
