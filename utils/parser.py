@@ -1,70 +1,80 @@
 from utils import reader
 from utils import utils
+from models import models
 
 import json
 
 
-def parse_params(config_path):
-    parameters = json.load(open(config_path, 'r'))
-    parameters = {
-        'model_params': {
-            'model_type': 'SeqToSeq',
-            'encoder': 'RNNEncoder',
-            'decoder': 'RNNDecoder',
-            'encoder_params': {
-                '_hidden_size': 50,
-                '_recurrent_type': 'LSTM',
-                '_num_layers': 2,
-                '_learning_rate': 0.01,
-                '_use_cuda': True
-              },
-            'decoder_params': {
-                '_hidden_size': 50,
-                '_recurrent_type': 'LSTM',
-                '_num_layers': 2,
-                '_learning_rate': 0.01,
-                '_max_length': 15,
-                '_tf_ratio': 0,
-                '_use_cuda': True
-             }
-            },
-        'trainer_params': {
-            'source_reader': 'FastReader',
-            'target_reader': 'FastReader',
-            'source_data_path': '/data/eng_seg',
-            'source_vocab_path': 'data/eng_voc',
-            'target_data_path': 'data/text_seg',
-            'target_vocab_path': 'data/text_voc',
-            'batch_size': 32,
-          },
-        'use_cuda': True
-         }
-    readers = {cls.__name__: cls for cls in reader.Reader.__subclasses__()}
+class Config:
+    """
 
-    source_reader = readers[parameters['trainer_params']['source_readers']]
-    target_reader = readers[parameters['trainer_params']['target_readers']]
+    """
 
-    source_language = utils.Language(parameters['trainer_params']['source_vocab_path'])
-    target_language = utils.Language(parameters['trainer_params']['target_vocab_path'])
+    _readers = {cls.__name__: cls for cls in reader.Reader.__subclasses__()}
+    _models = utils.subclasses(models.Models)
 
-    source_reader = source_reader(language=source_language,
-                                  data_path=parameters['trainer_params']['source_data_path'],
-                                  batch_size=parameters['trainer_params']['batch_size'],
-                                  use_cuda=parameters['trainer_params']['use_cuda'])
+    def __init__(self, config_path):
+        """
 
-    target_reader = target_reader(language=target_language,
-                                  data_path=parameters['trainer_params']['target_data_path'],
-                                  batch_size=parameters['trainer_params']['batch_size'],
-                                  use_cuda=parameters['trainer_params']['use_cuda'])
+        :param config_path:
+        """
+        self._config = json.load(open(config_path, 'r'))
+        self._task_params = self._set_task_params()
+        self._model_params = self._set_model_params()
 
-    parameters['model_params']['encoder_params']['_embedding_size'] = source_language.embedding_size
-    parameters['model_params']['decoder_params']['_embedding_size'] = source_language.embedding_size
-    parameters['model_params']['decoder_params']['_output_size'] = source_language.vocab_size
+    def _set_model_params(self):
+        model_params = self._config['model_params']
 
-    parameters = {**parameters['model_params'],
-                  'source_reader': source_reader,
-                  'target_reader': target_reader,
-                  'source_language': source_language,
-                  'target_language': target_language}
+        try:
+            model = self._models[model_params['model_type']]
+            processed_params = model.parameter_builder(components=model_params['components'],
+                                                       task_params=self._task_params)
 
-    return parameters
+        except KeyError:
+            print('Invalid JSON file.')
+            return
+
+        return processed_params
+
+    def _set_task_params(self):
+        task_params = self._config['task_params']
+        path_params = task_params['paths']
+        reader_params = task_params['readers']
+
+        try:
+            source_language = utils.Language(path_params['source_vocab_path'])
+            target_language = utils.Language(path_params['target_vocab_path'])
+
+            source_reader = self._readers[reader_params['source_reader']]
+            source_reader = source_reader(source_language=source_language,
+                                          max_segment_size=task_params['max_segment_size'],
+                                          data_path=path_params['source_data_path'],
+                                          batch_size=task_params['batch_size'],
+                                          use_cuda=self._config['use_cuda'])
+
+            target_reader = self._readers[reader_params['target_reader']]
+            target_reader = target_reader(source_language=target_language,
+                                          max_segment_size=task_params['max_segment_size'],
+                                          data_path=path_params['target_data_path'],
+                                          batch_size=task_params['batch_size'],
+                                          use_cuda=self._config['use_cuda'])
+
+            processed_params = {
+                'source_language': source_language,
+                'target_language': target_language,
+                'source_reader': source_reader,
+                'target_reader': target_reader
+            }
+
+        except KeyError:
+            print('Invalid JSON file.')
+            return
+
+        return processed_params
+
+    @property
+    def parameters(self):
+        return {
+            **self._task_params,
+            **self._model_params
+        }

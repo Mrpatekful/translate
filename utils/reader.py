@@ -5,46 +5,7 @@ from torch.autograd import Variable
 
 import sklearn.utils
 import abc
-import re
 import copy
-
-
-EMBEDDING_DIM = 3
-VOCAB_PATH = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_voc'
-
-LANG_TGT_VOC = None
-LANG_SRC_VOC = None
-LANG_TGT_TOK = None
-LANG_SRC_TOK = None
-
-MAX_SEGMENT_SIZE = 1000  # this constant is used by DataQueue and FastReader to divide the data into smaller segments
-
-
-def vocab_creator(path):
-    """
-    Temporary function for testing purposes. Creates a vocab file from a text, with random
-    embedding weights.
-    :param path: string, the absolute path of the text to create a vocab of.
-    """
-    def add_word(w, voc):
-        if w not in voc:
-            voc[w] = [n for n in np.random.rand(EMBEDDING_DIM)]
-
-    vocab = {}
-    with open(path, 'r') as file:
-        for line in file:
-            line_as_list = re.split(r"[\s|\n]+", line)
-            for token in line_as_list:
-                add_word(token, vocab)
-
-    with open(VOCAB_PATH, 'w') as file:
-        file.write('{0} {1}\n'.format(len(vocab), EMBEDDING_DIM))
-        for word in vocab.keys():
-            line = str(word)
-            for elem in vocab[word]:
-                line += (' ' + str(elem))
-            line += '\n'
-            file.write(line)
 
 
 def data_loader(data_path):
@@ -78,13 +39,14 @@ class DataQueue:
     memory asynchronously.
     """
 
-    def __init__(self, data_path):
+    def __init__(self, data_path, max_segment_size):
         """
         :param data_path: str, location of the data.
         """
         self._MAX_LEN = 10
 
         self._data_path = data_path
+        self._max_segment_size = max_segment_size
         self._data_segment_queue = []
 
     def data_generator(self):
@@ -95,7 +57,7 @@ class DataQueue:
         with open(self._data_path, 'r') as file:
             data_segment = []
             for line in file:
-                if len(data_segment) < MAX_SEGMENT_SIZE:
+                if len(data_segment) < self._max_segment_size:
                     data_segment.append(line)
                 else:
                     temp_data_segment = copy.deepcopy(data_segment)
@@ -132,7 +94,8 @@ class FileReader(Reader):
                  language,
                  data_path,
                  batch_size,
-                 use_cuda):
+                 use_cuda,
+                 max_segment_size):
         """
         An instance of a file reader.
         :param language: Language, instance of the used language object.
@@ -143,7 +106,8 @@ class FileReader(Reader):
         self._language = language
         self._use_cuda = use_cuda
         self._batch_size = batch_size
-        self._data_queue = DataQueue(data_path)
+        self._data_queue = DataQueue(data_path, max_segment_size)
+        self._max_segment_size = max_segment_size
 
     def batch_generator(self):
         """
@@ -194,7 +158,8 @@ class FastReader(Reader):
                  language,
                  data_path,
                  batch_size,
-                 use_cuda):
+                 use_cuda,
+                 max_segment_size):
         """
         An instance of a fast reader.
         :param language: Language, instance of the used language object.
@@ -206,10 +171,13 @@ class FastReader(Reader):
         self._language = language
         self._use_cuda = use_cuda
         self._batch_size = batch_size
-        self._data_processor = self.PostPadding(language)
+        self._max_segment_size = max_segment_size
+        self._data_processor = self.PostPadding(language,
+                                                max_segment_size)
         self._data = self._data_processor(data_loader(data_path))
 
-        self._num_steps = (MAX_SEGMENT_SIZE // batch_size) * (len(self._data) // MAX_SEGMENT_SIZE)
+        self._num_steps = (self._max_segment_size // batch_size) \
+            * (len(self._data) // self._max_segment_size)
         self._step = 0
 
     def batch_generator(self):
@@ -223,7 +191,6 @@ class FastReader(Reader):
         """
         for data_segment in self._segment_generator():
             shuffled_data_segment = sklearn.utils.shuffle(data_segment)
-            # batches must always be the same size so len(..) - batch_size is the termination index
             for index in range(0, len(shuffled_data_segment)-self._batch_size, self._batch_size):
                 batch = self._data_processor.create_batch(shuffled_data_segment[index:index + self._batch_size])
                 ids = torch.from_numpy(batch[:, :-1])
@@ -237,24 +204,8 @@ class FastReader(Reader):
         """
         Divides the data to segments of size MAX_SEGMENT_SIZE.
         """
-        for index in range(0, len(self._data), MAX_SEGMENT_SIZE):
-            yield copy.deepcopy(self._data[index:index + MAX_SEGMENT_SIZE])
-
-    # =============================================================================== #
-    # Two versions of FastReader:                                                     #
-    #       1. PrePadding:                                                            #
-    #          Padding is located in the process __call__ function, so _create_batch  #
-    #          only has to sort the batch. The draw back is there might be batches,   #
-    #          where even the longest sequence is padded.                             #
-    #       2. PostPadding:                                                           #
-    #          Padding is located in _create_batch function, this way the sentences   #
-    #          are padded to the length of the longest sentence in the batch, but     #
-    #          input feeding is slower.                                               #
-    # =============================================================================== #
-
-    # =============================================================================== #
-    # ----------------------------------Version 1.----------------------------------- #
-    # =============================================================================== #
+        for index in range(0, len(self._data), self._max_segment_size):
+            yield copy.deepcopy(self._data[index:index + self._max_segment_size])
 
     class PrePadding:
         """
@@ -262,12 +213,13 @@ class FastReader(Reader):
         by the longest sequence in the data segment.
         """
 
-        def __init__(self, language):
+        def __init__(self, language, max_segment_size):
             """
             An instance of a pre-padder object.
             :param language: Language, instance of the used language object.
             """
             self._language = language
+            self._max_segment_size = max_segment_size
 
         def __call__(self, data):
             """
@@ -278,10 +230,10 @@ class FastReader(Reader):
             :return: list, list of (int) ids of the words in the sentences.
             """
             data_to_ids = []
-            for index in range(0, len(data), MAX_SEGMENT_SIZE):
+            for index in range(0, len(data), self._max_segment_size):
                 segment_length = len(ids_from_sentence(self._language,
-                                                       data[index:index + MAX_SEGMENT_SIZE][0]))
-                for line in data[index:index + MAX_SEGMENT_SIZE]:
+                                                       data[index:index + self._max_segment_size][0]))
+                for line in data[index:index + self._max_segment_size]:
                     ids = ids_from_sentence(self._language, line)
                     ids_len = len(ids)
                     while len(ids) < segment_length:
@@ -303,22 +255,19 @@ class FastReader(Reader):
             """
             return np.array(sorted(data, key=lambda x: x[-1], reverse=True))
 
-    # =============================================================================== #
-    # ----------------------------------Version 2.----------------------------------- #
-    # =============================================================================== #
-
     class PostPadding:
         """
         Data is padded during the training iterations. Padding is determined by the longest
         sequence in the batch.
         """
 
-        def __init__(self, language):
+        def __init__(self, language, max_segment_size):
             """
             An instance of a post-padder object.
             :param language: Language, instance of the used language object.
             """
             self._language = language
+            self._max_segment_size = max_segment_size
 
         def __call__(self, data):
             """
@@ -327,8 +276,8 @@ class FastReader(Reader):
             :return: list, list of (int) ids of the words in the sentences.
             """
             data_to_ids = []
-            for index in range(0, len(data), MAX_SEGMENT_SIZE):
-                for line in data[index:index + MAX_SEGMENT_SIZE]:
+            for index in range(0, len(data), self._max_segment_size):
+                for line in data[index:index + self._max_segment_size]:
                     ids = ids_from_sentence(self._language, line)
                     ids.append(len(ids))
                     data_to_ids.append(ids)

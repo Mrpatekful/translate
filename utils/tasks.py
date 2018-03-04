@@ -1,22 +1,17 @@
 from utils import utils
-from models import seqtoseq
+from models import models
 
 import torch
 import abc
 
 
-# ===============================================================================
-
-# ===============================================================================
-
-
-class Trainer(metaclass=abc.ABCMeta):
+class Task(metaclass=abc.ABCMeta):
     """
 
     """
 
     @abc.abstractmethod
-    def fit(self, *args, **kwargs):
+    def fit_model(self, *args, **kwargs):
         """
 
         """
@@ -39,13 +34,11 @@ class Trainer(metaclass=abc.ABCMeta):
         """
 
 
-class UnsupervisedTrainer(Trainer):
+class UnsupervisedTranslation(Task):
     """
 
     """
-    _models = {
-        'SeqToSeq': seqtoseq.SeqToSeq
-    }
+    _models = utils.subclasses(models.Models)
 
     def __init__(self,
                  source_reader,
@@ -71,7 +64,7 @@ class UnsupervisedTrainer(Trainer):
 
         self._model = self._models[model_type](**model_params)
 
-    def fit(self, epochs):
+    def fit_model(self, epochs):
         """
         :param epochs:
         :return:

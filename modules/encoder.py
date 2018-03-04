@@ -8,7 +8,25 @@ from utils.utils import batch_to_padded_sequence
 from utils.utils import Parameter
 
 
-class RNNEncoder(nn.Module):
+class Encoder(nn.Module):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def forward(self, *args, **kwargs):
+        return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return True
+
+    @property
+    def interface(self):
+        return [parameter for parameter in self.__dict__.keys()
+                if isinstance(self.__dict__[parameter], Parameter)]
+
+
+class RNNEncoder(Encoder):
     """
     Recurrent encoder module of the sequence to sequence model.
     """
@@ -33,10 +51,12 @@ class RNNEncoder(nn.Module):
         self._learning_rate = Parameter(name='_learning_rate',   doc='float, learning rate.')
         self._use_cuda = Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.')
 
-        self.__embedding = None
-        self.__optimizer = None
+        self._embedding = None
+        self._optimizer = None
 
         self._recurrent_layer = None
+
+        self._set_interface()
 
     def init_parameters(self):
         """
@@ -66,35 +86,35 @@ class RNNEncoder(nn.Module):
         """
         Initializes the optimizer for the encoder.
         """
-        self.__optimizer = torch.optim.Adam(self.parameters(), lr=self._learning_rate.value)
+        self._optimizer = torch.optim.Adam(self.parameters(), lr=self._learning_rate.value)
 
         return self
 
     def forward(self,
                 inputs,
-                lengths,
-                hidden_state):
+                lengths):
         """
         A forward step of the encoder. The batch of sequences with word ids are
         packed into padded_sequence object, which are processed by the recurrent layer.
         :param inputs: Variable, (batch_size, sequence_length) containing the ids of the words.
         :param lengths: Ndarray, containing the real lengths of the sequences in the batch (prior to padding).
-        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
         :return outputs: Variable, (batch_size, sequence_length, vocab_size) the output at each time
                          step of the encoder.
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
         """
-        embedded_inputs = self.__embedding(inputs)
+        initial_state = self._init_hidden(inputs.size(0))
+
+        embedded_inputs = self._embedding(inputs)
         padded_sequence = batch_to_padded_sequence(embedded_inputs, lengths)
 
         self._recurrent_layer.flatten_parameters()
 
-        outputs, final_hidden_state = self._recurrent_layer(padded_sequence, hidden_state)
+        outputs, final_hidden_state = self._recurrent_layer(padded_sequence, initial_state)
         outputs, _ = padded_sequence_to_batch(outputs)
 
         return outputs, final_hidden_state
 
-    def init_hidden(self, batch_size):
+    def _init_hidden(self, batch_size):
         """
         Initializes the hidden state of the encoder module.
         :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
@@ -109,13 +129,17 @@ class RNNEncoder(nn.Module):
         else:
             return result
 
+    @classmethod
+    def abstract(cls):
+        return False
+
     @property
     def optimizer(self):
         """
         Property for the optimizer of the encoder.
         :return self.__optimizer: Optimizer, the currently used optimizer of the encoder.
         """
-        return self.__optimizer
+        return self._optimizer
 
     @optimizer.setter
     def optimizer(self, optimizer):
@@ -123,7 +147,7 @@ class RNNEncoder(nn.Module):
         Setter for the optimizer of the encoder.
         :param optimizer: Optimizer, instance to be set as the new optimizer for the encoder.
         """
-        self.__optimizer = optimizer
+        self._optimizer = optimizer
 
     @property
     def embedding(self):
@@ -131,7 +155,7 @@ class RNNEncoder(nn.Module):
         Property for the encoder's embedding layer.
         :return: The currently used embeddings of the encoder.
         """
-        return self.__embedding
+        return self._embedding
 
     @embedding.setter
     def embedding(self, embedding):
@@ -139,9 +163,9 @@ class RNNEncoder(nn.Module):
         Setter for the encoder's embedding layer.
         :param embedding: Embedding, to be set as the embedding layer of the encoder.
         """
-        self.__embedding = nn.Embedding(embedding.size(0), embedding.size(1))
-        self.__embedding.weight = nn.Parameter(embedding)
-        self.__embedding.weight.requires_grad = False
+        self._embedding = nn.Embedding(embedding.size(0), embedding.size(1))
+        self._embedding.weight = nn.Parameter(embedding)
+        self._embedding.weight.requires_grad = False
 
     @property
     def hidden_size(self):
@@ -152,7 +176,7 @@ class RNNEncoder(nn.Module):
         return self._hidden_size.value
 
 
-class CNNEncoder(nn.Module):  # TODO
+class CNNEncoder(Encoder):  # TODO
     """
     Convolutional encoder module of the sequence to sequence model.
     """
@@ -174,6 +198,10 @@ class CNNEncoder(nn.Module):  # TODO
         :return:
         """
         return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return False
 
     @property
     def optimizer(self):

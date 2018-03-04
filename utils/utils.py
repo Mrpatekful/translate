@@ -38,6 +38,22 @@ class NoiseModel:
         return input_batch
 
 
+def subclasses(base_cls):
+    """
+
+    :param base_cls:
+    :return:
+    """
+    def get_hierarchy(cls):
+        sub_classes = {sub_cls.__name__: sub_cls for sub_cls in cls.__subclasses__()}
+        hierarchy = {}
+        for sub_cls_name in sub_classes:
+            hierarchy = {**hierarchy, **get_hierarchy(sub_classes[sub_cls_name])}
+        return {**hierarchy, **{name: sub_classes[name] for name in sub_classes if not sub_classes[name].abstract()}}
+
+    return get_hierarchy(base_cls)
+
+
 def logging(logger):
     """
     Decorator for the functions to get logs from. The function which is decorated
@@ -66,7 +82,7 @@ class Logger:
 
     def __init__(self,
                  params,
-                 dump_interval=100):
+                 dump_interval=1000):
         """
         A logger instance. Instantiation should happen as a parameter of logging decorator.
         :param params: tuple, name of the input parameters, which will be logged.
@@ -90,10 +106,11 @@ class Logger:
         exec_time = time.time()
         result = func(*args, **kwargs)
         exec_time = time.time() - exec_time
-        self._save_log({'exec_time': exec_time,
-                        **{param: kwargs[param] for param in self._params},
-                        **result
-                        })
+        self._save_log({
+            'exec_time': exec_time,
+            **{param: kwargs[param] for param in self._params},
+            **result
+        })
 
         return result
 
@@ -150,15 +167,15 @@ class Parameter:
         :param name: str, name of the parameter.
         :param doc: str, description of the parameter.
         """
-        self.__name = name
-        self.__doc = doc
-        self.__value = None
+        self._name = name
+        self._doc = doc
+        self._value = None
 
     def __repr__(self):
-        return self.__name + ': { ' + self.__doc + ' }'
+        return self._name + ': { ' + self._doc + ' }'
 
     def __doc__(self):
-        return self.__doc
+        return self._doc
 
     @property
     def name(self):
@@ -166,7 +183,7 @@ class Parameter:
         Property for the name of the parameter.
         :return: str, name of the parameter.
         """
-        return self.__name
+        return self._name
 
     @property
     def value(self):
@@ -174,9 +191,9 @@ class Parameter:
         Property for the value of the parameter.
         :return: value of the parameter.
         """
-        if self.__value is None:
+        if self._value is None:
             raise ValueError('Parameter value has not been set.')
-        return self.__value
+        return self._value
 
     @value.setter
     def value(self, value):
@@ -184,7 +201,7 @@ class Parameter:
         Setter for the parameter value.
         :param value: value of the parameter.
         """
-        self.__value = value
+        self._value = value
 
 
 class ParameterSetter:
@@ -206,8 +223,10 @@ class ParameterSetter:
                     raise ValueError('Parameter initialization can not contain reference to other parameters.')
 
         except IndexError:
-            print('Invalid value for parameter: Empty string.')
-        self.__param_dict = param_dict
+            print('Invalid value for parameter.')
+            return
+
+        self._param_dict = param_dict
 
     def __call__(self, obj_dict):
         """
@@ -218,9 +237,9 @@ class ParameterSetter:
                           if isinstance(obj_dict[parameter], Parameter)]
 
         try:
-            for parameter in self.__param_dict:
+            for parameter in self._param_dict:
                 if parameter in obj_parameters:
-                    obj_dict[parameter].value = self.__param_dict[parameter]
+                    obj_dict[parameter].value = self._param_dict[parameter]
                 else:
                     raise ValueError('Parameter is not a member of the object parameters.')
 
@@ -245,12 +264,12 @@ class ParameterSetter:
                     if len(refs) > 1:
                         new_parameters[key] = 0
                         for ref_key in refs:
-                            if ref_key in self.__param_dict.keys():
-                                new_parameters[key] += self.__param_dict[ref_key]
+                            if ref_key in self._param_dict.keys():
+                                new_parameters[key] += self._param_dict[ref_key]
                             else:
                                 raise KeyError()
                     else:
-                        new_parameters[key] = self.__param_dict[new_parameters[key]]
+                        new_parameters[key] = self._param_dict[new_parameters[key]]
 
         except IndexError:
             print('Invalid value for parameter: Empty string.')
@@ -260,7 +279,7 @@ class ParameterSetter:
             print('The referenced parameter is not an element of the dictionary.')
             return
 
-        self.__param_dict.update(new_parameters)
+        self._param_dict.update(new_parameters)
 
         return self
 

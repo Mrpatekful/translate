@@ -9,7 +9,27 @@ from utils.utils import logging
 import numpy as np
 
 
-class RNNDecoder(nn.Module):
+class Decoder(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, *args, **kwargs):
+        return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return True
+
+    @property
+    def interface(self):
+        return {
+            parameter: self.__dict__[parameter] for parameter in self.__dict__.keys()
+            if isinstance(self.__dict__[parameter], Parameter)
+        }
+
+
+class RNNDecoder(Decoder):
     """
     Decoder module of the sequence to sequence model.
     """
@@ -170,6 +190,10 @@ class RNNDecoder(nn.Module):
 
         return self.decoder_outputs
 
+    @classmethod
+    def abstract(cls):
+        return False
+
     @property
     def optimizer(self):
         """
@@ -213,7 +237,7 @@ class RNNDecoder(nn.Module):
         self._embedding_layer.weight.requires_grad = False
 
 
-class CNNDecoder(nn.Module):
+class CNNDecoder(Decoder):
 
     def __init__(self):
         super().__init__()
@@ -222,10 +246,10 @@ class CNNDecoder(nn.Module):
         pass
 
 
-class QRNNDecoder(nn.Module):
+class QRNNDecoder(Decoder):
+
     def __init__(self):
         super().__init__()
 
     def forward(self):
         pass
-

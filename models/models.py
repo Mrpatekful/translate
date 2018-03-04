@@ -1,25 +1,40 @@
 import torch.nn as nn
 
-from modules import attention
-from modules import encoder
 from modules import decoder
+from modules import encoder
+
+from utils import utils
 
 
-class SeqToSeq(nn.Module):
+class Models(nn.Module):
+
+    def __init__(self, **kwargs):
+        super().__init__()
+
+    def forward(self, *args, **kwargs):
+        return NotImplementedError
+
+    def step(self):
+        return NotImplementedError
+
+    def zero_grad(self):
+        return NotImplementedError
+
+    @classmethod
+    def descriptor(cls, components):
+        return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return True
+
+
+class SeqToSeq(Models):
     """
     Sequence to sequence model for translation.
     """
-    _encoders = {
-        'RNNEncoder': encoder.RNNEncoder,
-    }
-
-    _decoders = {
-        'RNNDecoder': decoder.RNNDecoder,
-        'BahdanauRNNDecoder': attention.BahdanauAttentionRNNDecoder,
-        'GeneralAttentionRNNDecoder': attention.GeneralAttentionRNNDecoder,
-        'DotAttentionRNNDecoder': attention.DotAttentionRNNDecoder,
-        'ConcatAttentionRNNDecoder': attention.ConcatAttentionRNNDecoder,
-    }
+    _encoders = utils.subclasses(encoder.Encoder)
+    _decoders = utils.subclasses(decoder.Decoder)
 
     def __init__(self,
                  encoder_type,
@@ -50,11 +65,8 @@ class SeqToSeq(nn.Module):
         :param loss_function:
         :return:
         """
-        initial_state = self._encoder.init_hidden(inputs.shape[0])
-
         encoder_outputs = self._encoder.forward(inputs=inputs,
-                                                lengths=lengths,
-                                                hidden_state=initial_state)
+                                                lengths=lengths)
 
         decoder_outputs = self._decoder.forward(targets=targets,
                                                 lengths=lengths,
@@ -78,6 +90,21 @@ class SeqToSeq(nn.Module):
         """
         self._encoder.optimizer.zero_grad()
         self._decoder.optimizer.zero_grad()
+
+    @classmethod
+    def abstract(cls):
+        return False
+
+    @classmethod
+    def descriptor(cls, components):
+        encoder_type = components['encoder']['encoder_type']
+        decoder_type = components['decoder']['decoder_type']
+        encoder_params = components['encoder']['encoder_params']
+        decoder_params = components['decoder']['decoder_params']
+        return {
+            'encoder_params': cls._encoders[encoder_type].desciptor(encoder_params),
+            'decoder_params': cls._decoders[decoder_type].desciptor(decoder_params),
+        }
 
     @property
     def decoder_embedding(self):
@@ -110,3 +137,7 @@ class SeqToSeq(nn.Module):
         :return:
         """
         self._encoder.embedding = embedding
+
+
+class Transformer(Models):
+    pass

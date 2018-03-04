@@ -119,6 +119,10 @@ class AttentionRNNDecoder(decoder.RNNDecoder):
 
         return NotImplementedError
 
+    @classmethod
+    def abstract(cls):
+        return True
+
 
 class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
     """
@@ -135,17 +139,8 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
     def __init__(self, parameter_setter):
         """
-        An instance of a decoder, using Bahdanau-style attention mechanism.
-        :param parameter_setter: required parameters for the setter object.
-            :parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
-            :parameter embedding_size: int, dimension of the word embeddings.
-            :parameter output_size: int, size of the (vocabulary) output layer of the decoder.
-            :parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
-            :parameter num_layers: int, number of stacked RNN layers.
-            :parameter learning_rate: float, learning rate.
-            :parameter max_length: int, maximum length of the sequence decoding.
-            :parameter use_cuda: bool, True if the device has cuda support.
-            :parameter tf_ratio: float, teacher forcing ratio.
+
+        :param parameter_setter:
         """
         super().__init__(parameter_setter=parameter_setter+{'_input_size': '_hidden_size+_embedding_size'})
 
@@ -217,6 +212,10 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)
         return energy
+
+    @classmethod
+    def abstract(cls):
+        return False
 
 
 class LuongAttentionRNNDecoder(AttentionRNNDecoder):
@@ -302,19 +301,6 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
     """
 
     def __init__(self, parameter_setter):
-        """
-        A specific case of Luong style attention.
-        :param parameter_setter: required parameters for the setter object.
-            :parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
-            :parameter embedding_size: int, dimension of the word embeddings.
-            :parameter output_size: int, size of the (vocabulary) output layer of the decoder.
-            :parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
-            :parameter num_layers: int, number of stacked RNN layers.
-            :parameter learning_rate: float, learning rate.
-            :parameter max_length: int, maximum length of the sequence decoding.
-            :parameter use_cuda: bool, True if the device has cuda support.
-            :parameter tf_ratio: float, teacher forcing ratio.
-        """
         super().__init__(parameter_setter=parameter_setter)
 
         self.__attention_layer = None
@@ -347,6 +333,10 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
         energy = torch.bmm(decoder_state.unsqueeze(1), energy.unsqueeze(1).transpose(1, 2)).squeeze(-1)
         return energy
 
+    @classmethod
+    def abstract(cls):
+        return False
+
 
 class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
     """
@@ -356,19 +346,6 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
     """
 
     def __init__(self, parameter_setter):
-        """
-        A specific case of Luong style attention.
-        :param parameter_setter: required parameters for the setter object.
-            :parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
-            :parameter embedding_size: int, dimension of the word embeddings.
-            :parameter output_size: int, size of the (vocabulary) output layer of the decoder.
-            :parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
-            :parameter num_layers: int, number of stacked RNN layers.
-            :parameter learning_rate: float, learning rate.
-            :parameter max_length: int, maximum length of the sequence decoding.
-            :parameter use_cuda: bool, True if the device has cuda support.
-            :parameter tf_ratio: float, teacher forcing ratio.
-        """
         super().__init__(parameter_setter=parameter_setter)
 
     def init_parameters(self):
@@ -391,6 +368,10 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
         """
         return torch.bmm(decoder_state.unsqueeze(1), encoder_output.unsqueeze(1).transpose(1, 2)).squeeze(-1)
 
+    @classmethod
+    def abstract(cls):
+        return False
+
 
 class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
     """
@@ -402,19 +383,6 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
     method, however the computation path follows the Luong style.
     """
     def __init__(self, parameter_setter):
-        """
-        A specific case of Luong style attention.
-        :param parameter_setter: required parameters for the setter object.
-            :parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
-            :parameter embedding_size: int, dimension of the word embeddings.
-            :parameter output_size: int, size of the (vocabulary) output layer of the decoder.
-            :parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
-            :parameter num_layers: int, number of stacked RNN layers.
-            :parameter learning_rate: float, learning rate.
-            :parameter max_length: int, maximum length of the sequence decoding.
-            :parameter use_cuda: bool, True if the device has cuda support.
-            :parameter tf_ratio: float, teacher forcing ratio.
-        """
         super().__init__(parameter_setter=parameter_setter)
 
         self.__attention_layer = None
@@ -454,7 +422,16 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
         energy = torch.mm(energy, self.__transformer)
         return energy
 
+    @classmethod
+    def abstract(cls):
+        return False
+
 
 class AttentionCNNDecoder(decoder.CNNDecoder):
+    # TODO
+    pass
+
+
+class AttentionQRNNDecoder(decoder.QRNNDeocder):
     # TODO
     pass
