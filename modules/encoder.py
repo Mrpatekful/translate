@@ -20,6 +20,10 @@ class Encoder(nn.Module):
     def abstract(cls):
         return True
 
+    @classmethod
+    def descriptor(cls, **kwargs):
+        return NotImplementedError
+
     @property
     def interface(self):
         return [parameter for parameter in self.__dict__.keys()
@@ -31,6 +35,15 @@ class RNNEncoder(Encoder):
     Recurrent encoder module of the sequence to sequence model.
     """
 
+    _param_dict = {
+        'hidden_size': Parameter(name='_hidden_size',        doc='int, size of recurrent layer of the LSTM/GRU.'),
+        'embedding_size': Parameter(name='_embedding_size',  doc='int, dimension of the word embeddings.'),
+        'recurrent_type':  Parameter(name='_recurrent_type', doc='str, name of the recurrent layer (GRU, LSTM).'),
+        'num_layers': Parameter(name='_num_layers',          doc='int, number of stacked RNN layers.'),
+        'learning_rate': Parameter(name='_learning_rate',    doc='float, learning rate.'),
+        'use_cuda':  Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.')
+    }
+
     def __init__(self, parameter_setter):
         """
         A recurrent encoder module for the sequence to sequence model.
@@ -41,22 +54,13 @@ class RNNEncoder(Encoder):
             :parameter learning_rate: float, learning rate.
             :parameter use_cuda: bool, True if the device has cuda support.
         """
-        super(RNNEncoder, self).__init__()
+        super().__init__()
         self._parameter_setter = parameter_setter
-
-        self._hidden_size = Parameter(name='_hidden_size',       doc='int, size of recurrent layer of the LSTM/GRU.')
-        self._embedding_size = Parameter(name='_embedding_size', doc='int, dimension of the word embeddings.')
-        self._recurrent_type = Parameter(name='_recurrent_type', doc='str, name of the recurrent layer (GRU, LSTM).')
-        self._num_layers = Parameter(name='_num_layers',         doc='int, number of stacked RNN layers.')
-        self._learning_rate = Parameter(name='_learning_rate',   doc='float, learning rate.')
-        self._use_cuda = Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.')
 
         self._embedding = None
         self._optimizer = None
 
         self._recurrent_layer = None
-
-        self._set_interface()
 
     def init_parameters(self):
         """
@@ -64,6 +68,9 @@ class RNNEncoder(Encoder):
         After initialization, the main components of the encoder, which require the previously
         initialized parameter values, are created as well.
         """
+        for parameter in self._param_dict:
+            self.__dict__[self._param_dict[parameter].name] = self._param_dict[parameter]
+
         self._parameter_setter(self.__dict__)
 
         if self._recurrent_type.value == 'LSTM':
@@ -132,6 +139,10 @@ class RNNEncoder(Encoder):
     @classmethod
     def abstract(cls):
         return False
+
+    @classmethod
+    def descriptor(cls, **kwargs):
+        return
 
     @property
     def optimizer(self):
