@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="f12d92c7-3fe5-4807-915e-25af21dcca9e" name="Default" comment="">
+    <list default="true" id="f12d92c7-3fe5-4807-915e-25af21dcca9e" name="Default" comment="refactor">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -111,8 +111,8 @@
           <file leaf-file-name="utils.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/utils/utils.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="663">
-                  <caret line="149" column="58" lean-forward="false" selection-start-line="149" selection-start-column="58" selection-end-line="149" selection-end-column="58" />
+                <state relative-caret-position="807">
+                  <caret line="157" column="32" lean-forward="true" selection-start-line="157" selection-start-column="32" selection-end-line="157" selection-end-column="32" />
                   <folding>
                     <element signature="e#0#51#0" expanded="true" />
                   </folding>
@@ -674,7 +674,14 @@
       <option name="project" value="LOCAL" />
       <updated>1520287751023</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="refactor">
+      <created>1520287763131</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1520287763131</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -722,7 +729,8 @@
     <MESSAGE value="parameters refactored" />
     <MESSAGE value="grad bug fix" />
     <MESSAGE value="parsing" />
-    <option name="LAST_COMMIT_MESSAGE" value="parsing" />
+    <MESSAGE value="refactor" />
+    <option name="LAST_COMMIT_MESSAGE" value="refactor" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -1153,8 +1161,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/utils/utils.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="663">
-          <caret line="149" column="58" lean-forward="false" selection-start-line="149" selection-start-column="58" selection-end-line="149" selection-end-column="58" />
+        <state relative-caret-position="807">
+          <caret line="157" column="32" lean-forward="true" selection-start-line="157" selection-start-column="32" selection-end-line="157" selection-end-column="32" />
           <folding>
             <element signature="e#0#51#0" expanded="true" />
           </folding>
