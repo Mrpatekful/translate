@@ -23,7 +23,17 @@ class Task:
 
 class UnsupervisedTranslation(Task):
     """
+    Translation task, without parallel corpus. The method follows the main principles described
+    in this article:
 
+        https://arxiv.org/abs/1711.00043
+
+    The main goal of this task is to train a denoising auto-encoder, that learns to map
+    sentences to sentences in two ways. The first way is to transform a noisy version of
+    the source sentence to it's original form, and the second way is to transform a translated
+    version of a sentence to it's original form. There is an additional factor during training,
+    which is an adversial reguralization, that learns to discriminate the hidden representations
+    of the source and target languages.
     """
 
     def __init__(self,
@@ -34,13 +44,13 @@ class UnsupervisedTranslation(Task):
                  model,
                  model_params):
         """
-
-        :param source_reader:
-        :param target_reader:
-        :param source_language:
-        :param target_language:
-        :param model:
-        :param model_params:
+        An instance of an unsupervised translation task.
+        :param source_reader: Reader, an instance of a reader object, that may be a FastReader or FileReader.
+        :param target_reader: Reader, that is the same as the source reader, but for the target language.
+        :param source_language: Language, the language object, that will be used as the source language.
+        :param target_language: Language, that will be used as the target language.
+        :param model: Model, the class of the model, that will be used for this task.
+        :param model_params: dict, the parameters that are required by the model.
         """
         self._source_language = source_language
         self._target_language = target_language
@@ -53,8 +63,9 @@ class UnsupervisedTranslation(Task):
 
     def fit_model(self, epochs):
         """
-        :param epochs:
-        :return:
+        Fits the model to the data. The training session is run until convergence, or
+        the given epochs.
+        :param epochs: int, the number of maximum epochs.
         """
         loss_function = torch.nn.NLLLoss(ignore_index=0)
         noise_function = utils.NoiseModel()
@@ -85,12 +96,15 @@ class UnsupervisedTranslation(Task):
               noise_function,
               loss_function):
         """
-
-        :param input_batch:
-        :param lengths:
-        :param noise_function:
-        :param loss_function:
-        :return:
+        A single step of the training. A single batch of data is propagated forward the model,
+        evaluated, and back-propagated. The parameters are updated by calling the
+        :param input_batch: Variable, containing the ids of the words.
+        :param lengths: Ndarray, containing the lengths of each sentence in the input batch.
+        :param noise_function: The noise model, that will be applied to the input sentences. As
+                               written in the task description, this could serve as a dropout like
+                               mechanism, or a translation model from the previous iteration.
+        :param loss_function: The loss function used for the calculation of the error.
+        :return: int, loss at the current time step, produced by this iteration.
         """
         self._model.zero_grad()
 
@@ -124,9 +138,11 @@ class UnsupervisedTranslation(Task):
     @classmethod
     def assemble(cls, params):
         """
-
-        :param params:
-        :return:
+        Assembler function for the unsupervised translation task. This method
+        creates the reader and language objects described by the parameters.
+        :param params: dict, containing the parameters for the source and target objects that
+                       are required by this task.
+        :return: dict, containing the instantiated reader and language objects.
         """
         readers = utils.subclasses(reader.Reader)
 
@@ -135,16 +151,16 @@ class UnsupervisedTranslation(Task):
 
         source_reader = readers[params['reader']['source_reader']]
         source_reader = source_reader(language=source_language,
-                                      max_segment_size=params['max_segment_size'],
+                                      max_segment_size=params['reader']['max_segment_size'],
                                       data_path=params['data']['source_data'],
-                                      batch_size=params['batch_size'],
+                                      batch_size=params['reader']['batch_size'],
                                       use_cuda=params['use_cuda'])
 
         target_reader = readers[params['reader']['target_reader']]
         target_reader = target_reader(language=target_language,
-                                      max_segment_size=params['max_segment_size'],
+                                      max_segment_size=params['reader']['max_segment_size'],
                                       data_path=params['data']['target_data'],
-                                      batch_size=params['batch_size'],
+                                      batch_size=params['reader']['batch_size'],
                                       use_cuda=params['use_cuda'])
 
         return {

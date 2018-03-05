@@ -1,3 +1,5 @@
+from modules.base.encoder import Encoder
+
 import torch
 import torch.nn as nn
 import torch.autograd as autograd
@@ -6,23 +8,6 @@ import torch.optim
 from utils.utils import padded_sequence_to_batch
 from utils.utils import batch_to_padded_sequence
 from utils.utils import Parameter
-
-
-class Encoder(nn.Module):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-
-    def forward(self, *args, **kwargs):
-        return NotImplementedError
-
-    @classmethod
-    def assemble(cls, params):
-        return NotImplementedError
-
-    @classmethod
-    def abstract(cls):
-        return True
 
 
 class RNNEncoder(Encoder):
@@ -55,6 +40,11 @@ class RNNEncoder(Encoder):
         self._recurrent_layer = None
         self._embedding_layer = None
         self._optimizer = None
+
+        self._encoder_outputs = {
+            'hidden_state': None,
+            'outputs': None
+        }
 
     def init_parameters(self):
         """
@@ -105,20 +95,15 @@ class RNNEncoder(Encoder):
         """
         initial_state = self._init_hidden(inputs.size(0))
 
-        encoder_outputs = {
-            'hidden_state': None,
-            'outputs': None
-        }
-
         embedded_inputs = self._embedding_layer(inputs)
         padded_sequence = batch_to_padded_sequence(embedded_inputs, lengths)
 
         self._recurrent_layer.flatten_parameters()
 
-        outputs, encoder_outputs['hidden_state'] = self._recurrent_layer(padded_sequence, initial_state)
-        encoder_outputs['outputs'], _ = padded_sequence_to_batch(outputs)
+        outputs, self._encoder_outputs['hidden_state'] = self._recurrent_layer(padded_sequence, initial_state)
+        self._encoder_outputs['outputs'], _ = padded_sequence_to_batch(outputs)
 
-        return encoder_outputs
+        return self._encoder_outputs
 
     def _init_hidden(self, batch_size):
         """
@@ -187,75 +172,3 @@ class RNNEncoder(Encoder):
         :return: int, size of the hidden layer.
         """
         return self._hidden_size.value
-
-
-class CNNEncoder(Encoder):  # TODO
-    """
-    Convolutional encoder module of the sequence to sequence model.
-    """
-
-    def __init__(self, ):
-        super(CNNEncoder, self).__init__()
-
-        self._embedding = None
-        self._optimizer = None
-
-    def forward(self,
-                inputs,
-                lengths,
-                hidden):
-        """
-        :param inputs:
-        :param lengths:
-        :param hidden:
-        :return:
-        """
-        return NotImplementedError
-
-    @classmethod
-    def abstract(cls):
-        return False
-
-    @property
-    def optimizer(self):
-        """
-
-        :return:
-        """
-        return self._optimizer
-
-    @optimizer.setter
-    def optimizer(self, optimizer):
-        """
-
-        :param optimizer:
-        :return:
-        """
-        self._optimizer = optimizer
-
-    @property
-    def embedding(self):
-        """
-
-        :return:
-        """
-        return self._embedding
-
-    @embedding.setter
-    def embedding(self, embedding):
-        """
-
-        :param embedding:
-        :return:
-        """
-        self._embedding = nn.Embedding(embedding.size(0), embedding.size(1))
-        self._embedding.weight = nn.Parameter(embedding)
-        self._embedding.weight.requires_grad = False
-
-    @property
-    def hidden_size(self):
-        """
-        Property for the hidden size of the recurrent layer.
-        :return: int, size of the hidden layer.
-        """
-        return self._hidden_dim

@@ -78,7 +78,6 @@ class Logger:
     """
     Logger class for saving the progress of training.
     """
-    _log_dir = None
 
     def __init__(self,
                  params,
@@ -88,7 +87,7 @@ class Logger:
         :param params: tuple, name of the input parameters, which will be logged.
         :param dump_interval: int, number of iteration, between two log dumps.
         """
-
+        self._log_dir = None
         self._id = 1
         self._params = params
         self._dump_interval = dump_interval
@@ -138,8 +137,8 @@ class Logger:
     @property
     def log_dir(self):
         """
-
-        :return:
+        Property for the logging directory.
+        :return: str, location of the logs.
         """
         if self._log_dir is None:
             raise ValueError('Log directory has not been defined.')
@@ -148,8 +147,7 @@ class Logger:
     @log_dir.setter
     def log_dir(self, log_dir):
         """
-
-        :param log_dir:
+        Setter for the directory of the logging directory.
         """
         self._log_dir = log_dir
 
@@ -272,7 +270,7 @@ class ParameterSetter:
                         new_parameters[key] = self._param_dict[new_parameters[key]]
 
         except IndexError:
-            print('Invalid value for parameter: Empty string.')
+            print('Invalid value for parameter.')
             return
 
         except KeyError:

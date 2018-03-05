@@ -11,7 +11,7 @@
             }
         },
         "decoder": {
-            "decoder_type": "RNNDecoder",
+            "decoder_type": "GeneralAttentionRNNDecoder",
             "decoder_params": {
                 "hidden_size": 50,
                 "recurrent_type": "LSTM",

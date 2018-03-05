@@ -3,7 +3,9 @@
     "components": {
         "reader": {
             "source_reader": "FastReader",
-            "target_reader": "FastReader"
+            "target_reader": "FastReader",
+            "max_segment_size": 1000,
+            "batch_size": 32
         },
         "data": {
             "source_data": "data/eng/eng_seg",
@@ -18,9 +20,7 @@
                 "optimalization": "RMSProp",
                 "learning_rate": 0.01
             }
-        },
-        "max_segment_size": 1000,
-        "batch_size": 32
+        }
     },
     "use_cuda": true
 }

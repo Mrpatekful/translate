@@ -1,34 +1,10 @@
+from ..base.discriminator import Discriminator
+
 import torch
 import torch.nn as nn
 
 
-class Discriminator(nn.Module):
-    """
-
-    """
-
-    def __init__(self):
-        super().__init__()
-
-    def forward(self,
-                inputs,
-                input_dim,
-                hidden_dim,
-                learning_rate,
-                use_cuda):
-        """
-
-        :param inputs:
-        :param input_dim:
-        :param hidden_dim:
-        :param learning_rate:
-        :param use_cuda:
-        :return:
-        """
-        pass
-
-
-class MLPDiscriminator(Discriminator):
+class MLPDiscriminator(Discriminator):  # TODO
     """
 
     """
@@ -64,21 +40,18 @@ class MLPDiscriminator(Discriminator):
                 inputs,
                 input_dim,
                 hidden_dim,
-                learning_rate,
-                use_cuda):
+                learning_rate):
         """
 
         :param inputs:
         :param input_dim:
         :param hidden_dim:
         :param learning_rate:
-        :param use_cuda:
         :return:
         """
         output = self._activation(self._input_layer(inputs))
         output = self._activation(self._hidden_layer(output))
         output = self._activation(self._output_layer(output))
-        # TODO smoothing coefficient 0.1
         return output
 
     @property
@@ -99,7 +72,7 @@ class MLPDiscriminator(Discriminator):
         self._optimizer = optimizer
 
 
-class RNNDiscriminator(Discriminator):
+class RNNDiscriminator(Discriminator):  # TODO
     """
 
     """
@@ -122,19 +95,13 @@ class RNNDiscriminator(Discriminator):
                 inputs,
                 input_dim,
                 hidden_dim,
-                learning_rate,
-                use_cuda):
+                learning_rate):
         """
 
         :param inputs:
         :param input_dim:
         :param hidden_dim:
         :param learning_rate:
-        :param use_cuda:
         :return:
         """
-        output = self._activation(self._input_layer(inputs))
-        output = self._activation(self._hidden_layer(output))
-        output = self._activation(self._output_layer(output))
-        # TODO smoothing coefficient 0.1
-        return output
+        return NotImplementedError
