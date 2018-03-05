@@ -1,51 +1,37 @@
 from utils import utils
-from models import models
+from utils import reader
 
 import torch
-import abc
 
 
-class Task(metaclass=abc.ABCMeta):
-    """
+class Task:
 
-    """
-
-    @abc.abstractmethod
     def fit_model(self, *args, **kwargs):
-        """
+        return NotImplementedError
 
-        """
+    def test_model(self, *args, **kwargs):
+        return NotImplementedError
 
-    @abc.abstractmethod
-    def _train_step(self, *args, **kwargs):
-        """
+    @classmethod
+    def assemble(cls, params):
+        return NotImplementedError
 
-        """
-    @abc.abstractmethod
-    def _save_model(self):
-        """
-
-        """
-
-    @abc.abstractmethod
-    def _load_model(self):
-        """
-
-        """
+    @classmethod
+    def abstract(cls):
+        return True
 
 
 class UnsupervisedTranslation(Task):
     """
 
     """
-    _models = utils.subclasses(models.Models)
 
     def __init__(self,
                  source_reader,
                  target_reader,
                  source_language,
                  target_language,
-                 model_type,
+                 model,
                  model_params):
         """
 
@@ -53,7 +39,7 @@ class UnsupervisedTranslation(Task):
         :param target_reader:
         :param source_language:
         :param target_language:
-        :param model_type:
+        :param model:
         :param model_params:
         """
         self._source_language = source_language
@@ -62,7 +48,8 @@ class UnsupervisedTranslation(Task):
         self._source_reader = source_reader
         self._target_reader = target_reader
 
-        self._model = self._models[model_type](**model_params)
+        self._model = model(**model_params)
+        print(self._model)
 
     def fit_model(self, epochs):
         """
@@ -78,18 +65,25 @@ class UnsupervisedTranslation(Task):
             loss = 0
 
             for batch, lengths in self._source_reader.batch_generator():
-                loss += self._train_step(input_batch=batch,
-                                         lengths=lengths,
-                                         loss_function=loss_function,
-                                         noise_function=noise_function)
+                loss += self._step(input_batch=batch,
+                                   lengths=lengths,
+                                   loss_function=loss_function,
+                                   noise_function=noise_function)
 
             print(epoch, loss)
 
-    def _train_step(self,
-                    input_batch,
-                    lengths,
-                    noise_function,
-                    loss_function):
+    def test_model(self):
+        """
+
+        :return:
+        """
+        # TODO
+
+    def _step(self,
+              input_batch,
+              lengths,
+              noise_function,
+              loss_function):
         """
 
         :param input_batch:
@@ -118,11 +112,48 @@ class UnsupervisedTranslation(Task):
 
         :return:
         """
-        pass
+        # TODO
 
     def _load_model(self):
         """
 
         :return:
         """
-        pass
+        # TODO
+
+    @classmethod
+    def assemble(cls, params):
+        """
+
+        :param params:
+        :return:
+        """
+        readers = utils.subclasses(reader.Reader)
+
+        source_language = utils.Language(params['data']['source_vocab'])
+        target_language = utils.Language(params['data']['target_vocab'])
+
+        source_reader = readers[params['reader']['source_reader']]
+        source_reader = source_reader(language=source_language,
+                                      max_segment_size=params['max_segment_size'],
+                                      data_path=params['data']['source_data'],
+                                      batch_size=params['batch_size'],
+                                      use_cuda=params['use_cuda'])
+
+        target_reader = readers[params['reader']['target_reader']]
+        target_reader = target_reader(language=target_language,
+                                      max_segment_size=params['max_segment_size'],
+                                      data_path=params['data']['target_data'],
+                                      batch_size=params['batch_size'],
+                                      use_cuda=params['use_cuda'])
+
+        return {
+            'source_language': source_language,
+            'target_language': target_language,
+            'source_reader': source_reader,
+            'target_reader': target_reader,
+        }
+
+    @classmethod
+    def abstract(cls):
+        return False

@@ -4,7 +4,6 @@ import torch
 from torch.autograd import Variable
 
 import sklearn.utils
-import abc
 import copy
 
 
@@ -66,14 +65,13 @@ class DataQueue:
             yield data_segment  # the segment is not filled, returning with the remaining values
 
 
-class Reader(metaclass=abc.ABCMeta):
+class Reader:
     """
     Derived classes should implement the reading logic for the seq2seq model. Readers divide the
     data into segments. The purpose of this behaviour, is to keep the sentences with similar lengths
     in segments, so they can be freely shuffled without mixing them together with larger sentences.
     """
 
-    @abc.abstractmethod
     def batch_generator(self):
         """
         The role of this function is to generate batches for the seq2seq model. The batch generation
@@ -81,6 +79,11 @@ class Reader(metaclass=abc.ABCMeta):
         all of the data samples.
         :return: PyTorch padded-sequence object.
         """
+        return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return True
 
 
 class FileReader(Reader):
@@ -138,6 +141,10 @@ class FileReader(Reader):
             return result.cuda()
         else:
             return result
+
+    @classmethod
+    def abstract(cls):
+        return False
 
     @property
     def language(self):
@@ -206,6 +213,10 @@ class FastReader(Reader):
         """
         for index in range(0, len(self._data), self._max_segment_size):
             yield copy.deepcopy(self._data[index:index + self._max_segment_size])
+
+    @classmethod
+    def abstract(cls):
+        return False
 
     class PrePadding:
         """

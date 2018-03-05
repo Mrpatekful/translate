@@ -5,9 +5,6 @@ import torch.autograd as autograd
 
 from . import decoder
 
-from utils.utils import Logger
-from utils.utils import logging
-
 import numpy as np
 
 
@@ -53,33 +50,28 @@ class AttentionRNNDecoder(decoder.RNNDecoder):
 
         return context, attn_weights
 
-    _logging_params = ('inputs', 'encoder_outputs', 'hidden_state')
-
-    @logging(logger=Logger(_logging_params))
     def forward(self,
                 targets,
-                encoder_outputs,
+                outputs,
                 lengths,
                 hidden_state,
-                loss_function,
-                tf_ratio):
+                loss_function):
         """
         An attentional forward step. The calculations can be done with or without teacher fording.
         :param targets: Variable, (batch_size, sequence_length) a batch of word ids.
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param lengths: Ndarray, an array for storing the real lengths of the sequences in the batch.
         :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
         :param loss_function: loss function of the decoder.
-        :param tf_ratio: int, if 1, teacher forcing is always used. Set to 0 to disable teacher forcing.
         :return loss: int, loss of the decoding
         :return symbols: Ndarray, the decoded word ids.
         """
         batch_size = targets.size(0)
         sequence_length = targets.size(1)
 
-        self.decoder_outputs['symbols'] = np.zeros((batch_size, sequence_length), dtype='int')
-        self.decoder_outputs['attention'] = np.zeros((batch_size, sequence_length, sequence_length))
-        self.decoder_outputs['loss'] = 0
+        decoder_outputs = {'symbols': np.zeros((batch_size, sequence_length), dtype='int'),
+                           'attention': np.zeros((batch_size, sequence_length, sequence_length)),
+                           'loss': 0}
 
         use_teacher_forcing = True
 
@@ -88,30 +80,28 @@ class AttentionRNNDecoder(decoder.RNNDecoder):
                 step_input = targets[:, step].unsqueeze(-1)
                 step_output, hidden_state, attn_weights = self._decode(decoder_input=step_input,
                                                                        hidden_state=hidden_state,
-                                                                       encoder_outputs=encoder_outputs,
+                                                                       encoder_outputs=outputs,
                                                                        batch_size=batch_size,
                                                                        sequence_length=sequence_length)
 
-                self.decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
-                self.decoder_outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
-                self.decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1)\
-                    .squeeze(-1).cpu().numpy()
+                decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
+                decoder_outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+                decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
 
         else:
             for step in range(sequence_length):
                 step_input = targets[:, step].unsqueeze(-1)
                 step_output, hidden_state, attn_weights = self._decode(decoder_input=step_input,
                                                                        hidden_state=hidden_state,
-                                                                       encoder_outputs=encoder_outputs,
+                                                                       encoder_outputs=outputs,
                                                                        batch_size=batch_size,
                                                                        sequence_length=sequence_length)
 
-                self.decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
-                self.decoder_outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
-                self.decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1)\
-                    .squeeze(-1).cpu().numpy()
+                decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
+                decoder_outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+                decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
 
-        return self.decoder_outputs
+        return decoder_outputs
 
     def _score(self,
                encoder_outputs,
@@ -142,7 +132,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
         :param parameter_setter:
         """
-        super().__init__(parameter_setter=parameter_setter+{'_input_size': '_hidden_size+_embedding_size'})
+        super().__init__(parameter_setter=parameter_setter)
 
         self._attention_layer = None
         self._projection_layer = None
@@ -214,6 +204,15 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         return energy
 
     @classmethod
+    def assemble(cls, params):
+        return {
+            **{cls._param_dict[param].name: params[param] for param in params},
+            cls._param_dict['embedding_size'].name: params['target_language'].embedding_size + params['hidden_size'],
+            cls._param_dict['input_size'].name: params['target_language'].embedding_size,
+            cls._param_dict['output_size'].name: params['target_language'].vocab_size
+        }
+
+    @classmethod
     def abstract(cls):
         return False
 
@@ -237,7 +236,7 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
         essentially have the same computational path, but they differ in the scoring mechanism of the
         similarity between the encoder and decoder states.
         """
-        super().__init__(parameter_setter=parameter_setter+{'_input_size': '_embedding_size'})
+        super().__init__(parameter_setter=parameter_setter)
 
         self._projection_layer = None
 

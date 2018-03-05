@@ -1,0 +1,25 @@
+{
+    "model_type": "SeqToSeq",
+    "components": {
+        "encoder":  {
+            "encoder_type": "RNNEncoder",
+            "encoder_params": {
+                "hidden_size": 50,
+                "recurrent_type": "LSTM",
+                "num_layers": 2,
+                "learning_rate": 0.01
+            }
+        },
+        "decoder": {
+            "decoder_type": "RNNDecoder",
+            "decoder_params": {
+                "hidden_size": 50,
+                "recurrent_type": "LSTM",
+                "num_layers": 2,
+                "learning_rate": 0.01,
+                "max_length": 15,
+                "tf_ratio": 0
+            }
+        }
+    }
+}

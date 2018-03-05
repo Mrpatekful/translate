@@ -6,7 +6,7 @@ from modules import encoder
 from utils import utils
 
 
-class Models(nn.Module):
+class Model(nn.Module):
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -21,7 +21,7 @@ class Models(nn.Module):
         return NotImplementedError
 
     @classmethod
-    def descriptor(cls, components):
+    def assemble(cls, params):
         return NotImplementedError
 
     @classmethod
@@ -29,7 +29,7 @@ class Models(nn.Module):
         return True
 
 
-class SeqToSeq(Models):
+class SeqToSeq(Model):
     """
     Sequence to sequence model for translation.
     """
@@ -50,8 +50,8 @@ class SeqToSeq(Models):
         """
         super().__init__()
 
-        self._encoder = self._encoders[encoder_type](encoder_params).init_parameters().init_optimizer()
-        self._decoder = self._decoders[decoder_type](decoder_params).init_parameters().init_optimizer()
+        self._encoder = encoder_type(encoder_params).init_parameters().init_optimizer()
+        self._decoder = decoder_type(decoder_params).init_parameters().init_optimizer()
 
     def forward(self,
                 inputs,
@@ -70,10 +70,8 @@ class SeqToSeq(Models):
 
         decoder_outputs = self._decoder.forward(targets=targets,
                                                 lengths=lengths,
-                                                encoder_outputs=encoder_outputs['hidden_states'],
-                                                hidden_state=encoder_outputs['final_state'],
                                                 loss_function=loss_function,
-                                                tf_ratio=1)
+                                                **encoder_outputs)
 
         return decoder_outputs, encoder_outputs
 
@@ -96,14 +94,31 @@ class SeqToSeq(Models):
         return False
 
     @classmethod
-    def descriptor(cls, components):
-        encoder_type = components['encoder']['encoder_type']
-        decoder_type = components['decoder']['decoder_type']
-        encoder_params = components['encoder']['encoder_params']
-        decoder_params = components['decoder']['decoder_params']
+    def assemble(cls, params):
+        """
+
+        :param params:
+        :return:
+        """
+        enc = cls._encoders[params['encoder']['encoder_type']]
+        encoder_params = utils.ParameterSetter(enc.assemble({
+            **params['encoder']['encoder_params'],
+            'source_language': params['source_language'],
+            'use_cuda': params['use_cuda']
+        }))
+
+        dec = cls._decoders[params['decoder']['decoder_type']]
+        decoder_params = utils.ParameterSetter(dec.assemble({
+            **params['decoder']['decoder_params'],
+            'target_language': params['target_language'],
+            'use_cuda': params['use_cuda']
+        }))
+
         return {
-            'encoder_params': cls._encoders[encoder_type].desciptor(encoder_params),
-            'decoder_params': cls._decoders[decoder_type].desciptor(decoder_params),
+            'encoder_type': enc,
+            'decoder_type': dec,
+            'encoder_params': encoder_params,
+            'decoder_params': decoder_params
         }
 
     @property
@@ -139,5 +154,5 @@ class SeqToSeq(Models):
         self._encoder.embedding = embedding
 
 
-class Transformer(Models):
+class Transformer(Model):
     pass

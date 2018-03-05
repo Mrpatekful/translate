@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as functional
 
 from utils.utils import Parameter
-from utils.utils import Logger
-from utils.utils import logging
 
 import numpy as np
 
@@ -18,21 +16,31 @@ class Decoder(nn.Module):
         return NotImplementedError
 
     @classmethod
+    def assemble(cls, params):
+        return NotImplementedError
+
+    @classmethod
     def abstract(cls):
         return True
-
-    @property
-    def interface(self):
-        return {
-            parameter: self.__dict__[parameter] for parameter in self.__dict__.keys()
-            if isinstance(self.__dict__[parameter], Parameter)
-        }
 
 
 class RNNDecoder(Decoder):
     """
     Decoder module of the sequence to sequence model.
     """
+
+    _param_dict = {
+        'hidden_size': Parameter(name='_hidden_size',       doc='int, size of recurrent layer of the LSTM/GRU.'),
+        'embedding_size': Parameter(name='_embedding_size', doc='int, dimension of the word embeddings.'),
+        'output_size': Parameter(name='_output_size',       doc='int, size of the output layer of the decoder.'),
+        'input_size': Parameter(name='_input_size',         doc='int, size of the input layer of the RNN.'),
+        'recurrent_type': Parameter(name='_recurrent_type', doc='str, name of the recurrent layer (GRU, LSTM).'),
+        'num_layers': Parameter(name='_num_layers',         doc='int, number of stacked RNN layers.'),
+        'learning_rate': Parameter(name='_learning_rate',   doc='float, learning rate.'),
+        'max_length': Parameter(name='_max_length',         doc='int, maximum length of the sequence decoding.'),
+        'use_cuda': Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.'),
+        'tf_ratio': Parameter(name='_tf_ratio',             doc='float, teacher forcing ratio.')
+    }
 
     def __init__(self, parameter_setter):
         """
@@ -51,23 +59,10 @@ class RNNDecoder(Decoder):
         super().__init__()
         self._parameter_setter = parameter_setter
 
-        self._hidden_size = Parameter(name='_hidden_size',       doc='int, size of recurrent layer of the LSTM/GRU.')
-        self._embedding_size = Parameter(name='_embedding_size', doc='int, dimension of the word embeddings.')
-        self._output_size = Parameter(name='_output_size',       doc='int, size of the output layer of the decoder.')
-        self._input_size = Parameter(name='_input_size',         doc='int, size of the input layer of the RNN.')
-        self._recurrent_type = Parameter(name='_recurrent_type', doc='str, name of the recurrent layer (GRU, LSTM).')
-        self._num_layers = Parameter(name='_num_layers',         doc='int, number of stacked RNN layers.')
-        self._learning_rate = Parameter(name='_learning_rate',   doc='float, learning rate.')
-        self._max_length = Parameter(name='_max_length',         doc='int, maximum length of the sequence decoding.')
-        self._use_cuda = Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.')
-        self._tf_ratio = Parameter(name='_tf_ratio',             doc='float, teacher forcing ratio.')
-
         self._recurrent_layer = None
         self._embedding_layer = None
         self._output_layer = None
         self._optimizer = None
-
-        self.decoder_outputs = {'loss': None, 'symbols': None, 'attention': None}
 
     def init_parameters(self):
         """
@@ -75,6 +70,9 @@ class RNNDecoder(Decoder):
         After initialization, the main components of the decoder, which require the previously
         initialized parameter values, are created as well.
         """
+        for parameter in self._param_dict:
+            self.__dict__[self._param_dict[parameter].name] = self._param_dict[parameter]
+
         self._parameter_setter(self.__dict__)
 
         if self._recurrent_type.value == 'LSTM':
@@ -82,12 +80,7 @@ class RNNDecoder(Decoder):
         else:
             unit_type = torch.nn.GRU
 
-        try:
-            input_size = self._input_size.value
-        except ValueError:
-            input_size = self._embedding_size.value
-
-        self._recurrent_layer = unit_type(input_size=input_size,
+        self._recurrent_layer = unit_type(input_size=self._input_size.value,
                                           hidden_size=self._hidden_size.value,
                                           num_layers=self._num_layers.value,
                                           bidirectional=False,
@@ -132,33 +125,31 @@ class RNNDecoder(Decoder):
 
         return output, hidden_state
 
-    _logging_params = ('inputs', 'encoder_outputs', 'hidden_state')
-
-    @logging(logger=Logger(_logging_params))
     def forward(self,
                 targets,
-                encoder_outputs,
+                outputs,
                 lengths,
                 hidden_state,
-                loss_function,
-                tf_ratio):
+                loss_function):
         """
         A forward step of the decoder. Processing can be done with different methods, with or
         without attention mechanism and teacher forcing.
         :param targets: Variable, (batch_size, sequence_length) a batch of word ids.
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param lengths: Ndarray, an array for storing the real lengths of the sequences in the batch.
         :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
         :param loss_function: loss function of the decoder.
-        :param tf_ratio: int, if 1, teacher forcing is always used. Set to 0 to disable teacher forcing.
         :return loss: int, loss of the decoding
         :return symbols: Ndarray, the decoded word ids.
         """
         batch_size = targets.size(0)
         sequence_length = targets.size(1)
 
-        self.decoder_outputs['symbols'] = np.zeros((batch_size, sequence_length), dtype='int')
-        self.decoder_outputs['loss'] = 0
+        decoder_outputs = {
+            'symbols': np.zeros((batch_size, sequence_length), dtype='int'),
+            'attention': None,
+            'loss': 0
+        }
 
         use_teacher_forcing = True
 
@@ -170,10 +161,9 @@ class RNNDecoder(Decoder):
                                                  sequence_length=None)
 
             for step in range(sequence_length):
-                self.decoder_outputs['symbols'][:, step] = outputs[:, step, :].topk(1)[1]\
-                    .squeeze(-1).data.cpu().numpy()
+                decoder_outputs['symbols'][:, step] = outputs[:, step, :].topk(1)[1].squeeze(-1).data.cpu().numpy()
 
-            self.decoder_outputs['loss'] = loss_function(outputs.view(-1, self._output_size.value), targets.view(-1))
+            decoder_outputs['loss'] = loss_function(outputs.view(-1, self._output_size.value), targets.view(-1))
 
         else:
             for step in range(sequence_length):
@@ -184,11 +174,19 @@ class RNNDecoder(Decoder):
                                                          batch_size=batch_size,
                                                          sequence_length=sequence_length)
 
-                self.decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
-                self.decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1)\
-                    .squeeze(-1).cpu().numpy()
+                decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
+                decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
 
-        return self.decoder_outputs
+        return decoder_outputs
+
+    @classmethod
+    def assemble(cls, params):
+        return {
+            **{cls._param_dict[param].name: params[param] for param in params if param in cls._param_dict},
+            cls._param_dict['embedding_size'].name: params['target_language'].embedding_size,
+            cls._param_dict['input_size'].name: params['target_language'].embedding_size,
+            cls._param_dict['output_size'].name: params['target_language'].vocab_size
+        }
 
     @classmethod
     def abstract(cls):

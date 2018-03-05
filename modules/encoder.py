@@ -17,17 +17,12 @@ class Encoder(nn.Module):
         return NotImplementedError
 
     @classmethod
-    def abstract(cls):
-        return True
-
-    @classmethod
-    def descriptor(cls, **kwargs):
+    def assemble(cls, params):
         return NotImplementedError
 
-    @property
-    def interface(self):
-        return [parameter for parameter in self.__dict__.keys()
-                if isinstance(self.__dict__[parameter], Parameter)]
+    @classmethod
+    def abstract(cls):
+        return True
 
 
 class RNNEncoder(Encoder):
@@ -57,10 +52,9 @@ class RNNEncoder(Encoder):
         super().__init__()
         self._parameter_setter = parameter_setter
 
-        self._embedding = None
-        self._optimizer = None
-
         self._recurrent_layer = None
+        self._embedding_layer = None
+        self._optimizer = None
 
     def init_parameters(self):
         """
@@ -111,15 +105,20 @@ class RNNEncoder(Encoder):
         """
         initial_state = self._init_hidden(inputs.size(0))
 
-        embedded_inputs = self._embedding(inputs)
+        encoder_outputs = {
+            'hidden_state': None,
+            'outputs': None
+        }
+
+        embedded_inputs = self._embedding_layer(inputs)
         padded_sequence = batch_to_padded_sequence(embedded_inputs, lengths)
 
         self._recurrent_layer.flatten_parameters()
 
-        outputs, final_hidden_state = self._recurrent_layer(padded_sequence, initial_state)
-        outputs, _ = padded_sequence_to_batch(outputs)
+        outputs, encoder_outputs['hidden_state'] = self._recurrent_layer(padded_sequence, initial_state)
+        encoder_outputs['outputs'], _ = padded_sequence_to_batch(outputs)
 
-        return outputs, final_hidden_state
+        return encoder_outputs
 
     def _init_hidden(self, batch_size):
         """
@@ -141,8 +140,11 @@ class RNNEncoder(Encoder):
         return False
 
     @classmethod
-    def descriptor(cls, **kwargs):
-        return
+    def assemble(cls, params):
+        return {
+            **{cls._param_dict[param].name: params[param] for param in params if param in cls._param_dict},
+            cls._param_dict['embedding_size'].name: params['source_language'].embedding_size,
+        }
 
     @property
     def optimizer(self):
@@ -166,7 +168,7 @@ class RNNEncoder(Encoder):
         Property for the encoder's embedding layer.
         :return: The currently used embeddings of the encoder.
         """
-        return self._embedding
+        return self._embedding_layer
 
     @embedding.setter
     def embedding(self, embedding):
@@ -174,9 +176,9 @@ class RNNEncoder(Encoder):
         Setter for the encoder's embedding layer.
         :param embedding: Embedding, to be set as the embedding layer of the encoder.
         """
-        self._embedding = nn.Embedding(embedding.size(0), embedding.size(1))
-        self._embedding.weight = nn.Parameter(embedding)
-        self._embedding.weight.requires_grad = False
+        self._embedding_layer = nn.Embedding(embedding.size(0), embedding.size(1))
+        self._embedding_layer.weight = nn.Parameter(embedding)
+        self._embedding_layer.weight.requires_grad = False
 
     @property
     def hidden_size(self):
