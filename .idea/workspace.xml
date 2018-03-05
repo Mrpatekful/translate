@@ -1,27 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="f12d92c7-3fe5-4807-915e-25af21dcca9e" name="Default" comment="parsing">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/models/base.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/modules/README.md" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/modules/base/decoder.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/modules/base/discriminator.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/modules/base/encoder.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/modules/cnn/decoders.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/modules/cnn/encoders.py" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/modules/decoder.py" afterPath="" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/modules/attention.py" afterPath="$PROJECT_DIR$/modules/rnn/decoders.py" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/modules/discriminator.py" afterPath="$PROJECT_DIR$/modules/utils/discriminators.py" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/modules/encoder.py" afterPath="$PROJECT_DIR$/modules/rnn/encoders.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/dictionaries/patrik.xml" afterPath="$PROJECT_DIR$/.idea/dictionaries/patrik.xml" />
+    <list default="true" id="f12d92c7-3fe5-4807-915e-25af21dcca9e" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/configs/README.md" afterPath="$PROJECT_DIR$/configs/README.md" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/configs/models/sts.json" afterPath="$PROJECT_DIR$/configs/models/sts.json" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/configs/tasks/nmt.json" afterPath="$PROJECT_DIR$/configs/tasks/nmt.json" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/models/models.py" afterPath="$PROJECT_DIR$/models/models.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/utils/config.py" afterPath="$PROJECT_DIR$/utils/config.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/utils/tasks.py" afterPath="$PROJECT_DIR$/utils/tasks.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/utils/utils.py" afterPath="$PROJECT_DIR$/utils/utils.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -686,7 +667,14 @@
       <option name="project" value="LOCAL" />
       <updated>1520251041934</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="parsing">
+      <created>1520287751023</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1520287751023</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -870,6 +858,9 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="450">
           <caret line="25" column="24" lean-forward="true" selection-start-line="25" selection-start-column="24" selection-end-line="25" selection-end-column="24" />
+          <folding>
+            <element signature="e#0#9#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
