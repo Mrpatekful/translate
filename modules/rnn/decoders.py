@@ -435,9 +435,9 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         :return: dict, processed and well-formatted parameters for an BahdanauAttentionRNNDecoder object.
         """
         return {
-            **{cls._param_dict[param].name: params[param] for param in params},
-            cls._param_dict['embedding_size'].name: params['target_language'].embedding_size + params['hidden_size'],
-            cls._param_dict['input_size'].name: params['target_language'].embedding_size,
+            **{cls._param_dict[param].name: params[param] for param in params if param in cls._param_dict},
+            cls._param_dict['embedding_size'].name: params['target_language'].embedding_size,
+            cls._param_dict['input_size'].name: params['target_language'].embedding_size + params['hidden_size'],
             cls._param_dict['output_size'].name: params['target_language'].vocab_size
         }
 

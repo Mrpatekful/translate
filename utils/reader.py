@@ -3,6 +3,8 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 
+from tqdm import tqdm
+
 import sklearn.utils
 import copy
 
@@ -183,10 +185,6 @@ class FastReader(Reader):
                                                 max_segment_size)
         self._data = self._data_processor(data_loader(data_path))
 
-        self._num_steps = (self._max_segment_size // batch_size) \
-            * (len(self._data) // self._max_segment_size)
-        self._step = 0
-
     def batch_generator(self):
         """
         Generator for mini-batches. Data is read from memory.
@@ -204,14 +202,13 @@ class FastReader(Reader):
                 lengths = batch[:, -1]
                 if self._use_cuda:
                     ids = ids.cuda()
-                self._step += 1
                 yield Variable(ids), lengths
 
     def _segment_generator(self):
         """
         Divides the data to segments of size MAX_SEGMENT_SIZE.
         """
-        for index in range(0, len(self._data), self._max_segment_size):
+        for index in tqdm(range(0, len(self._data), self._max_segment_size)):
             yield copy.deepcopy(self._data[index:index + self._max_segment_size])
 
     @classmethod
@@ -317,11 +314,3 @@ class FastReader(Reader):
         :return: Language object, the source language.
         """
         return self._language
-
-    @property
-    def progress(self):
-        """
-
-        :return:
-        """
-        return self._num_steps / self._step

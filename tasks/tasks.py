@@ -1,24 +1,12 @@
+from .base import Task
+
 from utils import utils
 from utils import reader
 
+from tqdm import tqdm
+import sys
+
 import torch
-
-
-class Task:
-
-    def fit_model(self, *args, **kwargs):
-        return NotImplementedError
-
-    def test_model(self, *args, **kwargs):
-        return NotImplementedError
-
-    @classmethod
-    def assemble(cls, params):
-        return NotImplementedError
-
-    @classmethod
-    def abstract(cls):
-        return True
 
 
 class UnsupervisedTranslation(Task):

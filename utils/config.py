@@ -1,7 +1,7 @@
 import json
 
 from models import models
-from utils import tasks
+from tasks import tasks
 from utils import utils
 
 
