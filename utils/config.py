@@ -4,6 +4,8 @@ from models import models
 from tasks import tasks
 from utils import utils
 
+import sys
+
 
 class Config:
     """
@@ -11,8 +13,6 @@ class Config:
     The configs are defined in JSON format files, which are parsed,
     and instantiated by the corresponding modules.
     """
-    _models = utils.subclasses(models.Model)
-    _tasks = utils.subclasses(tasks.Task)
 
     def __init__(self, task_config, model_config):
         """
@@ -31,36 +31,50 @@ class Config:
                             These are necessary for the creation of the model, since
                             it yields information about the size of the language vocab,
                             and embedding dimension.
+        :except KeyError: Invalid JSON file configuration.
         :return model: Model, the class of the model described by the configuration file.
         :return model_params: dict, the parameters required by the model class.
         """
-        try:
-            model = self._models[self._model_config['model_type']]
-            model_params = model.assemble({**task_params,
-                                           **self._model_config['components'],
-                                           'use_cuda': self._task_config['use_cuda']})
 
-        except KeyError:
-            print('Invalid JSON file for the given model.')
-            return
+        try:
+
+            _models = utils.subclasses(models.Model)
+            model = _models[self._model_config['type']]
+            model_params = model.assemble({
+                **task_params,
+                **self._model_config['params'],
+                'use_cuda': self._task_config['use_cuda']
+            })
+
+        except KeyError as error:
+            print('Error: Model configuration file does not follow the '
+                  'required format. %s' % error)
+            sys.exit()
 
         return model, model_params
 
     def _assemble_task(self):
         """
         Assembles the task, described by the task configuration file.
+        :except KeyError: Invalid JSON file configuration.
         :return task: Task, the class of the task, which was described in task_type tag.
         :return task_params: dict, the parameters of the task, which was created by
                              the assembler function of the specified task.
         """
-        try:
-            task = self._tasks[self._task_config['task_type']]
-            task_params = task.assemble({**self._task_config['components'],
-                                         'use_cuda': self._task_config['use_cuda']})
 
-        except KeyError:
-            print('Invalid JSON file for the given task.')
-            return
+        try:
+
+            _tasks = utils.subclasses(tasks.Task)
+            task = _tasks[self._task_config['type']]
+            task_params = task.assemble({
+                **self._task_config['params'],
+                'use_cuda': self._task_config['use_cuda']
+            })
+
+        except KeyError as error:
+            print('Error: Task configuration file does not follow the '
+                  'required format. %s' % error)
+            sys.exit()
 
         return task, task_params
 

@@ -1,7 +1,7 @@
 import re
 
-FILE_INPUT = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_org'
-FILE_OUTPUT = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_seg'
+FILE_INPUT = '../data/eng/eng_org'
+FILE_OUTPUT = '../data/eng/eng_seg'
 
 MIN_LENGTH = 5
 MAX_LENGTH = 10
@@ -17,12 +17,12 @@ def main():
                 if not (MIN_LENGTH < len(line_as_list) < MAX_LENGTH):
                     continue
                 line_as_list.insert(-1, '<EOS>')
-                line_as_list.insert(0, '<SOS>')
                 line_as_list.insert(0, '<ENG>')
+                line_as_list.insert(0, '<SOS>')
 
                 new_line = str(line_as_list[0])
                 for word in line_as_list[1:]:
-                    new_line += str(word) if str(word) == '<ENG>' else ' ' + str(word)
+                    new_line += str(word) if str(word) == '<SOS>' else ' ' + str(word)
 
                 file_seg.write(new_line + '\n')
 

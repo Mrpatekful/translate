@@ -1,26 +1,56 @@
 {
-    "task_type": "UnsupervisedTranslation",
-    "components": {
-        "reader": {
-            "source_reader": "FastReader",
-            "target_reader": "FastReader",
-            "max_segment_size": 1000,
-            "batch_size": 32
-        },
-        "data": {
-            "source_data": "data/eng/eng_seg",
-            "source_vocab": "data/eng/eng_voc",
-            "target_data": "data/eng/eng_seg",
-            "target_vocab": "data/eng/eng_voc"
+    "type": "UnsupervisedTranslation",
+    "params": {
+        "readers": {
+            "source": {
+                "type": "FastReader",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 32,
+                    "padding_type": "PostPadding",
+                    "corpus": {
+                        "type": "Monolingual",
+                        "params": {
+                            "path": "data/eng/eng_seg",
+                            "embedding": {
+                                "trained": true,
+                                "path": "data/eng/eng_voc",
+                                "token": "<ENG>"
+                            }
+                        }
+                    }
+                }
+            },
+            "target": {
+                "type": "FastReader",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 32,
+                    "padding_type": "PostPadding",
+                    "corpus": {
+                        "type": "Monolingual",
+                        "params": {
+                            "path": "data/eng/eng_seg",
+                            "embedding": {
+                                "trained": true,
+                                "path": "data/eng/eng_voc",
+                                "token": "<ENG>"
+                            }
+                        }
+                    }
+                }
+            }
         },
         "regularization": {
-            "regularization_type": "MLPDiscriminator",
-            "discriminator_params": {
-                "hidden_size": 50,
-                "optimalization": "RMSProp",
+            "type": "MLPDiscriminator",
+            "params": {
+                "num_layers": 3,
+                "hidden_size": 1024,
+                "optimizer_type": "RMSProp",
                 "learning_rate": 0.01
             }
         }
+
     },
     "use_cuda": true
 }

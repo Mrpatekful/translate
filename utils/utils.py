@@ -8,6 +8,7 @@ import pickle
 import os.path
 import numpy
 import torch
+import sys
 
 
 def batch_to_padded_sequence(batch, lengths):
@@ -29,20 +30,12 @@ def padded_sequence_to_batch(padded_sequence):
     return pad_packed_sequence(padded_sequence, batch_first=True)
 
 
-class NoiseModel:
-
-    def __init__(self):
-        pass
-
-    def __call__(self, input_batch):
-        return input_batch
-
-
 def subclasses(base_cls):
     """
-
-    :param base_cls:
-    :return:
+    Discovers the inheritance tree of a given class. The class must have an abstract() method. A class of the
+    hierarchy will only be the part of the returned classes, if it's abstract() method returns False.
+    :param base_cls: type, root of the inheritance hierarchy.
+    :return: dict, classes that are part of the hierarchy, with their str names as keys, and type references as values.
     """
     def get_hierarchy(cls):
         sub_classes = {sub_cls.__name__: sub_cls for sub_cls in cls.__subclasses__()}
@@ -244,7 +237,7 @@ class ParameterSetter:
         except KeyError:
             print('Object requires a parameter (name: < {0} >), which hasn\'t '
                   'been given to the parameter dictionary.'.format(parameter))
-            return
+            sys.exit()
 
     def __add__(self, new_parameters):
         """
@@ -287,13 +280,27 @@ class Language:
     Wrapper class for the lookup tables of the languages.
     """
 
-    def __init__(self, path):
+    def __init__(self,
+                 path,
+                 token,
+                 trained,
+                 use_cuda):
+        """
+        A language instance for storing the embedding and vocabulary.
+        :param path: str, path of the embedding/vocabulary for the language.
+        :param token: str, token, that identifies the language.
+        :param trained: bool, true, if the embeddings have been pre-trained.
+        """
         self._word_to_id = {}
         self._id_to_word = {}
         self._word_to_count = {}
+        self._language_token = token
+        self._use_cuda = use_cuda
+
+        self.requires_grad = not trained
 
         self._embedding = None
-        self._load_vocab(path=path)
+        self._load_vocab(path)
 
     def _load_vocab(self, path):
         """
@@ -305,14 +312,16 @@ class Language:
             first_line = file.readline().split(' ')
             num_of_words = int(first_line[0])
             embedding_dim = int(first_line[1])
-            self._embedding = numpy.empty((num_of_words + 4, embedding_dim), dtype='float')
+            self._embedding = numpy.empty((num_of_words + 5, embedding_dim), dtype='float')
 
             for index, line in enumerate(file):
                 line_as_list = list(line.split(' '))
                 self._word_to_id[line_as_list[0]] = index + 1  # all values are incremented by 1 because 0 is <PAD>
-                self._embedding[index + 1, :] = numpy.array([float(element) for element in line_as_list[1:]], dtype=float)
+                self._embedding[index + 1, :] = numpy.array([float(element) for element in line_as_list[1:]],
+                                                            dtype=float)
 
             self._word_to_id['<PAD>'] = 0
+            self._word_to_id[self._language_token] = len(self._word_to_id)
             self._word_to_id['<SOS>'] = len(self._word_to_id)
             self._word_to_id['<EOS>'] = len(self._word_to_id)
             self._word_to_id['<UNK>'] = len(self._word_to_id)
@@ -324,10 +333,11 @@ class Language:
             self._embedding[-1, :] = numpy.zeros(embedding_dim)
             self._embedding[-2, :] = numpy.zeros(embedding_dim)
             self._embedding[-3, :] = numpy.zeros(embedding_dim)
+            self._embedding[-4, :] = numpy.random.rand(embedding_dim)
 
             self._embedding = torch.from_numpy(self._embedding).float()
 
-            if torch.cuda.is_available():
+            if self._use_cuda:
                 self._embedding = self._embedding.cuda()
 
     @property

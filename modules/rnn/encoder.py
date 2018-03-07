@@ -1,13 +1,12 @@
-from modules.base.encoder import Encoder
-
 import torch
-import torch.nn as nn
 import torch.autograd as autograd
+import torch.nn as nn
 import torch.optim
 
-from utils.utils import padded_sequence_to_batch
-from utils.utils import batch_to_padded_sequence
+from modules.encoder import Encoder
 from utils.utils import Parameter
+from utils.utils import batch_to_padded_sequence
+from utils.utils import padded_sequence_to_batch
 
 
 class RNNEncoder(Encoder):
@@ -20,6 +19,7 @@ class RNNEncoder(Encoder):
         'embedding_size': Parameter(name='_embedding_size',  doc='int, dimension of the word embeddings.'),
         'recurrent_type':  Parameter(name='_recurrent_type', doc='str, name of the recurrent layer (GRU, LSTM).'),
         'num_layers': Parameter(name='_num_layers',          doc='int, number of stacked RNN layers.'),
+        'optimizer_type': Parameter(name='_optimizer_type',  doc='Optimizer, for parameter optimalization.'),
         'learning_rate': Parameter(name='_learning_rate',    doc='float, learning rate.'),
         'use_cuda':  Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.')
     }
@@ -27,12 +27,13 @@ class RNNEncoder(Encoder):
     def __init__(self, parameter_setter):
         """
         A recurrent encoder module for the sequence to sequence model.
-        :param parameter_setter: required parameters for the setter object.
-            :parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
-            :parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
-            :parameter embedding_size: int, dimension of the word embeddings.
-            :parameter learning_rate: float, learning rate.
-            :parameter use_cuda: bool, True if the device has cuda support.
+        :param parameter_setter: ParameterSetter object, that requires the following parameters.
+            -:parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
+            -:parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
+            -:parameter embedding_size: int, dimension of the word embeddings.
+            -:parameter optimizer: Optimizer, for parameter optimalization.
+            -:parameter learning_rate: float, learning rate.
+            -:parameter use_cuda: bool, True if the device has cuda support.
         """
         super().__init__()
         self._parameter_setter = parameter_setter
@@ -41,9 +42,9 @@ class RNNEncoder(Encoder):
         self._embedding_layer = None
         self._optimizer = None
 
-        self._encoder_outputs = {
+        self._outputs = {
             'hidden_state': None,
-            'outputs': None
+            'encoder_outputs': None
         }
 
     def init_parameters(self):
@@ -59,8 +60,10 @@ class RNNEncoder(Encoder):
 
         if self._recurrent_type.value == 'LSTM':
             unit_type = torch.nn.LSTM
-        else:
+        elif self._recurrent_type.value == 'GRU':
             unit_type = torch.nn.GRU
+        else:
+            raise ValueError('Invalid recurrent unit type.')
 
         self._recurrent_layer = unit_type(input_size=self._embedding_size.value,
                                           hidden_size=self._hidden_size.value,
@@ -77,7 +80,12 @@ class RNNEncoder(Encoder):
         """
         Initializes the optimizer for the encoder.
         """
-        self._optimizer = torch.optim.Adam(self.parameters(), lr=self._learning_rate.value)
+        optimizers = {
+            'Adam': torch.optim.Adam,
+            'SGD': torch.optim.SGD,
+            'RMSProp': torch.optim.RMSprop,
+        }
+        self._optimizer = optimizers[self._optimizer_type.value](self.parameters(), lr=self._learning_rate.value)
 
         return self
 
@@ -100,10 +108,10 @@ class RNNEncoder(Encoder):
 
         self._recurrent_layer.flatten_parameters()
 
-        outputs, self._encoder_outputs['hidden_state'] = self._recurrent_layer(padded_sequence, initial_state)
-        self._encoder_outputs['outputs'], _ = padded_sequence_to_batch(outputs)
+        outputs, self._outputs['hidden_state'] = self._recurrent_layer(padded_sequence, initial_state)
+        self._outputs['encoder_outputs'], _ = padded_sequence_to_batch(outputs)
 
-        return self._encoder_outputs
+        return self._outputs
 
     def _init_hidden(self, batch_size):
         """
@@ -128,7 +136,7 @@ class RNNEncoder(Encoder):
     def assemble(cls, params):
         return {
             **{cls._param_dict[param].name: params[param] for param in params if param in cls._param_dict},
-            cls._param_dict['embedding_size'].name: params['source_language'].embedding_size,
+            cls._param_dict['embedding_size'].name: params['language'].embedding_size,
         }
 
     @property
@@ -145,7 +153,7 @@ class RNNEncoder(Encoder):
         Setter for the optimizer of the encoder.
         :param optimizer: Optimizer, instance to be set as the new optimizer for the encoder.
         """
-        self._optimizer = optimizer
+        self._optimizer.value = optimizer
 
     @property
     def embedding(self):
@@ -161,9 +169,9 @@ class RNNEncoder(Encoder):
         Setter for the encoder's embedding layer.
         :param embedding: Embedding, to be set as the embedding layer of the encoder.
         """
-        self._embedding_layer = nn.Embedding(embedding.size(0), embedding.size(1))
-        self._embedding_layer.weight = nn.Parameter(embedding)
-        self._embedding_layer.weight.requires_grad = False
+        self._embedding_layer = nn.Embedding(embedding['weights'].size(0), embedding['weights'].size(1))
+        self._embedding_layer.weight = nn.Parameter(embedding['weights'])
+        self._embedding_layer.weight.requires_grad = embedding['requires_grad']
 
     @property
     def hidden_size(self):

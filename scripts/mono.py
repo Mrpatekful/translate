@@ -1,6 +1,6 @@
 
-FILE_ENG_FRA = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng-fra'
-FILE_ENG = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng'
+FILE_ENG_FRA = '../data/eng/eng-fra'
+FILE_ENG = '../data/eng/eng_raw'
 
 
 def main():

@@ -2,7 +2,8 @@ import re
 import numpy
 
 EMBEDDING_DIM = 3
-VOCAB_PATH = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_voc'
+VOCAB_PATH = '../data/eng/eng_voc'
+CORPORA_PATH = '../data/eng/eng_tok'
 
 
 def vocab_creator(path):
@@ -28,7 +29,7 @@ def vocab_creator(path):
 
 
 def main():
-    pass
+    vocab_creator(CORPORA_PATH)
 
 
 if __name__ == '__main__':

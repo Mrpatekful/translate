@@ -1,8 +1,7 @@
 import numpy
 import torch
 
-from utils import config
-
+from utils.config import Config
 
 numpy.random.seed(2)
 torch.manual_seed(2)
@@ -12,7 +11,7 @@ MODEL_CONFIG = 'configs/models/sts.json'
 
 
 def main():
-    task = config.Config(task_config=TASK_CONFIG, model_config=MODEL_CONFIG).assemble()
+    task = Config(task_config=TASK_CONFIG, model_config=MODEL_CONFIG).assemble()
     task.fit_model(epochs=10)
 
 

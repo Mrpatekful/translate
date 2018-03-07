@@ -1,7 +1,27 @@
-from ..base.discriminator import Discriminator
-
 import torch
 import torch.nn as nn
+
+
+class Discriminator(nn.Module):
+    """
+    Abstract base class for the discriminator modules, mainly used for the unsupervised
+    translation task. Any newly added discriminator type module must inherit from this
+    super class, otherwise it won't be discoverable by the hierarchy builder utility.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def forward(self, *args, **kwargs):
+        return NotImplementedError
+
+    @classmethod
+    def assemble(cls, params):
+        return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return True
 
 
 class MLPDiscriminator(Discriminator):  # TODO
@@ -54,6 +74,14 @@ class MLPDiscriminator(Discriminator):  # TODO
         output = self._activation(self._output_layer(output))
         return output
 
+    @classmethod
+    def assemble(cls, params):
+        return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return False
+
     @property
     def optimizer(self):
         """
@@ -105,3 +133,21 @@ class RNNDiscriminator(Discriminator):  # TODO
         :return:
         """
         return NotImplementedError
+
+    @classmethod
+    def assemble(cls, params):
+        return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return False
+
+
+class Noise:
+
+    def __init__(self):
+        pass
+
+    def __call__(self, input_batch):
+        return input_batch
+

@@ -3,8 +3,8 @@ from itertools import zip_longest
 import copy
 
 
-FILE_INPUT = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_tok'
-FILE_OUTPUT = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_org'
+FILE_INPUT = '../data/eng/eng_tok'
+FILE_OUTPUT = '../data/eng/eng_org'
 
 
 BUFFER_MAX_LENGTH = 100000

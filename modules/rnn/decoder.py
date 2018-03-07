@@ -1,13 +1,11 @@
-from modules.base.decoder import Decoder
-
+import numpy as np
 import torch
+import torch.autograd as autograd
 import torch.nn as nn
 import torch.nn.functional as functional
-import torch.autograd as autograd
 
+from modules.decoder import Decoder
 from utils.utils import Parameter
-
-import numpy as np
 
 
 class RNNDecoder(Decoder):
@@ -32,15 +30,15 @@ class RNNDecoder(Decoder):
         """
         A recurrent decoder module for the sequence to sequence model.
         :param parameter_setter: required parameters for the setter object.
-            :parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
-            :parameter embedding_size: int, dimension of the word embeddings.
-            :parameter output_size: int, size of the (vocabulary) output layer of the decoder.
-            :parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
-            :parameter num_layers: int, number of stacked RNN layers.
-            :parameter learning_rate: float, learning rate.
-            :parameter max_length: int, maximum length of the sequence decoding.
-            :parameter use_cuda: bool, True if the device has cuda support.
-            :parameter tf_ratio: float, teacher forcing ratio.
+            -:parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
+            -:parameter embedding_size: int, dimension of the word embeddings.
+            -:parameter output_size: int, size of the (vocabulary) output layer of the decoder.
+            -:parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
+            -:parameter num_layers: int, number of stacked RNN layers.
+            -:parameter learning_rate: float, learning rate.
+            -:parameter max_length: int, maximum length of the sequence decoding.
+            -:parameter use_cuda: bool, True if the device has cuda support.
+            -:parameter tf_ratio: float, teacher forcing ratio.
         """
         super().__init__()
         self._parameter_setter = parameter_setter
@@ -50,7 +48,7 @@ class RNNDecoder(Decoder):
         self._output_layer = None
         self._optimizer = None
 
-        self._decoder_outputs = {
+        self._outputs = {
             'symbols': None,
             'attention': None,
             'loss': None
@@ -69,8 +67,10 @@ class RNNDecoder(Decoder):
 
         if self._recurrent_type.value == 'LSTM':
             unit_type = torch.nn.LSTM
-        else:
+        elif self._recurrent_type.value == 'GRU':
             unit_type = torch.nn.GRU
+        else:
+            raise ValueError('Invalid recurrent unit type.')
 
         self._recurrent_layer = unit_type(input_size=self._input_size.value,
                                           hidden_size=self._hidden_size.value,
@@ -95,22 +95,24 @@ class RNNDecoder(Decoder):
         return self
 
     def _decode(self,
-                decoder_input,
+                inputs,
                 hidden_state,
                 encoder_outputs,
                 batch_size,
                 sequence_length):
         """
         Decoding of a given input. It can be a single time step or a full sequence as well.
-        :param decoder_input: Variable, with size of (batch_size, X), containing word ids for step t.
+        :param inputs: Variable, with size of (batch_size, X), containing word ids for time step t.
         :param hidden_state: Variable, with size of (num_layers * directions, batch_size, hidden_size).
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size). This
+                                parameter is redundant for the standard type of decoding.
         :param batch_size: int, size of the input batches.
-        :param sequence_length: int, size of the sequence of the input batch.
-        :return output: Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
+        :param sequence_length: int, length of the sequence of the input batch.
+        :return output: Variable, (batch_size, 1, vocab_size) result of the decoding, which is a vector, that
+                        provides a probability distribution over the words of the vocabulary.
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         """
-        embedded_input = self.embedding(decoder_input)
+        embedded_input = self.embedding(inputs)
         output, hidden_state = self._recurrent_layer(embedded_input, hidden_state)
         output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size.value)),
                                         dim=1).view(batch_size, -1, self._output_size.value)
@@ -119,56 +121,67 @@ class RNNDecoder(Decoder):
 
     def forward(self,
                 targets,
-                outputs,
                 lengths,
+                encoder_outputs,
                 hidden_state,
                 loss_function):
         """
-        A forward step of the decoder. Processing can be done with different methods, with or
-        without attention mechanism and teacher forcing.
+        Forward step of the decoder unit. A sequence start token is provided as the first input, then the
+        model starts to predict the words of the sequence, based on the final hidden state of the encoder and
+        the previous hidden state of the decoder. During training there are two alternatives, the model may
+        receive the previous decoded word, or the target word can be forced as if the model had correctly
+        predicted the next word in the previous time step.
         :param targets: Variable, (batch_size, sequence_length) a batch of word ids.
-        :param outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param lengths: Ndarray, an array for storing the real lengths of the sequences in the batch.
+        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size). This parameter
+                                is redundant for the standard decoder unit.
         :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
         :param loss_function: loss function of the decoder.
-        :return loss: int, loss of the decoding
-        :return symbols: Ndarray, the decoded word ids.
+        :return decoder_outputs: dict, containing two string keys, loss: int, loss of the decoding and
+                                 symbols: Ndarray, the decoded word ids.
         """
         batch_size = targets.size(0)
-        sequence_length = targets.size(1)
+        sequence_length = targets.size(1) - 1
 
-        self._decoder_outputs['symbols'] = np.zeros((batch_size, sequence_length), dtype='int')
-        self._decoder_outputs['loss'] = 0
+        inputs = targets[:, :-1].contiguous()
+        targets = targets[:, 1:].contiguous()
+
+        self._outputs['symbols'] = np.zeros((batch_size, sequence_length), dtype='int')
+        self._outputs['loss'] = 0
 
         use_teacher_forcing = True
 
         if use_teacher_forcing:
-            outputs, hidden_state, _ = self._decode(decoder_input=targets,
+            outputs, hidden_state, _ = self._decode(inputs=inputs,
                                                     hidden_state=hidden_state,
                                                     encoder_outputs=None,
                                                     batch_size=batch_size,
                                                     sequence_length=None)
 
             for step in range(sequence_length):
-                self._decoder_outputs['symbols'][:, step] = outputs[:, step, :].topk(1)[1]\
+                self._outputs['symbols'][:, step] = outputs[:, step, :].topk(1)[1]\
                     .squeeze(-1).data.cpu().numpy()
 
-            self._decoder_outputs['loss'] = loss_function(outputs.view(-1, self._output_size.value), targets.view(-1))
+            self._outputs['loss'] = loss_function(outputs.view(-1, self._output_size.value),
+                                                  targets.view(-1))
 
         else:
+            step_input = inputs[:, 0].unsqueeze(-1)
             for step in range(sequence_length):
-                step_input = targets[:, step].unsqueeze(-1)
-                step_output, hidden_state, _ = self._decode(decoder_input=step_input,
+                step_output, hidden_state, _ = self._decode(inputs=step_input,
                                                             hidden_state=hidden_state,
                                                             encoder_outputs=None,
                                                             batch_size=batch_size,
                                                             sequence_length=sequence_length)
 
-                self._decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
-                self._decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1).\
-                    squeeze(-1).cpu().numpy()
+                symbol_output = step_output.topk(1)[1].data.squeeze(-1)
 
-        return self._decoder_outputs
+                self._outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
+                self._outputs['symbols'][:, step] = symbol_output.squeeze(-1).cpu().numpy()
+
+                step_input = symbol_output
+
+        return self._outputs
 
     @classmethod
     def assemble(cls, params):
@@ -179,9 +192,9 @@ class RNNDecoder(Decoder):
         """
         return {
             **{cls._param_dict[param].name: params[param] for param in params if param in cls._param_dict},
-            cls._param_dict['embedding_size'].name: params['target_language'].embedding_size,
-            cls._param_dict['input_size'].name: params['target_language'].embedding_size,
-            cls._param_dict['output_size'].name: params['target_language'].vocab_size
+            cls._param_dict['embedding_size'].name: params['language'].embedding_size,
+            cls._param_dict['input_size'].name: params['language'].embedding_size,
+            cls._param_dict['output_size'].name: params['language'].vocab_size
         }
 
     @classmethod
@@ -226,9 +239,9 @@ class RNNDecoder(Decoder):
         Setter for the decoder's embedding layer.
         :param embedding: Embedding, to be set as the embedding layer of the decoder.
         """
-        self._embedding_layer = nn.Embedding(embedding.size(0), embedding.size(1))
-        self._embedding_layer.weight = nn.Parameter(embedding)
-        self._embedding_layer.weight.requires_grad = False
+        self._embedding_layer = nn.Embedding(embedding['weights'].size(0), embedding['weights'].size(1))
+        self._embedding_layer.weight = nn.Parameter(embedding['weights'])
+        self._embedding_layer.weight.requires_grad = embedding['requires_grad']
 
 
 class AttentionRNNDecoder(RNNDecoder):
@@ -275,63 +288,66 @@ class AttentionRNNDecoder(RNNDecoder):
 
     def forward(self,
                 targets,
-                outputs,
                 lengths,
+                encoder_outputs,
                 hidden_state,
                 loss_function):
         """
         An attentional forward step. The calculations can be done with or without teacher fording.
         :param targets: Variable, (batch_size, sequence_length) a batch of word ids.
-        :param outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param lengths: Ndarray, an array for storing the real lengths of the sequences in the batch.
+        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
         :param loss_function: loss function of the decoder.
         :return loss: int, loss of the decoding
         :return symbols: Ndarray, the decoded word ids.
         """
         batch_size = targets.size(0)
-        sequence_length = targets.size(1)
+        sequence_length = targets.size(1) - 1
 
-        self._decoder_outputs['symbols'] = np.zeros((batch_size, sequence_length), dtype='int')
-        self._decoder_outputs['attention'] = np.zeros((batch_size, sequence_length, sequence_length))
-        self._decoder_outputs['loss'] = 0
+        inputs = targets[:, :-1].contiguous()
+        targets = targets[:, 1:].contiguous()
+
+        self._outputs['symbols'] = np.zeros((batch_size, sequence_length), dtype='int')
+        self._outputs['attention'] = np.zeros((batch_size, sequence_length, sequence_length))
+        self._outputs['loss'] = 0
 
         use_teacher_forcing = True
 
         if use_teacher_forcing:
             for step in range(sequence_length):
-                step_input = targets[:, step].unsqueeze(-1)
-                step_output, hidden_state, attn_weights = self._decode(decoder_input=step_input,
+                step_input = inputs[:, step].unsqueeze(-1)
+                step_output, hidden_state, attn_weights = self._decode(inputs=step_input,
                                                                        hidden_state=hidden_state,
-                                                                       encoder_outputs=outputs,
+                                                                       encoder_outputs=encoder_outputs,
                                                                        batch_size=batch_size,
                                                                        sequence_length=sequence_length)
 
-                self._decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
-                self._decoder_outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
-                self._decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1)\
+                self._outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
+                self._outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+                self._outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1)\
                     .squeeze(-1).cpu().numpy()
 
         else:
+            step_input = inputs[:, 0].unsqueeze(-1)
             for step in range(sequence_length):
-                step_input = targets[:, step].unsqueeze(-1)
-                step_output, hidden_state, attn_weights = self._decode(decoder_input=step_input,
+                step_output, hidden_state, attn_weights = self._decode(inputs=step_input,
                                                                        hidden_state=hidden_state,
-                                                                       encoder_outputs=outputs,
+                                                                       encoder_outputs=encoder_outputs,
                                                                        batch_size=batch_size,
                                                                        sequence_length=sequence_length)
 
-                self._decoder_outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
-                self._decoder_outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
-                self._decoder_outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1)\
-                    .squeeze(-1).cpu().numpy()
+                symbol_output = step_output.topk(1)[1].data.squeeze(-1)
 
-        return self._decoder_outputs
+                self._outputs['loss'] += loss_function(step_output.squeeze(1), targets[:, step])
+                self._outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+                self._outputs['symbols'][:, step] = symbol_output.squeeze(-1).cpu().numpy()
 
-    def _score(self,
-               encoder_outputs,
-               decoder_state):
+                step_input = symbol_output
 
+        return self._outputs
+
+    def _score(self, encoder_outputs, decoder_state):
         return NotImplementedError
 
     @classmethod
@@ -346,11 +362,15 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         https://arxiv.org/pdf/1409.0473.pdf
 
     The computational path of the method differs from the Luong style, since
-    here the context vector contributes to the calculation of the hidden state, by
-    concatenating the context with the input of the recurrent unit.
+    here the context vector contributes to the calculation of the hidden state as well, created
+    by the recurrent unit at time step t.
 
         h(t-1) -> a(t) -> c(t) -> h(t)
 
+    The attention weights are derived from the similarity scores of the previous recurrent hidden
+    state (from time step t-1) and the encoder outputs. The created context vector is then merged with
+    the output of the recurrent unit as well, to get the final output of a softmax layer, providing the
+    probability distribution over the word ids.
     """
 
     def __init__(self, parameter_setter):
@@ -370,10 +390,14 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         super().init_parameters()
 
         self._attention_layer = nn.Linear(self._hidden_size.value * 2, self._hidden_size.value)
+        self._projection_layer = nn.Linear(self._hidden_size.value + self._embedding_size.value,
+                                           self._hidden_size.value)
+
         tr = torch.rand(self._hidden_size.value, 1)
 
         if self._use_cuda:
             self._attention_layer = self._attention_layer.cuda()
+            self._projection_layer = self._projection_layer.cuda()
             tr = tr.cuda()
 
         self._transformer = nn.Parameter(tr)
@@ -381,15 +405,15 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         return self
 
     def _decode(self,
-                decoder_input,
+                inputs,
                 hidden_state,
                 encoder_outputs,
                 batch_size,
                 sequence_length):
         """
-        A decode step for the attentional decoder module. The recurrent layer of the decoder also does
-        it's computation at the invocation of this method.
-        :param decoder_input: Variable, with size of (batch_size, 1), containing word ids for step t.
+        A decode step for the bahdanau variation of attentional decoder module. The computations are described
+        in header docstring of the class.
+        :param inputs: Variable, with size of (batch_size, 1), containing word ids for step t.
         :param hidden_state: Variable, with size of (num_layers * directions, batch_size, hidden_size).
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param batch_size: int, size of the input batches.
@@ -398,7 +422,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
-        embedded_input = self.embedding(decoder_input)
+        embedded_input = self.embedding(inputs)
         previous_state = hidden_state[0][-1] if isinstance(hidden_state, tuple) else hidden_state[-1]
 
         context, attn_weights = self._calculate_context(decoder_state=previous_state,
@@ -408,6 +432,8 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
         concat_input = torch.cat((embedded_input, context), dim=2)
         output, hidden_state = self._recurrent_layer(concat_input, hidden_state)
+
+        output = self._projection_layer(torch.cat((embedded_input, output), dim=2))
 
         output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size.value)),
                                         dim=1).view(batch_size, -1, self._output_size.value)
@@ -436,9 +462,9 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         """
         return {
             **{cls._param_dict[param].name: params[param] for param in params if param in cls._param_dict},
-            cls._param_dict['embedding_size'].name: params['target_language'].embedding_size,
-            cls._param_dict['input_size'].name: params['target_language'].embedding_size + params['hidden_size'],
-            cls._param_dict['output_size'].name: params['target_language'].vocab_size
+            cls._param_dict['embedding_size'].name: params['language'].embedding_size,
+            cls._param_dict['input_size'].name: params['language'].embedding_size + params['hidden_size'],
+            cls._param_dict['output_size'].name: params['language'].vocab_size
         }
 
     @classmethod
@@ -484,7 +510,7 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
         return self
 
     def _decode(self,
-                decoder_input,
+                inputs,
                 hidden_state,
                 encoder_outputs,
                 batch_size,
@@ -493,7 +519,7 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
         Decoding for the Luong style attentions. The context is calculated from the hidden state
         of the decoder at time step t, and is merged into the final output layer through a projection
         layer with linear activation.
-        :param decoder_input: Variable, with size of (batch_size, 1), containing word ids for step t.
+        :param inputs: Variable, with size of (batch_size, 1), containing word ids for step t.
         :param hidden_state: Variable, with size of (num_layers * directions, batch_size, hidden_size).
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param batch_size: int, size of the input batches.
@@ -502,7 +528,7 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
-        embedded_input = self.embedding(decoder_input)
+        embedded_input = self.embedding(inputs)
         output, hidden_state = self._recurrent_layer(embedded_input, hidden_state)
 
         previous_state = hidden_state[0][-1] if isinstance(hidden_state, tuple) else hidden_state[-1]

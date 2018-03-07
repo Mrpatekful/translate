@@ -1,7 +1,33 @@
-from models.base import Model
+import torch.nn as nn
 
-from modules.rnn import decoders, encoders
+from modules.rnn import decoder, encoder
 from utils import utils
+
+
+class Model(nn.Module):
+    """
+    Abstract base class for the models of the application.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__()
+
+    def forward(self, *args, **kwargs):
+        return NotImplementedError
+
+    def step(self):
+        return NotImplementedError
+
+    def zero_grad(self):
+        return NotImplementedError
+
+    @classmethod
+    def assemble(cls, params):
+        return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return True
 
 
 class SeqToSeq(Model):
@@ -16,8 +42,6 @@ class SeqToSeq(Model):
     by encoding it to a fixed size representation, and then decoding this latent meaning
     vector to the desired sequence.
     """
-    _encoders = utils.subclasses(encoders.Encoder)
-    _decoders = utils.subclasses(decoders.Decoder)
 
     def __init__(self,
                  encoder_type,
@@ -47,18 +71,17 @@ class SeqToSeq(Model):
         :param targets: Variable, containing the ids for the tokens of the target sequence.
         :param lengths: Ndarray, containing the lengths of the original sequences.
         :param loss_function: loss function for the calculations of the error.
-        :return decoder_outputs:
-        :return encoder_outputs:
+        :return decoder_outputs: dict, containing the output values of the decoder.
+        :return encoder_outputs: dict, containing the output values of the encoder.
         """
-        encoder_outputs = self._encoder.forward(inputs=inputs,
-                                                lengths=lengths)
+        encoder_outputs = self._encoder.forward(inputs=inputs, lengths=lengths)
 
         decoder_outputs = self._decoder.forward(targets=targets,
                                                 lengths=lengths,
                                                 loss_function=loss_function,
                                                 **encoder_outputs)
 
-        return decoder_outputs, encoder_outputs
+        return {**decoder_outputs, **encoder_outputs}
 
     def step(self):
         """
@@ -83,20 +106,24 @@ class SeqToSeq(Model):
         """
         Assembler function for the encoder and decoder units, and its parameters
         for the sequence to sequence model. The parameters are
-        :param params:
-        :return:
+        :param params: dict, the merged dictionary of the model and task configuration parameters.
+        :return: dict, processed parameters wrapped in ParameterSetter object for both the encoder
+                 and decoder.
         """
-        enc = cls._encoders[params['encoder']['encoder_type']]
+        encoders = utils.subclasses(encoder.Encoder)
+        decoders = utils.subclasses(decoder.Decoder)
+
+        enc = encoders[params['encoder']['type']]
         encoder_params = utils.ParameterSetter(enc.assemble({
-            **params['encoder']['encoder_params'],
-            'source_language': params['source_language'],
+            **params['encoder']['params'],
+            'language': params['source_reader'].language,
             'use_cuda': params['use_cuda']
         }))
 
-        dec = cls._decoders[params['decoder']['decoder_type']]
+        dec = decoders[params['decoder']['type']]
         decoder_params = utils.ParameterSetter(dec.assemble({
-            **params['decoder']['decoder_params'],
-            'target_language': params['target_language'],
+            **params['decoder']['params'],
+            'language': params['target_reader'].language,
             'use_cuda': params['use_cuda']
         }))
 

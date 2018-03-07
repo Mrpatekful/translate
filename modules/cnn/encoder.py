@@ -1,16 +1,11 @@
-from modules.base.decoder import Decoder
-
-import torch
 import torch.nn as nn
-import torch.autograd as autograd
-import torch.optim
 
-from utils.utils import Parameter
+from modules.encoder import Encoder
 
 
-class CNNDecoder(Decoder):  # TODO
+class CNNEncoder(Encoder):  # TODO
     """
-    Convolutional decoder module of the sequence to sequence model.
+    Convolutional encoder module of the sequence to sequence model.
     """
 
     def __init__(self):

@@ -1,8 +1,8 @@
 import re
 
 
-FILE_INPUT = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_raw'
-FILE_OUTPUT = '/home/patrik/GitHub/nmt-BMEVIAUAL01/data/eng_tok'
+FILE_INPUT = '../data/eng/eng_raw'
+FILE_OUTPUT = '../data/eng/eng_tok'
 
 END_OF_LINE_PUNCTUATIONS = ['.', '!', '?']
 
