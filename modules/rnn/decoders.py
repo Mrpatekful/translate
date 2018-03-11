@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as functional
 
 from modules.decoder import Decoder
-from utils.utils import Parameter
 from utils.utils import ParameterSetter
 
 from collections import OrderedDict
@@ -17,20 +16,7 @@ class RNNDecoder(Decoder):
     An implementation of recurrent decoder unit for the sequence to sequence model.
     """
 
-    _param_dict = {
-        'hidden_size': Parameter(name='_hidden_size',       doc='int, size of recurrent layer of the LSTM/GRU.'),
-        'embedding_size': Parameter(name='_embedding_size', doc='int, dimension of the word embeddings.'),
-        'output_size': Parameter(name='_output_size',       doc='int, size of the output layer of the decoder.'),
-        'input_size': Parameter(name='_input_size',         doc='int, size of the input layer of the RNN.'),
-        'recurrent_type': Parameter(name='_recurrent_type', doc='str, name of the recurrent layer (GRU, LSTM).'),
-        'num_layers': Parameter(name='_num_layers',         doc='int, number of stacked RNN layers.'),
-        'learning_rate': Parameter(name='_learning_rate',   doc='float, learning rate.'),
-        'max_length': Parameter(name='_max_length',         doc='int, maximum length of the sequence decoding.'),
-        'use_cuda': Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.'),
-        'tf_ratio': Parameter(name='_tf_ratio',             doc='float, teacher forcing ratio.')
-    }
-
-    @ParameterSetter.apply
+    @ParameterSetter.pack
     def __init__(self, parameter_setter):
         """
         A recurrent decoder module for the sequence to sequence model.
@@ -66,25 +52,22 @@ class RNNDecoder(Decoder):
         After initialization, the main components of the decoder, which require the previously
         initialized parameter values, are created as well.
         """
-        for parameter in self._param_dict:
-            self.__dict__[self._param_dict[parameter].name] = self._param_dict[parameter]
+        self._parameter_setter.initialize(self)
 
-        self._parameter_setter(self.__dict__)
-
-        if self._recurrent_type.value == 'LSTM':
+        if self._recurrent_type == 'LSTM':
             unit_type = torch.nn.LSTM
-        elif self._recurrent_type.value == 'GRU':
+        elif self._recurrent_type == 'GRU':
             unit_type = torch.nn.GRU
         else:
             raise ValueError('Invalid recurrent unit type.')
 
-        self._recurrent_layer = unit_type(input_size=self._input_size.value,
-                                          hidden_size=self._hidden_size.value,
-                                          num_layers=self._num_layers.value,
+        self._recurrent_layer = unit_type(input_size=self._input_size,
+                                          hidden_size=self._hidden_size,
+                                          num_layers=self._num_layers,
                                           bidirectional=False,
                                           batch_first=True)
 
-        self._output_layer = nn.Linear(self._hidden_size.value, self._output_size.value)
+        self._output_layer = nn.Linear(self._hidden_size, self._output_size)
 
         if self._use_cuda:
             self._recurrent_layer = self._recurrent_layer.cuda()
@@ -96,7 +79,13 @@ class RNNDecoder(Decoder):
         """
         Initializes the optimizer for the decoder.
         """
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self._learning_rate.value)
+        optimizers = {
+            'Adam': torch.optim.Adam,
+            'SGD': torch.optim.SGD,
+            'RMSProp': torch.optim.RMSprop,
+        }
+
+        self._optimizer = optimizers[self._optimizer_type](self.parameters(), lr=self._learning_rate)
 
         return self
 
@@ -120,8 +109,8 @@ class RNNDecoder(Decoder):
         """
         embedded_input = self.embedding(inputs)
         output, hidden_state = self._recurrent_layer(embedded_input, hidden_state)
-        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size.value)),
-                                        dim=1).view(batch_size, -1, self._output_size.value)
+        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size)),
+                                        dim=1).view(batch_size, -1, self._output_size)
 
         return output, hidden_state, None
 
@@ -167,7 +156,7 @@ class RNNDecoder(Decoder):
                 self._outputs['outputs'].append(outputs[:, step, :])
 
         else:
-            output_sequence_length = max_length if max_length is not None else self._max_length.value
+            output_sequence_length = max_length if max_length is not None else self._max_length
             self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
 
             sos_tokens = torch.from_numpy(np.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
@@ -198,6 +187,7 @@ class RNNDecoder(Decoder):
             hidden_size=None,
             recurrent_type=None,
             num_layers=None,
+            optimizer_type=None,
             learning_rate=None,
             max_length=None,
             use_cuda='Task:use_cuda$',
@@ -297,7 +287,7 @@ class AttentionRNNDecoder(RNNDecoder):
         """
         attn_energies = autograd.Variable(torch.zeros([batch_size, sequence_length]))
 
-        if self._use_cuda.value:
+        if self._use_cuda:
             attn_energies = attn_energies.cuda()
 
         squeezed_output = decoder_state.squeeze(1)
@@ -334,7 +324,7 @@ class AttentionRNNDecoder(RNNDecoder):
             inputs = targets[:, :-1].contiguous()
 
             self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
-            self._outputs['attention'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
+            self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
 
             for step in range(output_sequence_length):
                 step_input = inputs[:, step].unsqueeze(-1)
@@ -345,14 +335,14 @@ class AttentionRNNDecoder(RNNDecoder):
                                                                        sequence_length=input_sequence_length)
 
                 self._outputs['outputs'].append(step_output.squeeze(1))
-                self._outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+                self._outputs['alignment_weights'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
                 self._outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
 
         else:
             output_sequence_length = max_length if max_length is not None else self._max_length.value
 
             self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
-            self._outputs['attention'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
+            self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
 
             sos_tokens = torch.from_numpy(np.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
             if self._use_cuda.value:
@@ -370,7 +360,7 @@ class AttentionRNNDecoder(RNNDecoder):
                 symbol_output = step_output.topk(1)[1].data.squeeze(-1)
 
                 self._outputs['outputs'].append(step_output.squeeze(1))
-                self._outputs['attention'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+                self._outputs['alignment_weights'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
                 self._outputs['symbols'][:, step] = symbol_output.squeeze(-1).cpu().numpy()
 
                 step_input = symbol_output
@@ -403,7 +393,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
     probability distribution over the word ids.
     """
 
-    @ParameterSetter.apply
+    @ParameterSetter.pack
     def __init__(self, parameter_setter):
         """
         An attentional rnn decoder object.
@@ -420,11 +410,11 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         """
         super().init_parameters()
 
-        self._attention_layer = nn.Linear(self._hidden_size.value * 2, self._hidden_size.value)
-        self._projection_layer = nn.Linear(self._hidden_size.value + self._embedding_size.value,
-                                           self._hidden_size.value)
+        self._attention_layer = nn.Linear(self._hidden_size * 2, self._hidden_size)
+        self._projection_layer = nn.Linear(self._hidden_size + self._embedding_size,
+                                           self._hidden_size)
 
-        tr = torch.rand(self._hidden_size.value, 1)
+        tr = torch.rand(self._hidden_size, 1)
 
         if self._use_cuda:
             self._attention_layer = self._attention_layer.cuda()
@@ -466,8 +456,8 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
         output = self._projection_layer(torch.cat((embedded_input, output), dim=2))
 
-        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size.value)),
-                                        dim=1).view(batch_size, -1, self._output_size.value)
+        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size)),
+                                        dim=1).view(batch_size, -1, self._output_size)
 
         return output, hidden_state, attn_weights
 
@@ -483,20 +473,6 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)
         return energy
-
-    @classmethod
-    def assemble(cls, params):
-        """
-        Formats the provided parameters for a BahdanauAttentionRNNDecoder object.
-        :param params: dict, parameters that describe the decoder object.
-        :return: dict, processed and well-formatted parameters for an BahdanauAttentionRNNDecoder object.
-        """
-        return {
-            **{cls._param_dict[param].name: params[param] for param in params if param in cls._param_dict},
-            cls._param_dict['embedding_size'].name: params['language'].embedding_size,
-            cls._param_dict['input_size'].name: params['language'].embedding_size + params['hidden_size'],
-            cls._param_dict['output_size'].name: params['language'].vocab_size
-        }
 
     @classmethod
     def interface(cls):
@@ -539,9 +515,9 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
         """
         super().init_parameters()
 
-        self._projection_layer = nn.Linear(self._hidden_size.value * 2, self._hidden_size.value)
+        self._projection_layer = nn.Linear(self._hidden_size * 2, self._hidden_size)
 
-        if self._use_cuda.value:
+        if self._use_cuda:
             self._projection_layer.cuda()
 
         return self
@@ -577,8 +553,8 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
 
         output = self._projection_layer(torch.cat((output, context), dim=2))
 
-        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size.value)),
-                                        dim=1).view(batch_size, -1, self._output_size.value)
+        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size)),
+                                        dim=1).view(batch_size, -1, self._output_size)
 
         return output, hidden_state, attn_weights
 
@@ -591,7 +567,7 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
     activation from the linear layer.
     """
 
-    @ParameterSetter.apply
+    @ParameterSetter.pack
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
 
@@ -603,9 +579,9 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
         """
         super().init_parameters()
 
-        self._attention_layer = nn.Linear(self._hidden_size.value, self._hidden_size.value)
+        self._attention_layer = nn.Linear(self._hidden_size, self._hidden_size)
 
-        if self._use_cuda.value:
+        if self._use_cuda:
             self._attention_layer = self._attention_layer.cuda()
 
         return self
@@ -638,7 +614,7 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
     encoder and decoder states.
     """
 
-    @ParameterSetter.apply
+    @ParameterSetter.pack
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
 
@@ -678,7 +654,7 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
     method, however the computation path follows the Luong style.
     """
 
-    @ParameterSetter.apply
+    @ParameterSetter.pack
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
 
@@ -691,11 +667,11 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
         """
         super().init_parameters()
 
-        self._attention_layer = nn.Linear(self._hidden_size.value * 2, self._hidden_size.value)
+        self._attention_layer = nn.Linear(self._hidden_size * 2, self._hidden_size)
 
-        tr = torch.rand(self._hidden_size.value, 1)
+        tr = torch.rand(self._hidden_size, 1)
 
-        if self._use_cuda.value:
+        if self._use_cuda:
             self._attention_layer = self._attention_layer.cuda()
 
             tr = tr.cuda()

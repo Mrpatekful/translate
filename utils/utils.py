@@ -7,7 +7,6 @@ import time
 import pickle
 import os.path
 import inspect
-import sys
 
 
 def batch_to_padded_sequence(batch, lengths):
@@ -47,6 +46,13 @@ def subclasses(base_cls):
 
 
 def copy_dict_hierarchy(dictionary, fill_value=None):
+    """
+    Copies the a dictionary, that may have multiple embedded dictionaries. The values
+    of the dictionary are replaced with the provided fill value.
+    :param dictionary: dict, which structure will be copied.
+    :param fill_value: the value that will be used to fill the copied dictionary.
+    :return: dict, the copied dictionary.
+    """
     new_dict = dict(zip(dictionary.keys(), [fill_value] * len(dictionary.keys())))
     for key in [k for k in dictionary.keys() if isinstance(dictionary[k], dict)]:
         new_dict[key] = copy_dict_hierarchy(dictionary[key])
@@ -54,6 +60,13 @@ def copy_dict_hierarchy(dictionary, fill_value=None):
 
 
 def merge_dicts(create_dict, iterable):
+    """
+    Merges multiple dictionaries, which are created by the output of a function and
+    an iterable. The function is applied to the values of the iterable, that creates dictionaries
+    :param create_dict: function, that given a parameter, outputs a dictionary.
+    :param iterable: iterable, on which the function will be applied.
+    :return: dict, the created dictionary.
+    """
     merged_dict = {}
     for dictionary in map(create_dict, iterable):
         merged_dict = {**merged_dict, **dictionary}
@@ -61,6 +74,12 @@ def merge_dicts(create_dict, iterable):
 
 
 def create_leaf_dict(dictionary):
+    """
+    Creates a flattened dictionary, from a dictionary, that has multiple dictionaries as
+    values.
+    :param dictionary: dict, that may have multiple layers of dictionaries as values.
+    :return: dict, the flattened dictionary.
+    """
     leaf_dict = {}
     for key in dictionary:
         if isinstance(dictionary[key], dict):
@@ -169,82 +188,16 @@ class Logger:
         self._log_dir = log_dir
 
 
-class Parameter:
-    """
-    Parameter object for storing information about the contained variable.
-    Attributes of large classes may pack their variables into Parameter objects,
-    so they can be set with a single ParameterSetter object at initialization.
-    """
-
-    def __init__(self, name, doc):
-        """
-        An instance of a parameter object.
-        :param name: str, name of the parameter.
-        :param doc: str, description of the parameter.
-        """
-        self._name = name
-        self._doc = doc
-        self._value = None
-
-    def __repr__(self):
-        return self._name + ': { ' + self._doc + ' }'
-
-    def __doc__(self):
-        return self._doc
-
-    @property
-    def name(self):
-        """
-        Property for the name of the parameter.
-        :return: str, name of the parameter.
-        """
-        return self._name
-
-    @property
-    def value(self):
-        """
-        Property for the value of the parameter.
-        :return: value of the parameter.
-        """
-        if self._value is None:
-            raise ValueError('Value for parameter \' %s \' has not been set.' % self._name)
-        return self._value
-
-    @value.setter
-    def value(self, value):
-        """
-        Setter for the parameter value.
-        :param value: value of the parameter.
-        """
-        self._value = value
-
-
 class ParameterSetter:
     """
     This class handles the initialization of the given object's parameters.
     """
 
-    def __init__(self, param_dict):
-        """
-        An instance of a ParameterSetter class.
-        :param param_dict: dict, containing the key value pairs of the object's parameters.
-                           The keys are the exact name of the attributes, which are initialized
-                           as Parameter objects in the given class. Only those attributes will be
-                           set, which are created this way.
-        """
-        try:
-            for key in param_dict:
-                if isinstance(param_dict[key], str) and param_dict[key] in param_dict.keys():
-                    raise ValueError('Parameter initialization can not contain reference to other parameters.')
-
-        except IndexError:
-            print('Invalid value for parameter.')
-            return
-
-        self._param_dict = param_dict
-
     @staticmethod
-    def apply(func):
+    def pack(func):
+        """
+        Decorator for the functions, that require parameter packing.
+        """
         def wrapper(*args, **kwargs):
             if len(kwargs.keys()) == 1:
                 return func(*args, **kwargs)
@@ -253,69 +206,27 @@ class ParameterSetter:
 
         return wrapper
 
-    def __call__(self, obj_dict):
+    def __init__(self, param_dict):
         """
-        Invocation of a parameter object will initialize the object's Parameter type attributes.
-        :param obj_dict: dict, a reference to the object's attribute dictionary (obj.__dict__).
+        An instance of a ParameterSetter class.
+        :param param_dict: dict, containing the key value pairs of the object's parameters.
         """
-        obj_parameters = [parameter for parameter in obj_dict.keys()
-                          if isinstance(obj_dict[parameter], Parameter)]
+        self._param_dict = param_dict
 
-        try:
-            for parameter in self._param_dict:
-                if '_' + parameter in obj_parameters:
-                    obj_dict['_' + parameter].value = self._param_dict[parameter]
-                else:
-                    raise ValueError('Parameter \'%s\' is not a member of the object parameters.' % parameter)
-
-        except KeyError:
-            print('Error: Object requires a parameter (name: < {0} >), which hasn\'t '
-                  'been given to the parameter dictionary.'.format(parameter))
-            sys.exit()
-
-    def __add__(self, new_parameters):
+    def initialize(self, instance):
         """
-        Adds parameters to the ParameterSetter object.
-        By adding a dict with a value of a string, that is the key of an already existing value in the dictionary,
-        the value of the new key will be set to be the same as the referenced key's value.
-        :param new_parameters: dict, parameters to be added to the parameter list.
-        :return: ParameterSetter, the new instance.
+        This function creates the attributes of an instances. The instance must have an interface() method,
+        that describes the required attributes.
+        :param instance: instance, that will be initialized with the parameters, stored in the parameter dict.
         """
-        try:
-
-            for key in new_parameters:
-                if isinstance(new_parameters[key], str):
-                    refs = new_parameters[key].split('+')
-                    if len(refs) > 1:
-                        new_parameters[key] = 0
-                        for ref_key in refs:
-                            if ref_key in self._param_dict.keys():
-                                new_parameters[key] += self._param_dict[ref_key]
-                            else:
-                                raise KeyError()
-                    else:
-                        new_parameters[key] = self._param_dict[new_parameters[key]]
-
-        except IndexError:
-            print('Invalid value for parameter.')
-            return
-
-        except KeyError:
-            print('The referenced parameter is not an element of the dictionary.')
-            return
-
-        self._param_dict.update(new_parameters)
-
-        return self
+        for parameter in instance.interface():
+            instance.__dict__['_' + parameter] = self._param_dict[parameter]
 
 
 class Component:
-
-    def properties(self):
-        return {
-            name: getattr(self, name) for (name, _) in
-            inspect.getmembers(type(self), lambda x: isinstance(x, property))
-        }
+    """
+    The base class for the components of the API.
+    """
 
     @classmethod
     def interface(cls):
@@ -324,3 +235,13 @@ class Component:
     @classmethod
     def abstract(cls):
         return True
+
+    def properties(self):
+        """
+        Convenience function for retrieving the properties of an instances, with their values.
+        :return:
+        """
+        return {
+            name: getattr(self, name) for (name, _) in
+            inspect.getmembers(type(self), lambda x: isinstance(x, property))
+        }

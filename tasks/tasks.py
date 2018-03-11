@@ -41,10 +41,9 @@ class UnsupervisedTranslation(Task):
     def __init__(self,
                  source,
                  target,
-                 # reguralization,
+                 reguralization,
                  model,
-                 use_cuda,
-                 model_checkpoint=_default):
+                 use_cuda):
         """
         An instance of an unsupervised translation task.
         :param source: Reader, an instance of a reader object, that may be a FastReader or FileReader.
@@ -57,7 +56,7 @@ class UnsupervisedTranslation(Task):
         self._source_reader.batch_format = self.format_batch
         self._target_reader.batch_format = self.format_batch
 
-        # self._reguralization = reguralization
+        self._reguralization = reguralization
 
         self._model = model
 
@@ -67,11 +66,11 @@ class UnsupervisedTranslation(Task):
         the given epochs.
         :param epochs: int, the number of maximum epochs.
         """
-        def set_lut(encoder_language, decoder_language):
+        def set_embeddings(encoder_language, decoder_language):
             """
-            Sets the look up table for the model.
-            :param encoder_language: Language, the language of the embeddings that will be used by the encoder.
-            :param decoder_language: Language, the language of the embeddings that will be used by the decoder.
+            Sets the embeddings for the mode.
+            :param encoder_language: Language, encoder's language.
+            :param decoder_language: Language, decoder's language.
             """
             nonlocal self
 
@@ -91,7 +90,7 @@ class UnsupervisedTranslation(Task):
 
         for epoch in range(epochs):
 
-            set_lut(self._source_reader.source_language, self._source_reader.source_language)
+            set_embeddings(self._source_reader.source_language, self._source_reader.source_language)
             self._source_reader.mode = 'train'
             loss = 0
 
@@ -115,11 +114,11 @@ class UnsupervisedTranslation(Task):
                                      max_length=max_length,
                                      noise_function=noise_function)
 
-                inp = inputs.cpu().data[:, :].numpy()
-                out = outputs['symbols'][:, :]
-                tgt = targets.cpu().data[:, 1:].numpy()
+                inputs = inputs.cpu().data[:, :].numpy()
+                outputs = outputs['symbols'][:, :]
+                targets = targets.cpu().data[:, 1:].numpy()
 
-                # self._source_reader.print_validation_format(input=inp, output=out, target=tgt)
+                self._source_reader.print_validation_format(input=inputs, output=outputs, target=targets)
 
     def _step(self,
               inputs,

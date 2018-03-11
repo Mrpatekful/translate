@@ -725,7 +725,7 @@ class DataQueue:
                     temp_data_segment = copy.deepcopy(data_segment)
                     del data_segment[:]
                     yield temp_data_segment
-            yield data_segment  # the segment is not filled, returning with the remaining values
+            yield data_segment
 
 
 class Padding:

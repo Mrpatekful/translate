@@ -6,33 +6,7 @@
             "source": "configs/components/utils/reader.json",
             "target": "configs/components/utils/reader.json"
         },
-        "model": {
-            "type": "SeqToSeq",
-            "params": {
-                "encoder":  {
-                    "type": "RNNEncoder",
-                    "params": {
-                        "hidden_size": 50,
-                        "recurrent_type": "LSTM",
-                        "num_layers": 2,
-                        "optimizer_type": "Adam",
-                        "learning_rate": 0.01
-                    }
-                },
-                "decoder": {
-                    "type": "BahdanauAttentionRNNDecoder",
-                    "params": {
-                        "hidden_size": 50,
-                        "recurrent_type": "LSTM",
-                        "num_layers": 2,
-                        "optimizer_type": "Adam",
-                        "learning_rate": 0.1,
-                        "max_length": 15,
-                        "tf_ratio": 0
-                    }
-                }
-            }
-        },
+        "model": "configs/components/models/sts.json",
         "regularization": "configs/components/utils/reg.json"
     }
 }

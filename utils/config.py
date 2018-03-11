@@ -21,12 +21,31 @@ class Config:
     The configs are defined in JSON format files, which are parsed,
     and instantiated by the corresponding modules.
     """
-
     _base_nodes = [Encoder, Decoder, Discriminator, Reader, Corpus, Model]
 
     _tasks = utils.subclasses(Task)
 
     _modules = utils.merge_dicts(utils.subclasses, _base_nodes)
+
+    @staticmethod
+    def _apply_operator(args, op):
+        """
+        Applies the operator on the given arguments.
+        :param args: tuple, which elements will serve as the operands.
+        :param op: str, the operator.
+        :raises: ValueError: if the operator is not defined.
+        :return: result of the operation.
+        """
+        if op == '+':
+            return args[0] + args[1]
+        elif op == '-':
+            return args[0] - args[1]
+        elif op == '*':
+            return args[0] * args[1]
+        elif op == '/':
+            return args[0] / args[1]
+        else:
+            raise ValueError('Undefined operand: %s.' % op)
 
     def __init__(self, config):
         """
@@ -119,26 +138,6 @@ class Config:
         }
 
         return instance
-
-    @staticmethod
-    def _apply_operator(args, op):
-        """
-        Applies the operator on the given arguments.
-        :param args: tuple, which elements will serve as the operands.
-        :param op: str, the operator.
-        :raises: ValueError: if the operator is not defined.
-        :return: result of the operation.
-        """
-        if op == '+':
-            return args[0] + args[1]
-        elif op == '-':
-            return args[0] - args[1]
-        elif op == '*':
-            return args[0] * args[1]
-        elif op == '/':
-            return args[0] / args[1]
-        else:
-            raise ValueError('Undefined operand: %s.' % op)
 
     def _get_key(self, pattern):
         """

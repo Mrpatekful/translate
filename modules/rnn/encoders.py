@@ -5,7 +5,6 @@ import torch.optim
 
 from modules.encoder import Encoder
 
-from utils.utils import Parameter
 from utils.utils import ParameterSetter
 from utils.utils import batch_to_padded_sequence
 from utils.utils import padded_sequence_to_batch
@@ -18,17 +17,7 @@ class RNNEncoder(Encoder):
     Recurrent encoder module of the sequence to sequence model.
     """
 
-    _param_dict = {
-        'hidden_size': Parameter(name='_hidden_size',        doc='int, size of recurrent layer of the LSTM/GRU.'),
-        'embedding_size': Parameter(name='_embedding_size',  doc='int, dimension of the word embeddings.'),
-        'recurrent_type':  Parameter(name='_recurrent_type', doc='str, name of the recurrent layer (GRU, LSTM).'),
-        'num_layers': Parameter(name='_num_layers',          doc='int, number of stacked RNN layers.'),
-        'optimizer_type': Parameter(name='_optimizer_type',  doc='Optimizer, for parameter optimalization.'),
-        'learning_rate': Parameter(name='_learning_rate',    doc='float, learning rate.'),
-        'use_cuda':  Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.')
-    }
-
-    @ParameterSetter.apply
+    @ParameterSetter.pack
     def __init__(self, parameter_setter):
         """
         A recurrent encoder module for the sequence to sequence model.
@@ -58,25 +47,22 @@ class RNNEncoder(Encoder):
         After initialization, the main components of the encoder, which require the previously
         initialized parameter values, are created as well.
         """
-        for parameter in self._param_dict:
-            self.__dict__[self._param_dict[parameter].name] = self._param_dict[parameter]
+        self._parameter_setter.initialize(self)
 
-        self._parameter_setter(self.__dict__)
-
-        if self._recurrent_type.value == 'LSTM':
+        if self._recurrent_type == 'LSTM':
             unit_type = torch.nn.LSTM
-        elif self._recurrent_type.value == 'GRU':
+        elif self._recurrent_type == 'GRU':
             unit_type = torch.nn.GRU
         else:
             raise ValueError('Invalid recurrent unit type.')
 
-        self._recurrent_layer = unit_type(input_size=self._embedding_size.value,
-                                          hidden_size=self._hidden_size.value,
-                                          num_layers=self._num_layers.value,
+        self._recurrent_layer = unit_type(input_size=self._embedding_size,
+                                          hidden_size=self._hidden_size,
+                                          num_layers=self._num_layers,
                                           bidirectional=False,
                                           batch_first=True)
 
-        if self._use_cuda.value:
+        if self._use_cuda:
             self._recurrent_layer = self._recurrent_layer.cuda()
 
         return self
@@ -91,7 +77,7 @@ class RNNEncoder(Encoder):
             'RMSProp': torch.optim.RMSprop,
         }
 
-        self._optimizer = optimizers[self._optimizer_type.value](self.parameters(), lr=self._learning_rate.value)
+        self._optimizer = optimizers[self._optimizer_type](self.parameters(), lr=self._learning_rate)
 
         return self
 
@@ -124,9 +110,9 @@ class RNNEncoder(Encoder):
         Initializes the hidden state of the encoder module.
         :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
         """
-        result = autograd.Variable(torch.zeros(self._num_layers.value, batch_size, self._hidden_size.value))
+        result = autograd.Variable(torch.zeros(self._num_layers, batch_size, self._hidden_size))
 
-        if self._use_cuda.value:
+        if self._use_cuda:
             result = result.cuda()
 
         if isinstance(self._recurrent_layer, torch.nn.LSTM):
