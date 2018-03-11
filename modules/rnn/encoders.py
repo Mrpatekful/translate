@@ -4,9 +4,13 @@ import torch.nn as nn
 import torch.optim
 
 from modules.encoder import Encoder
+
 from utils.utils import Parameter
+from utils.utils import ParameterSetter
 from utils.utils import batch_to_padded_sequence
 from utils.utils import padded_sequence_to_batch
+
+from collections import OrderedDict
 
 
 class RNNEncoder(Encoder):
@@ -24,6 +28,7 @@ class RNNEncoder(Encoder):
         'use_cuda':  Parameter(name='_use_cuda',             doc='bool, True if the device has cuda support.')
     }
 
+    @ParameterSetter.apply
     def __init__(self, parameter_setter):
         """
         A recurrent encoder module for the sequence to sequence model.
@@ -85,6 +90,7 @@ class RNNEncoder(Encoder):
             'SGD': torch.optim.SGD,
             'RMSProp': torch.optim.RMSprop,
         }
+
         self._optimizer = optimizers[self._optimizer_type.value](self.parameters(), lr=self._learning_rate.value)
 
         return self
@@ -133,11 +139,16 @@ class RNNEncoder(Encoder):
         return False
 
     @classmethod
-    def assemble(cls, params):
-        return {
-            **{cls._param_dict[param].name: params[param] for param in params if param in cls._param_dict},
-            cls._param_dict['embedding_size'].name: params['language'].embedding_size,
-        }
+    def interface(cls):
+        return OrderedDict(
+            hidden_size=None,
+            recurrent_type=None,
+            num_layers=None,
+            optimizer_type=None,
+            learning_rate=None,
+            use_cuda='Task:use_cuda$',
+            embedding_size='source_embedding_size$'
+        )
 
     @property
     def optimizer(self):
@@ -172,11 +183,3 @@ class RNNEncoder(Encoder):
         self._embedding_layer = nn.Embedding(embedding['weights'].size(0), embedding['weights'].size(1))
         self._embedding_layer.weight = nn.Parameter(embedding['weights'])
         self._embedding_layer.weight.requires_grad = embedding['requires_grad']
-
-    @property
-    def hidden_size(self):
-        """
-        Property for the hidden size of the recurrent layer.
-        :return: int, size of the hidden layer.
-        """
-        return self._hidden_size.value

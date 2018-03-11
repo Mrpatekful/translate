@@ -12,13 +12,13 @@
             }
         },
         "decoder": {
-            "type": "GeneralAttentionRNNDecoder",
+            "type": "BahdanauAttentionRNNDecoder",
             "params": {
                 "hidden_size": 50,
                 "recurrent_type": "LSTM",
                 "num_layers": 2,
                 "optimizer_type": "Adam",
-                "learning_rate": 0.01,
+                "learning_rate": 0.1,
                 "max_length": 15,
                 "tf_ratio": 0
             }

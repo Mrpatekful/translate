@@ -1,56 +1,38 @@
 {
     "type": "UnsupervisedTranslation",
     "params": {
+        "use_cuda": true,
         "readers": {
-            "source": {
-                "type": "FastReader",
-                "params": {
-                    "max_segment_size": 1000,
-                    "batch_size": 32,
-                    "padding_type": "PostPadding",
-                    "corpus": {
-                        "type": "Monolingual",
-                        "params": {
-                            "path": "data/eng/eng_seg",
-                            "embedding": {
-                                "trained": true,
-                                "path": "data/eng/eng_voc",
-                                "token": "<ENG>"
-                            }
-                        }
+            "source": "configs/components/utils/reader.json",
+            "target": "configs/components/utils/reader.json"
+        },
+        "model": {
+            "type": "SeqToSeq",
+            "params": {
+                "encoder":  {
+                    "type": "RNNEncoder",
+                    "params": {
+                        "hidden_size": 50,
+                        "recurrent_type": "LSTM",
+                        "num_layers": 2,
+                        "optimizer_type": "Adam",
+                        "learning_rate": 0.01
                     }
-                }
-            },
-            "target": {
-                "type": "FastReader",
-                "params": {
-                    "max_segment_size": 1000,
-                    "batch_size": 32,
-                    "padding_type": "PostPadding",
-                    "corpus": {
-                        "type": "Monolingual",
-                        "params": {
-                            "path": "data/eng/eng_seg",
-                            "embedding": {
-                                "trained": true,
-                                "path": "data/eng/eng_voc",
-                                "token": "<ENG>"
-                            }
-                        }
+                },
+                "decoder": {
+                    "type": "BahdanauAttentionRNNDecoder",
+                    "params": {
+                        "hidden_size": 50,
+                        "recurrent_type": "LSTM",
+                        "num_layers": 2,
+                        "optimizer_type": "Adam",
+                        "learning_rate": 0.1,
+                        "max_length": 15,
+                        "tf_ratio": 0
                     }
                 }
             }
         },
-        "regularization": {
-            "type": "MLPDiscriminator",
-            "params": {
-                "num_layers": 3,
-                "hidden_size": 1024,
-                "optimizer_type": "RMSProp",
-                "learning_rate": 0.01
-            }
-        }
-
-    },
-    "use_cuda": true
+        "regularization": "configs/components/utils/reg.json"
+    }
 }

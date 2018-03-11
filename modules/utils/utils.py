@@ -1,8 +1,13 @@
 import torch
-import torch.nn as nn
+
+from torch.nn import Module
+from torch.nn import Linear
+from torch.nn import LeakyReLU
+
+from utils.utils import Component
 
 
-class Discriminator(nn.Module):
+class Discriminator(Module, Component):
     """
     Abstract base class for the discriminator modules, mainly used for the unsupervised
     translation task. Any newly added discriminator type module must inherit from this
@@ -14,14 +19,6 @@ class Discriminator(nn.Module):
 
     def forward(self, *args, **kwargs):
         return NotImplementedError
-
-    @classmethod
-    def assemble(cls, params):
-        return NotImplementedError
-
-    @classmethod
-    def abstract(cls):
-        return True
 
 
 class MLPDiscriminator(Discriminator):  # TODO
@@ -43,10 +40,10 @@ class MLPDiscriminator(Discriminator):  # TODO
         """
         super().__init__()
 
-        self._input_layer = nn.Linear(input_dim, hidden_dim)
-        self._hidden_layer = nn.Linear(hidden_dim, hidden_dim)
-        self._output_layer = nn.Linear(hidden_dim, 1)
-        self._activation = nn.LeakyReLU()
+        self._input_layer = Linear(input_dim, hidden_dim)
+        self._hidden_layer = Linear(hidden_dim, hidden_dim)
+        self._output_layer = Linear(hidden_dim, 1)
+        self._activation = LeakyReLU()
 
         if use_cuda:
             self._input_layer = self._input_layer.cuda()
@@ -73,10 +70,6 @@ class MLPDiscriminator(Discriminator):  # TODO
         output = self._activation(self._hidden_layer(output))
         output = self._activation(self._output_layer(output))
         return output
-
-    @classmethod
-    def assemble(cls, params):
-        return NotImplementedError
 
     @classmethod
     def abstract(cls):
@@ -132,10 +125,6 @@ class RNNDiscriminator(Discriminator):  # TODO
         :param learning_rate:
         :return:
         """
-        return NotImplementedError
-
-    @classmethod
-    def assemble(cls, params):
         return NotImplementedError
 
     @classmethod

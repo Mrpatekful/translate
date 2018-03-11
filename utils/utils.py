@@ -6,8 +6,7 @@ from functools import wraps
 import time
 import pickle
 import os.path
-import numpy
-import torch
+import inspect
 import sys
 
 
@@ -45,6 +44,31 @@ def subclasses(base_cls):
         return {**hierarchy, **{name: sub_classes[name] for name in sub_classes if not sub_classes[name].abstract()}}
 
     return get_hierarchy(base_cls)
+
+
+def copy_dict_hierarchy(dictionary, fill_value=None):
+    new_dict = dict(zip(dictionary.keys(), [fill_value] * len(dictionary.keys())))
+    for key in [k for k in dictionary.keys() if isinstance(dictionary[k], dict)]:
+        new_dict[key] = copy_dict_hierarchy(dictionary[key])
+    return new_dict
+
+
+def merge_dicts(create_dict, iterable):
+    merged_dict = {}
+    for dictionary in map(create_dict, iterable):
+        merged_dict = {**merged_dict, **dictionary}
+    return merged_dict
+
+
+def create_leaf_dict(dictionary):
+    leaf_dict = {}
+    for key in dictionary:
+        if isinstance(dictionary[key], dict):
+            leaf_dict = {**leaf_dict, **create_leaf_dict(dictionary[key])}
+        else:
+            leaf_dict = {**leaf_dict, key: dictionary[key]}
+
+    return leaf_dict
 
 
 def logging(logger):
@@ -183,7 +207,7 @@ class Parameter:
         :return: value of the parameter.
         """
         if self._value is None:
-            raise ValueError('Parameter value has not been set.')
+            raise ValueError('Value for parameter \' %s \' has not been set.' % self._name)
         return self._value
 
     @value.setter
@@ -219,6 +243,16 @@ class ParameterSetter:
 
         self._param_dict = param_dict
 
+    @staticmethod
+    def apply(func):
+        def wrapper(*args, **kwargs):
+            if len(kwargs.keys()) == 1:
+                return func(*args, **kwargs)
+            else:
+                return func(*args, ParameterSetter(kwargs))
+
+        return wrapper
+
     def __call__(self, obj_dict):
         """
         Invocation of a parameter object will initialize the object's Parameter type attributes.
@@ -229,13 +263,13 @@ class ParameterSetter:
 
         try:
             for parameter in self._param_dict:
-                if parameter in obj_parameters:
-                    obj_dict[parameter].value = self._param_dict[parameter]
+                if '_' + parameter in obj_parameters:
+                    obj_dict['_' + parameter].value = self._param_dict[parameter]
                 else:
-                    raise ValueError('Parameter is not a member of the object parameters.')
+                    raise ValueError('Parameter \'%s\' is not a member of the object parameters.' % parameter)
 
         except KeyError:
-            print('Object requires a parameter (name: < {0} >), which hasn\'t '
+            print('Error: Object requires a parameter (name: < {0} >), which hasn\'t '
                   'been given to the parameter dictionary.'.format(parameter))
             sys.exit()
 
@@ -275,114 +309,18 @@ class ParameterSetter:
         return self
 
 
-class Language:
-    """
-    Wrapper class for the lookup tables of the languages.
-    """
+class Component:
 
-    def __init__(self,
-                 path,
-                 token,
-                 trained,
-                 use_cuda):
-        """
-        A language instance for storing the embedding and vocabulary.
-        :param path: str, path of the embedding/vocabulary for the language.
-        :param token: str, token, that identifies the language.
-        :param trained: bool, true, if the embeddings have been pre-trained.
-        """
-        self._word_to_id = {}
-        self._id_to_word = {}
-        self._word_to_count = {}
-        self._language_token = token
-        self._use_cuda = use_cuda
+    def properties(self):
+        return {
+            name: getattr(self, name) for (name, _) in
+            inspect.getmembers(type(self), lambda x: isinstance(x, property))
+        }
 
-        self.requires_grad = not trained
+    @classmethod
+    def interface(cls):
+        return NotImplementedError
 
-        self._embedding = None
-        self._load_vocab(path)
-
-    def _load_vocab(self, path):
-        """
-        Loads the vocabulary from a file. Path is assumed to be a text
-        file, where each line contains a word and its corresponding embedding weights, separated by spaces.
-        :param path: string, the absolute path of the vocab.
-        """
-        with open(path, 'r') as file:
-            first_line = file.readline().split(' ')
-            num_of_words = int(first_line[0])
-            embedding_dim = int(first_line[1])
-            self._embedding = numpy.empty((num_of_words + 5, embedding_dim), dtype='float')
-
-            for index, line in enumerate(file):
-                line_as_list = list(line.split(' '))
-                self._word_to_id[line_as_list[0]] = index + 1  # all values are incremented by 1 because 0 is <PAD>
-                self._embedding[index + 1, :] = numpy.array([float(element) for element in line_as_list[1:]],
-                                                            dtype=float)
-
-            self._word_to_id['<PAD>'] = 0
-            self._word_to_id[self._language_token] = len(self._word_to_id)
-            self._word_to_id['<SOS>'] = len(self._word_to_id)
-            self._word_to_id['<EOS>'] = len(self._word_to_id)
-            self._word_to_id['<UNK>'] = len(self._word_to_id)
-
-            self._id_to_word = dict(zip(self._word_to_id.values(),
-                                        self._word_to_id.keys()))
-
-            self._embedding[0, :] = numpy.zeros(embedding_dim)
-            self._embedding[-1, :] = numpy.zeros(embedding_dim)
-            self._embedding[-2, :] = numpy.zeros(embedding_dim)
-            self._embedding[-3, :] = numpy.zeros(embedding_dim)
-            self._embedding[-4, :] = numpy.random.rand(embedding_dim)
-
-            self._embedding = torch.from_numpy(self._embedding).float()
-
-            if self._use_cuda:
-                self._embedding = self._embedding.cuda()
-
-    @property
-    def embedding(self):
-        """
-        Property for the embedding matrix.
-        :return: A PyTorch Variable object, that contains the embedding matrix
-                for the language.
-        """
-        if self._embedding is None:
-            raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding
-
-    @property
-    def embedding_size(self):
-        """
-        Property for the dimension of the embeddings.
-        :return: int, length of the embedding vectors (dim 1 of the embedding matrix).
-        """
-        if self._embedding is None:
-            raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding.shape[1]
-
-    @property
-    def vocab_size(self):
-        """
-        Property for the dimension of the embeddings.
-        :return: int, length of the vocabulary (dim 1 of the embedding matrix).
-        """
-        if self._embedding is None:
-            raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding.shape[0]
-
-    @property
-    def word_to_id(self):
-        """
-        Property for the word to id dictionary.
-        :return: dict, containing the word-id pairs.
-        """
-        return self._word_to_id
-
-    @property
-    def id_to_word(self):
-        """
-        Property for the word to id dictionary.
-        :return: dict, containing the word-id pairs.
-        """
-        return self._id_to_word
+    @classmethod
+    def abstract(cls):
+        return True

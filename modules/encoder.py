@@ -1,7 +1,9 @@
-import torch.nn as nn
+from torch.nn import Module
+
+from utils.utils import Component
 
 
-class Encoder(nn.Module):
+class Encoder(Module, Component):
     """
     Abstract base class for the encoder modules of the application. An encoder must
     inherit from this class, otherwise it won't be discoverable by the hierarchy
@@ -13,11 +15,3 @@ class Encoder(nn.Module):
 
     def forward(self, *args, **kwargs):
         return NotImplementedError
-
-    @classmethod
-    def assemble(cls, params):
-        return NotImplementedError
-
-    @classmethod
-    def abstract(cls):
-        return True

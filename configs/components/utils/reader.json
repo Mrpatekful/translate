@@ -1,0 +1,19 @@
+{
+    "type": "FastReader",
+    "params": {
+        "max_segment_size": 1000,
+        "batch_size": 32,
+        "padding_type": "PostPadding",
+        "corpus": {
+            "type": "Monolingual",
+            "params": {
+                "train": "data/eng/eng_train",
+                "dev": "data/eng/eng_dev",
+                "test": "data/eng/eng_test",
+                "trained": true,
+                "vocab": "data/eng/eng_voc",
+                "token": "<ENG>"
+            }
+        }
+    }
+}

@@ -1,0 +1,9 @@
+{
+    "type": "MLPDiscriminator",
+    "params": {
+        "num_layers": 3,
+        "hidden_size": 1024,
+        "optimizer_type": "RMSProp",
+        "learning_rate": 0.01
+    }
+}

@@ -1,29 +1,25 @@
 from utils import utils
 from utils import reader
+from models import models
 
-from modules.utils.utils import Noise
+from modules.utils import utils
+from utils.utils import Component
 
 import numpy
 import torch
 import torch.autograd
 
+from collections import OrderedDict
 
-class Task:
+
+class Task(Component):
 
     def fit_model(self, *args, **kwargs):
-        return NotImplementedError
-
-    @classmethod
-    def assemble(cls, params):
         return NotImplementedError
 
     @staticmethod
     def format_batch(batch, use_cuda):
         return NotImplementedError
-
-    @classmethod
-    def abstract(cls):
-        return True
 
 
 class UnsupervisedTranslation(Task):
@@ -40,23 +36,30 @@ class UnsupervisedTranslation(Task):
     which is an adversial reguralization, that learns to discriminate the hidden representations
     of the source and target languages.
     """
+    _default = '/tmp/checkpoints'
 
     def __init__(self,
-                 source_reader,
-                 target_reader,
+                 source,
+                 target,
+                 # reguralization,
                  model,
-                 model_params):
+                 use_cuda,
+                 model_checkpoint=_default):
         """
         An instance of an unsupervised translation task.
-        :param source_reader: Reader, an instance of a reader object, that may be a FastReader or FileReader.
-        :param target_reader: Reader, that is the same as the source reader, but for the target language.
+        :param source: Reader, an instance of a reader object, that may be a FastReader or FileReader.
+        :param target: Reader, that is the same as the source reader, but for the target language.
         :param model: Model, the class of the model, that will be used for this task.
-        :param model_params: dict, the parameters that are required by the model.
         """
-        self._source_reader = source_reader
-        self._target_reader = target_reader
+        self._source_reader = source
+        self._target_reader = target
 
-        self._model = model(**model_params)
+        self._source_reader.batch_format = self.format_batch
+        self._target_reader.batch_format = self.format_batch
+
+        # self._reguralization = reguralization
+
+        self._model = model
 
     def fit_model(self, epochs):
         """
@@ -64,48 +67,53 @@ class UnsupervisedTranslation(Task):
         the given epochs.
         :param epochs: int, the number of maximum epochs.
         """
-        def fit_step(**kwargs):
+        def set_lut(encoder_language, decoder_language):
             """
-            A single batch of data is propagated forward the model,
-            evaluated, and back-propagated. The parameters are updated by calling the step
-            function of the components' optimizers.
-            :param kwargs: inputs for the _step function.
-            :return: dict, containing the outputs of the model.
+            Sets the look up table for the model.
+            :param encoder_language: Language, the language of the embeddings that will be used by the encoder.
+            :param decoder_language: Language, the language of the embeddings that will be used by the decoder.
             """
             nonlocal self
 
-            ous = self._step(**kwargs)
-            ous['loss'].backward()
-
-            self._model.step()
-
-            return ous
-
-        loss_function = torch.nn.NLLLoss(ignore_index=0)
-        noise_function = Noise()
-
-        for epoch in range(epochs):
-
             self._model.encoder_embedding = {
-                'weights': self._source_reader.language.embedding,
-                'requires_grad': self._source_reader.language.requires_grad
+                'weights': encoder_language.embedding,
+                'requires_grad': encoder_language.requires_grad
             }
 
             self._model.decoder_embedding = {
-                'weights': self._source_reader.language.embedding,
-                'requires_grad': self._source_reader.language.requires_grad
+                'weights': decoder_language.embedding,
+                'requires_grad': decoder_language.requires_grad
             }
+            self._model.decoder_tokens = decoder_language.tokens
 
+        loss_function = torch.nn.NLLLoss(ignore_index=0)
+        noise_function = utils.Noise()
+
+        for epoch in range(epochs):
+
+            set_lut(self._source_reader.source_language, self._source_reader.source_language)
+            self._source_reader.mode = 'train'
             loss = 0
 
             for inputs, targets, lengths in self._source_reader.batch_generator():
-                outputs = fit_step(inputs=inputs,
-                                   targets=targets,
-                                   lengths=lengths,
-                                   loss_function=loss_function,
-                                   noise_function=noise_function)
+                outputs = self._fit_step(inputs=inputs,
+                                         targets=targets,
+                                         lengths=lengths,
+                                         loss_function=loss_function,
+                                         noise_function=noise_function)
 
                 loss += outputs['loss']
+
+            print(loss)
+
+            self._source_reader.mode = 'dev'
+            for inputs, targets, lengths in self._source_reader.batch_generator():
+                max_length = targets.size(1)
+                outputs = self._step(inputs=inputs,
+                                     targets=targets,
+                                     lengths=lengths,
+                                     max_length=max_length,
+                                     noise_function=noise_function)
 
                 inp = inputs.cpu().data[:, :].numpy()
                 out = outputs['symbols'][:, :]
@@ -113,14 +121,12 @@ class UnsupervisedTranslation(Task):
 
                 # self._source_reader.print_validation_format(input=inp, output=out, target=tgt)
 
-            print(loss)
-
     def _step(self,
               inputs,
               targets,
               lengths,
-              noise_function,
-              loss_function):
+              max_length,
+              noise_function):
         """
         Single forward step of the model. A batch of inputs and targets are provided, from which
         the output is calculated, with the current parameter values of the model.
@@ -129,33 +135,71 @@ class UnsupervisedTranslation(Task):
         :param noise_function: The noise model, that will be applied to the input sentences. As
                                written in the task description, this could serve as a dropout like
                                mechanism, or a translation model from the previous iteration.
-        :param loss_function: The loss function used for the calculation of the error.
         :return: int, loss at the current time step, produced by this iteration.
         """
         self._model.zero_grad()
 
         noisy_inputs = noise_function(inputs)
 
-        outputs = self._model.forward(inputs=noisy_inputs,
-                                      targets=targets,
-                                      lengths=lengths,
-                                      loss_function=loss_function)
+        outputs = self._model.forward(inputs=noisy_inputs, targets=targets, max_length=max_length, lengths=lengths)
 
         return outputs
 
-    def _save_model(self):
+    def _fit_step(self,
+                  inputs,
+                  targets,
+                  lengths,
+                  loss_function,
+                  noise_function):
         """
+        A single batch of data is propagated forward the model,
+        evaluated, and back-propagated. The parameters are updated by calling the step
+        function of the components' optimizers.
+        :param inputs: Variable, containing the ids of the words.
+        :param lengths: Ndarray, containing the lengths of each sentence in the input batch.
+        :param loss_function: Loss function of the model.
+        :param noise_function: The noise model, that will be applied to the input sentences. As
+                               written in the task description, this could serve as a dropout like
+                               mechanism, or a translation model from the previous iteration.
+        :return: int, loss at the current time step, produced by this iteration.
+        """
+        max_length = targets.size(1) - 1
 
-        :return:
-        """
-        # TODO
+        outputs = self._step(inputs=inputs,
+                             targets=targets,
+                             lengths=lengths,
+                             max_length=max_length,
+                             noise_function=noise_function)
 
-    def _load_model(self):
-        """
+        # ous['loss'] += self._reguralization(ous)
+        outputs['loss'] = 0
+        for step, step_output in enumerate(outputs['outputs']):
+            outputs['loss'] += loss_function(step_output, targets[:, step + 1])
 
-        :return:
-        """
-        # TODO
+        outputs['loss'].backward()
+
+        self._model.step()
+
+        return outputs
+
+    def _create_checkpoint(self, epoch):
+        pass
+
+    # def _save_model(self):
+    #     self._model.state
+    #     torch.save(state, filename)
+    #     if is_best:
+    #         shutil.copyfile(filename, 'model_best.pth.tar')
+    #
+    # def _load_model(self):
+    #     """
+    #
+    #     :return:
+    #     """
+    #     checkpoint = torch.load(args.resume)
+    #     args.start_epoch = checkpoint['epoch']
+    #     self._model.load_state_dict(checkpoint['state_dict'])
+    #     optimizer.load_state_dict(checkpoint['optimizer'])
 
     @staticmethod
     def format_batch(batch, use_cuda):
@@ -164,7 +208,12 @@ class UnsupervisedTranslation(Task):
         and will be used to produce batches and targets, in a way, that is convenient for this particular task.
         :param batch:
         :param use_cuda:
-        :return:
+        :return inputs: Variable, the inputs provided to the decoder. The <SOS> and <EOS> tokens are
+                        cut from the original input.
+        :return targets: Variable, the targets, provided to the decoder. The <ENG> token is removed
+                         from the original batch.
+        :return lengths: Ndarray, the lengths of the inputs provided to the encoder. These are used
+                         for sequence padding.
         """
         inputs = torch.from_numpy(batch[:, 1:-2])
         targets = torch.from_numpy(numpy.hstack((batch[:, 0].reshape(-1, 1), batch[:, 2:-1])))
@@ -175,54 +224,31 @@ class UnsupervisedTranslation(Task):
         return torch.autograd.Variable(inputs), torch.autograd.Variable(targets), lengths
 
     @classmethod
-    def assemble(cls, params):
-        """
-        Assembler function for the unsupervised translation task. This method
-        creates the reader and language objects described by the parameters.
-        :param params: dict, containing the parameters for the source and target objects that
-                       are required by this task.
-        :raises KeyError: invalid identifier in the configuration file.
-        :return: dict, containing the instantiated reader and language objects.
-        """
-        readers = utils.subclasses(reader.Reader)
-
-        try:
-
-            source_reader = readers[params['readers']['source']['type']]
-            source_reader_params = source_reader.assemble({
-                **params['readers']['source']['params'],
-                'use_cuda': params['use_cuda'],
-            })
-
-            source_reader = source_reader(**{
-                **source_reader_params,
-                'format_batch': cls.format_batch
-            })
-
-        except KeyError as error:
-            raise KeyError('%s is not a valid identifier for source reader.' % error)
-
-        try:
-
-            target_reader = readers[params['readers']['target']['type']]
-            target_reader_params = target_reader.assemble({
-                **params['readers']['target']['params'],
-                'use_cuda': params['use_cuda'],
-            })
-
-            target_reader = target_reader(**{
-                **target_reader_params,
-                'format_batch': cls.format_batch
-            })
-
-        except KeyError as error:
-            raise KeyError('%s is not a valid identifier for target reader.' % error)
-
-        return {
-            'source_reader': source_reader,
-            'target_reader': target_reader,
-        }
+    def interface(cls):
+        return OrderedDict(
+            use_cuda=None,
+            readers=OrderedDict(
+                source=reader.Reader,
+                target=reader.Reader
+            ),
+            model=models.Model,
+            # regularization=utils.Discriminator
+        )
 
     @classmethod
     def abstract(cls):
         return False
+
+
+class SupervisedTranslation(Task):
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def interface(cls):
+        return OrderedDict(
+            use_cuda=None,
+            reader=reader.Reader,
+            model=models.Model
+        )

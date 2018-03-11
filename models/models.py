@@ -1,15 +1,18 @@
-import torch.nn as nn
+from torch.nn import Module
 
-from modules.rnn import decoder, encoder
-from utils import utils
+from modules.rnn import encoders
+from modules.rnn import decoders
+from utils.utils import Component
+
+from collections import OrderedDict
 
 
-class Model(nn.Module):
+class Model(Module, Component):
     """
     Abstract base class for the models of the application.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__()
 
     def forward(self, *args, **kwargs):
@@ -20,14 +23,6 @@ class Model(nn.Module):
 
     def zero_grad(self):
         return NotImplementedError
-
-    @classmethod
-    def assemble(cls, params):
-        return NotImplementedError
-
-    @classmethod
-    def abstract(cls):
-        return True
 
 
 class SeqToSeq(Model):
@@ -43,43 +38,32 @@ class SeqToSeq(Model):
     vector to the desired sequence.
     """
 
-    def __init__(self,
-                 encoder_type,
-                 decoder_type,
-                 encoder_params,
-                 decoder_params):
+    def __init__(self, encoder, decoder):
         """
         An instance of ta sequence to sequence model.
-        :param encoder_type: Encoder, an encoder instance.
-        :param decoder_type: Decoder, a decoder instance.
-        :param encoder_params: ParameterSetter, containing the parameter dict for the encoder.
-        :param decoder_params: ParameterSetter, containing the parameter dict for the decoder.
+        :param encoder: Encoder, an encoder instance.
+        :param decoder: Decoder, a decoder instance.
         """
         super().__init__()
 
-        self._encoder = encoder_type(encoder_params).init_parameters().init_optimizer()
-        self._decoder = decoder_type(decoder_params).init_parameters().init_optimizer()
+        self._encoder = encoder.init_parameters().init_optimizer()
+        self._decoder = decoder.init_parameters().init_optimizer()
 
     def forward(self,
                 inputs,
                 targets,
-                lengths,
-                loss_function):
+                max_length,
+                lengths):
         """
         Forward step of the sequence to sequence model.
-        :param inputs: Variable, containing the ids for the tokens of the input sequence.
-        :param targets: Variable, containing the ids for the tokens of the target sequence.
+        :param inputs: Variable, containing the ids of the tokens for the input sequence.
+        :param targets: Variable, containing the ids of the tokens for the target sequence.
+        :param max_length: int, the maximum length of the decoded sequence.
         :param lengths: Ndarray, containing the lengths of the original sequences.
-        :param loss_function: loss function for the calculations of the error.
-        :return decoder_outputs: dict, containing the output values of the decoder.
-        :return encoder_outputs: dict, containing the output values of the encoder.
+        :return decoder_outputs: dict, containing the concatenated outputs of the encoder and decoder.
         """
         encoder_outputs = self._encoder.forward(inputs=inputs, lengths=lengths)
-
-        decoder_outputs = self._decoder.forward(targets=targets,
-                                                lengths=lengths,
-                                                loss_function=loss_function,
-                                                **encoder_outputs)
+        decoder_outputs = self._decoder.forward(targets=targets, max_length=max_length, **encoder_outputs)
 
         return {**decoder_outputs, **encoder_outputs}
 
@@ -102,37 +86,26 @@ class SeqToSeq(Model):
         return False
 
     @classmethod
-    def assemble(cls, params):
+    def interface(cls):
+        return OrderedDict(
+            encoder=encoders.Encoder,
+            decoder=decoders.Decoder
+        )
+
+    @property
+    def decoder_tokens(self):
         """
-        Assembler function for the encoder and decoder units, and its parameters
-        for the sequence to sequence model. The parameters are
-        :param params: dict, the merged dictionary of the model and task configuration parameters.
-        :return: dict, processed parameters wrapped in ParameterSetter object for both the encoder
-                 and decoder.
+        Tokens used by the decoder, for special outputs.
         """
-        encoders = utils.subclasses(encoder.Encoder)
-        decoders = utils.subclasses(decoder.Decoder)
+        return self._decoder.tokens
 
-        enc = encoders[params['encoder']['type']]
-        encoder_params = utils.ParameterSetter(enc.assemble({
-            **params['encoder']['params'],
-            'language': params['source_reader'].language,
-            'use_cuda': params['use_cuda']
-        }))
-
-        dec = decoders[params['decoder']['type']]
-        decoder_params = utils.ParameterSetter(dec.assemble({
-            **params['decoder']['params'],
-            'language': params['target_reader'].language,
-            'use_cuda': params['use_cuda']
-        }))
-
-        return {
-            'encoder_type': enc,
-            'decoder_type': dec,
-            'encoder_params': encoder_params,
-            'decoder_params': decoder_params
-        }
+    @decoder_tokens.setter
+    def decoder_tokens(self, tokens):
+        """
+        Setter for the tokens, that will be used by the decoder.
+        :param tokens: dict, tokens from the lut of decoding target.
+        """
+        self._decoder.tokens = tokens
 
     @property
     def decoder_embedding(self):
