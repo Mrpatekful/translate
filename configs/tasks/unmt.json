@@ -6,7 +6,7 @@
             "source": "configs/components/utils/reader.json",
             "target": "configs/components/utils/reader.json"
         },
-        "model": "configs/components/models/sts.json",
-        "regularization": "configs/components/utils/reg.json"
+        "model": "configs/components/models/seqtseq.json",
+        "reguralization": "configs/components/utils/mlpreg.json"
     }
 }

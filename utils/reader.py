@@ -33,15 +33,26 @@ class Reader(Component):
     def print_validation_format(self, *args, **kwargs):
         return NotImplementedError
 
-    def assemble(self, params):
-        return NotImplementedError
-
 
 class FastReader(Reader):
     """
     A faster implementation of reader class than FileReader. The source data is fully loaded into
     the memory.
     """
+
+    @classmethod
+    def abstract(cls):
+        return False
+
+    @classmethod
+    def interface(cls):
+        return OrderedDict(**{
+            'max_segment_size': None,
+            'batch_size':       None,
+            'padding_type':     None,
+            'use_cuda':        'Task:use_cuda$',
+            'corpus':           Corpus
+        })
 
     def __init__(self,
                  batch_size,
@@ -123,20 +134,6 @@ class FastReader(Reader):
             expression += '\n'
         print(expression)
 
-    @classmethod
-    def abstract(cls):
-        return False
-
-    @classmethod
-    def interface(cls):
-        return OrderedDict(
-            max_segment_size=None,
-            batch_size=None,
-            padding_type=None,
-            use_cuda='Task:use_cuda$',
-            corpus=Corpus
-        )
-
     @property
     def batch_format(self):
         """
@@ -200,6 +197,14 @@ class FileReader(Reader):  # TODO
     in memory.
     """
 
+    @classmethod
+    def abstract(cls):
+        return False
+
+    @classmethod
+    def interface(cls):
+        return NotImplementedError
+
     def __init__(self,
                  language,
                  data_path,
@@ -251,18 +256,6 @@ class FileReader(Reader):  # TODO
     def print_validation_format(self, *args, **kwargs):
         return NotImplementedError
 
-    @classmethod
-    def assemble(cls, params):
-        return NotImplementedError
-
-    @classmethod
-    def interface(cls):
-        return NotImplementedError
-
-    @classmethod
-    def abstract(cls):
-        return False
-
     @property
     def language(self):
         """
@@ -277,6 +270,19 @@ class Corpus(Component):
     Wrapper class for the corpus of the task. Stores information about the corpus, and
     stores the location of the train, development and test data.
     """
+
+    @classmethod
+    def abstract(cls):
+        return True
+
+    @classmethod
+    def interface(cls):
+        return OrderedDict(**{
+            'train':     None,
+            'dev':       None,
+            'test':      None,
+            'use_cuda': 'Task:use_cuda$'
+        })
 
     def __init__(self,
                  train,
@@ -396,24 +402,24 @@ class Corpus(Component):
             raise ValueError('Test data path has not been set.')
         return self._test
 
-    @classmethod
-    def interface(cls):
-        return OrderedDict(
-            train=None,
-            dev=None,
-            test=None,
-            use_cuda='Task:use_cuda$'
-        )
-
-    @classmethod
-    def abstract(cls):
-        return True
-
 
 class Monolingual(Corpus):
     """
     Special case of Corpus class, where the data read from the files only have a single language.
     """
+
+    @classmethod
+    def abstract(cls):
+        return False
+
+    @classmethod
+    def interface(cls):
+        return OrderedDict(**{
+            **super().interface(),
+            'vocab':    None,
+            'trained':  None,
+            'token':    None
+        })
 
     def __init__(self,
                  train,
@@ -461,25 +467,29 @@ class Monolingual(Corpus):
             raise ValueError('The given file is empty.')
         return data
 
-    @classmethod
-    def interface(cls):
-        return OrderedDict(
-            **super().interface(),
-            vocab=None,
-            trained=None,
-            token=None
-        )
-
-    @classmethod
-    def abstract(cls):
-        return False
-
 
 class Parallel(Corpus):
     """
     Wrapper class for the corpora, that yields two languages. The languages are paired, and
     are separated by a special separator token.
     """
+
+    @classmethod
+    def abstract(cls):
+        return False
+
+    @classmethod
+    def interface(cls):
+        return OrderedDict(**{
+            **super().interface(),
+            'source_trained':   None,
+            'source_vocab':     None,
+            'source_token':     None,
+            'target_trained':   None,
+            'target_vocab':     None,
+            'target_token':     None,
+            'separator_token':  None
+        })
 
     def __init__(self,
                  train,
@@ -531,23 +541,6 @@ class Parallel(Corpus):
         if len(data) == 0:
             raise ValueError('The given file is empty.')
         return data
-
-    @classmethod
-    def interface(cls):
-        return OrderedDict(
-            **super().interface(),
-            source_trained=None,
-            source_vocab=None,
-            source_token=None,
-            target_trained=None,
-            target_vocab=None,
-            target_token=None,
-            separator_token=None
-        )
-
-    @classmethod
-    def abstract(cls):
-        return False
 
 
 class Language:
@@ -733,6 +726,10 @@ class Padding:
     Base class for the padding types.
     """
 
+    @classmethod
+    def abstract(cls):
+        return True
+
     def __init__(self, language, max_segment_size):
         self._language = language
         self._max_segment_size = max_segment_size
@@ -740,16 +737,32 @@ class Padding:
     def create_batch(self, ):
         return NotImplementedError
 
-    @classmethod
-    def abstract(cls):
-        return True
-
 
 class PostPadding(Padding):
     """
     Data is padded during the training iterations. Padding is determined by the longest
     sequence in the batch.
     """
+
+    @staticmethod
+    def create_batch(data):
+        """
+        Creates a sorted batch from the data. Each line of the data is padded to the
+        length of the longest sequence in the batch.
+        :param data:
+        :return:
+        """
+        sorted_data = sorted(data, key=lambda x: x[-1], reverse=True)
+        batch_length = sorted_data[0][-1]
+        for index in range(len(sorted_data)):
+            while len(sorted_data[index]) - 1 < batch_length:
+                sorted_data[index].insert(-1, 0)
+
+        return numpy.array(sorted_data, dtype='int')
+
+    @classmethod
+    def abstract(cls):
+        return False
 
     def __init__(self, language, max_segment_size):
         """
@@ -772,32 +785,26 @@ class PostPadding(Padding):
                 data_to_ids.append(ids)
         return data_to_ids
 
-    @staticmethod
-    def create_batch(data):
-        """
-        Creates a sorted batch from the data. Each line of the data is padded to the
-        length of the longest sequence in the batch.
-        :param data:
-        :return:
-        """
-        sorted_data = sorted(data, key=lambda x: x[-1], reverse=True)
-        batch_length = sorted_data[0][-1]
-        for index in range(len(sorted_data)):
-            while len(sorted_data[index])-1 < batch_length:
-                sorted_data[index].insert(-1, 0)
-
-        return numpy.array(sorted_data, dtype='int')
-
-    @classmethod
-    def abstract(cls):
-        return False
-
 
 class PrePadding(Padding):
     """
     Data is padded previously to the training iterations. The padding is determined
     by the longest sequence in the data segment.
     """
+
+    @staticmethod
+    def create_batch(data):
+        """
+        Creates the batch, by sorting the elements in descending order with respect to the
+        lengths of the sequences.
+        :param data: list, containing lists of the ids.
+        :return: Numpy Array, sorted batch.
+        """
+        return numpy.array(sorted(data, key=lambda x: x[-1], reverse=True))
+
+    @classmethod
+    def abstract(cls):
+        return False
 
     def __init__(self, language, max_segment_size):
         """
@@ -828,17 +835,3 @@ class PrePadding(Padding):
                 data_to_ids.append(data_line)
 
         return data_to_ids
-
-    @staticmethod
-    def create_batch(data):
-        """
-        Creates the batch, by sorting the elements in descending order with respect to the
-        lengths of the sequences.
-        :param data: list, containing lists of the ids.
-        :return: Numpy Array, sorted batch.
-        """
-        return numpy.array(sorted(data, key=lambda x: x[-1], reverse=True))
-
-    @classmethod
-    def abstract(cls):
-        return False

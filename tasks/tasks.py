@@ -13,12 +13,23 @@ from collections import OrderedDict
 
 
 class Task(Component):
-
-    def fit_model(self, *args, **kwargs):
-        return NotImplementedError
+    """
+    Abstract base class for the tasks.
+    """
 
     @staticmethod
     def format_batch(batch, use_cuda):
+        return NotImplementedError
+
+    @classmethod
+    def _save_model(cls, model, path):
+        torch.save(model.state_dict(), path)
+
+    @classmethod
+    def _load_model(cls, model, path):
+        model.load_state_dict(torch.load(path))
+
+    def fit_model(self, *args, **kwargs):
         return NotImplementedError
 
 
@@ -36,7 +47,45 @@ class UnsupervisedTranslation(Task):
     which is an adversial reguralization, that learns to discriminate the hidden representations
     of the source and target languages.
     """
-    _default = '/tmp/checkpoints'
+    _default = 'logs/checkpoints/checkpoint.pt'
+
+    @staticmethod
+    def format_batch(batch, use_cuda):
+        """
+        The special batch format, that is required by the task. This function is passed to the reader,
+        and will be used to produce batches and targets, in a way, that is convenient for this particular task.
+        :param batch:
+        :param use_cuda:
+        :return inputs: Variable, the inputs provided to the decoder. The <SOS> and <EOS> tokens are
+                        cut from the original input.
+        :return targets: Variable, the targets, provided to the decoder. The <ENG> token is removed
+                         from the original batch.
+        :return lengths: Ndarray, the lengths of the inputs provided to the encoder. These are used
+                         for sequence padding.
+        """
+        inputs = torch.from_numpy(batch[:, 1:-2])
+        targets = torch.from_numpy(numpy.hstack((batch[:, 0].reshape(-1, 1), batch[:, 2:-1])))
+        lengths = batch[:, -1] - 2
+        if use_cuda:
+            inputs = inputs.cuda()
+            targets = targets.cuda()
+        return torch.autograd.Variable(inputs), torch.autograd.Variable(targets), lengths
+
+    @classmethod
+    def interface(cls):
+        return OrderedDict(**{
+            'use_cuda': None,
+            'readers':  OrderedDict(**{
+                'source': reader.Reader,
+                'target': reader.Reader
+            }),
+            'model': models.Model,
+            'reguralization': utils.Discriminator
+        })
+
+    @classmethod
+    def abstract(cls):
+        return False
 
     def __init__(self,
                  source,
@@ -58,7 +107,11 @@ class UnsupervisedTranslation(Task):
 
         self._reguralization = reguralization
 
+        self._use_cuda = use_cuda
+
         self._model = model
+
+        self._set_embeddings(self._source_reader.source_language, self._source_reader.source_language)
 
     def fit_model(self, epochs):
         """
@@ -66,31 +119,12 @@ class UnsupervisedTranslation(Task):
         the given epochs.
         :param epochs: int, the number of maximum epochs.
         """
-        def set_embeddings(encoder_language, decoder_language):
-            """
-            Sets the embeddings for the mode.
-            :param encoder_language: Language, encoder's language.
-            :param decoder_language: Language, decoder's language.
-            """
-            nonlocal self
-
-            self._model.encoder_embedding = {
-                'weights': encoder_language.embedding,
-                'requires_grad': encoder_language.requires_grad
-            }
-
-            self._model.decoder_embedding = {
-                'weights': decoder_language.embedding,
-                'requires_grad': decoder_language.requires_grad
-            }
-            self._model.decoder_tokens = decoder_language.tokens
-
         loss_function = torch.nn.NLLLoss(ignore_index=0)
         noise_function = utils.Noise()
 
         for epoch in range(epochs):
 
-            set_embeddings(self._source_reader.source_language, self._source_reader.source_language)
+            self._set_embeddings(self._source_reader.source_language, self._source_reader.source_language)
             self._source_reader.mode = 'train'
             loss = 0
 
@@ -118,7 +152,26 @@ class UnsupervisedTranslation(Task):
                 outputs = outputs['symbols'][:, :]
                 targets = targets.cpu().data[:, 1:].numpy()
 
-                self._source_reader.print_validation_format(input=inputs, output=outputs, target=targets)
+                # self._source_reader.print_validation_format(input=inputs, output=outputs, target=targets)
+
+        self._save_model(self._model, self._default)
+
+    def _set_embeddings(self, encoder_language, decoder_language):
+        """
+        Sets the embeddings for the mode.
+        :param encoder_language: Language, encoder's language.
+        :param decoder_language: Language, decoder's language.
+        """
+        self._model.encoder_embedding = {
+            'weights': encoder_language.embedding,
+            'requires_grad': encoder_language.requires_grad
+        }
+
+        self._model.decoder_embedding = {
+            'weights': decoder_language.embedding,
+            'requires_grad': decoder_language.requires_grad
+        }
+        self._model.decoder_tokens = decoder_language.tokens
 
     def _step(self,
               inputs,
@@ -181,62 +234,8 @@ class UnsupervisedTranslation(Task):
 
         return outputs
 
-    def _create_checkpoint(self, epoch):
-        pass
-
-    # def _save_model(self):
-    #     self._model.state
-    #     torch.save(state, filename)
-    #     if is_best:
-    #         shutil.copyfile(filename, 'model_best.pth.tar')
-    #
-    # def _load_model(self):
-    #     """
-    #
-    #     :return:
-    #     """
-    #     checkpoint = torch.load(args.resume)
-    #     args.start_epoch = checkpoint['epoch']
-    #     self._model.load_state_dict(checkpoint['state_dict'])
-    #     optimizer.load_state_dict(checkpoint['optimizer'])
-
-    @staticmethod
-    def format_batch(batch, use_cuda):
-        """
-        The special batch format, that is required by the task. This function is passed to the reader,
-        and will be used to produce batches and targets, in a way, that is convenient for this particular task.
-        :param batch:
-        :param use_cuda:
-        :return inputs: Variable, the inputs provided to the decoder. The <SOS> and <EOS> tokens are
-                        cut from the original input.
-        :return targets: Variable, the targets, provided to the decoder. The <ENG> token is removed
-                         from the original batch.
-        :return lengths: Ndarray, the lengths of the inputs provided to the encoder. These are used
-                         for sequence padding.
-        """
-        inputs = torch.from_numpy(batch[:, 1:-2])
-        targets = torch.from_numpy(numpy.hstack((batch[:, 0].reshape(-1, 1), batch[:, 2:-1])))
-        lengths = batch[:, -1]-2
-        if use_cuda:
-            inputs = inputs.cuda()
-            targets = targets.cuda()
-        return torch.autograd.Variable(inputs), torch.autograd.Variable(targets), lengths
-
-    @classmethod
-    def interface(cls):
-        return OrderedDict(
-            use_cuda=None,
-            readers=OrderedDict(
-                source=reader.Reader,
-                target=reader.Reader
-            ),
-            model=models.Model,
-            # regularization=utils.Discriminator
-        )
-
-    @classmethod
-    def abstract(cls):
-        return False
+    def load_checkpoint(self):
+        self._load_model(self._model, self._default)
 
 
 class SupervisedTranslation(Task):
@@ -246,8 +245,8 @@ class SupervisedTranslation(Task):
 
     @classmethod
     def interface(cls):
-        return OrderedDict(
-            use_cuda=None,
-            reader=reader.Reader,
-            model=models.Model
-        )
+        return OrderedDict(**{
+            'use_cuda': None,
+            'reader':   reader.Reader,
+            'model':    models.Model
+        })

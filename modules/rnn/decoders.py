@@ -16,6 +16,25 @@ class RNNDecoder(Decoder):
     An implementation of recurrent decoder unit for the sequence to sequence model.
     """
 
+    @classmethod
+    def abstract(cls):
+        return False
+
+    @classmethod
+    def interface(cls):
+        return OrderedDict(**{
+            'hidden_size':       None,
+            'recurrent_type':    None,
+            'num_layers':        None,
+            'optimizer_type':    None,
+            'learning_rate':     None,
+            'max_length':        None,
+            'use_cuda':         'Task:use_cuda$',
+            'output_size':      'target_vocab_size$',
+            'embedding_size':   'target_embedding_size$',
+            'input_size':       'target_embedding_size$'
+        })
+
     @ParameterSetter.pack
     def __init__(self, parameter_setter):
         """
@@ -181,25 +200,6 @@ class RNNDecoder(Decoder):
 
         return self._outputs
 
-    @classmethod
-    def interface(cls):
-        return OrderedDict(
-            hidden_size=None,
-            recurrent_type=None,
-            num_layers=None,
-            optimizer_type=None,
-            learning_rate=None,
-            max_length=None,
-            use_cuda='Task:use_cuda$',
-            output_size='target_vocab_size$',
-            embedding_size='target_embedding_size$',
-            input_size='target_embedding_size$'
-        )
-
-    @classmethod
-    def abstract(cls):
-        return False
-
     @property
     def tokens(self):
         return self._tokens
@@ -226,7 +226,7 @@ class RNNDecoder(Decoder):
     def optimizer(self):
         """
         Property for the optimizer of the decoder.
-        :return self.__optimizer: Optimizer, the currently used optimizer of the decoder.
+        :return: Optimizer, the currently used optimizer of the decoder.
         """
         return self._optimizer
 
@@ -261,6 +261,10 @@ class AttentionRNNDecoder(RNNDecoder):
     """
     Abstract base class for the attentional variation of recurrent decoder unit.
     """
+
+    @classmethod
+    def abstract(cls):
+        return True
 
     def __init__(self, parameter_setter):
         """
@@ -370,10 +374,6 @@ class AttentionRNNDecoder(RNNDecoder):
     def _score(self, encoder_outputs, decoder_state):
         return NotImplementedError
 
-    @classmethod
-    def abstract(cls):
-        return True
-
 
 class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
     """
@@ -392,6 +392,16 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
     the output of the recurrent unit as well, to get the final output of a softmax layer, providing the
     probability distribution over the word ids.
     """
+
+    @classmethod
+    def abstract(cls):
+        return False
+
+    @classmethod
+    def interface(cls):
+        interface = OrderedDict(**super().interface())
+        interface['input_size'] = 'Decoder:embedding_size$ + Decoder:hidden_size$'
+        return interface
 
     @ParameterSetter.pack
     def __init__(self, parameter_setter):
@@ -473,16 +483,6 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)
         return energy
-
-    @classmethod
-    def interface(cls):
-        interface = OrderedDict(**super().interface())
-        interface['input_size'] = 'Decoder:embedding_size$ + Decoder:hidden_size$'
-        return interface
-
-    @classmethod
-    def abstract(cls):
-        return False
 
 
 class LuongAttentionRNNDecoder(AttentionRNNDecoder):
@@ -567,6 +567,10 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
     activation from the linear layer.
     """
 
+    @classmethod
+    def abstract(cls):
+        return False
+
     @ParameterSetter.pack
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
@@ -602,10 +606,6 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
         energy = torch.bmm(decoder_state.unsqueeze(1), energy.unsqueeze(1).transpose(1, 2)).squeeze(-1)
         return energy
 
-    @classmethod
-    def abstract(cls):
-        return False
-
 
 class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
     """
@@ -613,6 +613,10 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
     of Luong style attention, where the scoring is based off of only the dot product of the
     encoder and decoder states.
     """
+
+    @classmethod
+    def abstract(cls):
+        return False
 
     @ParameterSetter.pack
     def __init__(self, parameter_setter):
@@ -639,10 +643,6 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
         """
         return torch.bmm(decoder_state.unsqueeze(1), encoder_output.unsqueeze(1).transpose(1, 2)).squeeze(-1)
 
-    @classmethod
-    def abstract(cls):
-        return False
-
 
 class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
     """
@@ -653,6 +653,10 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
     The scoring of similarity between encoder and decoder states is essentially the same as Bahdanau's
     method, however the computation path follows the Luong style.
     """
+
+    @classmethod
+    def abstract(cls):
+        return False
 
     @ParameterSetter.pack
     def __init__(self, parameter_setter):
@@ -695,7 +699,3 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)
         return energy
-
-    @classmethod
-    def abstract(cls):
-        return False

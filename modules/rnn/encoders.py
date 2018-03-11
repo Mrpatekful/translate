@@ -17,6 +17,22 @@ class RNNEncoder(Encoder):
     Recurrent encoder module of the sequence to sequence model.
     """
 
+    @classmethod
+    def abstract(cls):
+        return False
+
+    @classmethod
+    def interface(cls):
+        return OrderedDict(**{
+            'hidden_size':      None,
+            'recurrent_type':   None,
+            'num_layers':       None,
+            'optimizer_type':   None,
+            'learning_rate':    None,
+            'use_cuda':        'Task:use_cuda$',
+            'embedding_size':  'source_embedding_size$'
+        })
+
     @ParameterSetter.pack
     def __init__(self, parameter_setter):
         """
@@ -37,8 +53,8 @@ class RNNEncoder(Encoder):
         self._optimizer = None
 
         self._outputs = {
-            'hidden_state': None,
-            'encoder_outputs': None
+            'hidden_state':     None,
+            'encoder_outputs':  None
         }
 
     def init_parameters(self):
@@ -72,9 +88,9 @@ class RNNEncoder(Encoder):
         Initializes the optimizer for the encoder.
         """
         optimizers = {
-            'Adam': torch.optim.Adam,
-            'SGD': torch.optim.SGD,
-            'RMSProp': torch.optim.RMSprop,
+            'Adam':     torch.optim.Adam,
+            'SGD':      torch.optim.SGD,
+            'RMSProp':  torch.optim.RMSprop,
         }
 
         self._optimizer = optimizers[self._optimizer_type](self.parameters(), lr=self._learning_rate)
@@ -119,22 +135,6 @@ class RNNEncoder(Encoder):
             return result, result
         else:
             return result
-
-    @classmethod
-    def abstract(cls):
-        return False
-
-    @classmethod
-    def interface(cls):
-        return OrderedDict(
-            hidden_size=None,
-            recurrent_type=None,
-            num_layers=None,
-            optimizer_type=None,
-            learning_rate=None,
-            use_cuda='Task:use_cuda$',
-            embedding_size='source_embedding_size$'
-        )
 
     @property
     def optimizer(self):
