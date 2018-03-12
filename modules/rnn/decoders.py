@@ -30,8 +30,8 @@ class RNNDecoder(Decoder):
             'learning_rate':     None,
             'max_length':        None,
             'use_cuda':         'Task:use_cuda$',
-            'output_size':      'target_vocab_size$',
             'embedding_size':   'target_embedding_size$',
+            'output_size':      'target_vocab_size$',
             'input_size':       'target_embedding_size$'
         })
 
@@ -200,6 +200,22 @@ class RNNDecoder(Decoder):
 
         return self._outputs
 
+    def get_optimizer_states(self):
+        """
+        Returns the state dicts of the encoder's optimizer(s).
+        :return: dict, containing the state of the optimizer(s).
+        """
+        return {
+            'decoder': self.optimizer.state_dict()
+        }
+
+    def set_optimizer_states(self, decoder):
+        """
+        Setter for the state dicts of the decoder's optimizer(s).
+        :param decoder: dict, state of the decoder's optimizer.
+        """
+        self.optimizer.load_state_dict(decoder)
+
     @property
     def tokens(self):
         return self._tokens
@@ -349,7 +365,7 @@ class AttentionRNNDecoder(RNNDecoder):
             self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
 
             sos_tokens = torch.from_numpy(np.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
-            if self._use_cuda.value:
+            if self._use_cuda:
                 sos_tokens = sos_tokens.cuda()
 
             step_input = autograd.Variable(sos_tokens)
@@ -421,8 +437,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         super().init_parameters()
 
         self._attention_layer = nn.Linear(self._hidden_size * 2, self._hidden_size)
-        self._projection_layer = nn.Linear(self._hidden_size + self._embedding_size,
-                                           self._hidden_size)
+        self._projection_layer = nn.Linear(self._hidden_size + self._embedding_size, self._hidden_size)
 
         tr = torch.rand(self._hidden_size, 1)
 

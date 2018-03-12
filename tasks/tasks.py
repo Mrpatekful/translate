@@ -21,13 +21,11 @@ class Task(Component):
     def format_batch(batch, use_cuda):
         return NotImplementedError
 
-    @classmethod
-    def _save_model(cls, model, path):
-        torch.save(model.state_dict(), path)
+    def save_checkpoint(self, state):
+        return NotImplementedError
 
-    @classmethod
-    def _load_model(cls, model, path):
-        model.load_state_dict(torch.load(path))
+    def load_checkpoint(self):
+        return NotImplementedError
 
     def fit_model(self, *args, **kwargs):
         return NotImplementedError
@@ -47,7 +45,7 @@ class UnsupervisedTranslation(Task):
     which is an adversial reguralization, that learns to discriminate the hidden representations
     of the source and target languages.
     """
-    _default = 'logs/checkpoints/checkpoint.pt'
+    _checkpoint = 'logs/checkpoints/checkpoint.pt'
 
     @staticmethod
     def format_batch(batch, use_cuda):
@@ -66,9 +64,11 @@ class UnsupervisedTranslation(Task):
         inputs = torch.from_numpy(batch[:, 1:-2])
         targets = torch.from_numpy(numpy.hstack((batch[:, 0].reshape(-1, 1), batch[:, 2:-1])))
         lengths = batch[:, -1] - 2
+
         if use_cuda:
             inputs = inputs.cuda()
             targets = targets.cuda()
+
         return torch.autograd.Variable(inputs), torch.autograd.Variable(targets), lengths
 
     @classmethod
@@ -90,9 +90,9 @@ class UnsupervisedTranslation(Task):
     def __init__(self,
                  source,
                  target,
-                 reguralization,
                  model,
-                 use_cuda):
+                 use_cuda,
+                 reguralization):
         """
         An instance of an unsupervised translation task.
         :param source: Reader, an instance of a reader object, that may be a FastReader or FileReader.
@@ -115,46 +115,65 @@ class UnsupervisedTranslation(Task):
 
     def fit_model(self, epochs):
         """
-        Fits the model to the data. The training session is run until convergence, or
+        Fits the model to the data. The training session runs until convergence, or
         the given epochs.
         :param epochs: int, the number of maximum epochs.
         """
-        loss_function = torch.nn.NLLLoss(ignore_index=0)
+        loss_function = torch.nn.NLLLoss(ignore_index=0, reduce=False)
         noise_function = utils.Noise()
 
         for epoch in range(epochs):
 
             self._set_embeddings(self._source_reader.source_language, self._source_reader.source_language)
-            self._source_reader.mode = 'train'
-            loss = 0
 
-            for inputs, targets, lengths in self._source_reader.batch_generator():
-                outputs = self._fit_step(inputs=inputs,
-                                         targets=targets,
-                                         lengths=lengths,
-                                         loss_function=loss_function,
-                                         noise_function=noise_function)
+            self._train(loss_function, noise_function)
 
-                loss += outputs['loss']
+            self._evaluate(noise_function)
 
-            print(loss)
+        self.save_checkpoint(self._create_checkpoint())
 
-            self._source_reader.mode = 'dev'
-            for inputs, targets, lengths in self._source_reader.batch_generator():
-                max_length = targets.size(1)
-                outputs = self._step(inputs=inputs,
+    def _train(self, loss_function, noise_function):
+        """
+
+        :param loss_function:
+        :param noise_function:
+        :return:
+        """
+        self._source_reader.mode = 'train'
+        loss = 0
+        steps = 0
+
+        for inputs, targets, lengths in self._source_reader.batch_generator():
+            outputs = self._fit_step(inputs=inputs,
                                      targets=targets,
                                      lengths=lengths,
-                                     max_length=max_length,
+                                     loss_function=loss_function,
                                      noise_function=noise_function)
+            steps += 1
+            loss += outputs['loss']
 
-                inputs = inputs.cpu().data[:, :].numpy()
-                outputs = outputs['symbols'][:, :]
-                targets = targets.cpu().data[:, 1:].numpy()
+        print(loss / steps)
 
-                # self._source_reader.print_validation_format(input=inputs, output=outputs, target=targets)
+    def _evaluate(self, noise_function):
+        """
 
-        self._save_model(self._model, self._default)
+        :param noise_function:
+        :return:
+        """
+        self._source_reader.mode = 'dev'
+        for inputs, targets, lengths in self._source_reader.batch_generator():
+            max_length = targets.size(1)
+            outputs = self._step(inputs=inputs,
+                                 targets=targets,
+                                 lengths=lengths,
+                                 max_length=max_length,
+                                 noise_function=noise_function)
+
+            inputs = inputs.cpu().data[:, :].numpy()
+            outputs = outputs['symbols'][:, :]
+            targets = targets.cpu().data[:, 1:].numpy()
+
+            self._source_reader.print_validation_format(input=inputs, output=outputs, target=targets)
 
     def _set_embeddings(self, encoder_language, decoder_language):
         """
@@ -215,10 +234,11 @@ class UnsupervisedTranslation(Task):
                                mechanism, or a translation model from the previous iteration.
         :return: int, loss at the current time step, produced by this iteration.
         """
+        batch_size = targets.size(0)
         max_length = targets.size(1) - 1
 
         outputs = self._step(inputs=inputs,
-                             targets=targets,
+                             targets=None,
                              lengths=lengths,
                              max_length=max_length,
                              noise_function=noise_function)
@@ -228,25 +248,43 @@ class UnsupervisedTranslation(Task):
         for step, step_output in enumerate(outputs['outputs']):
             outputs['loss'] += loss_function(step_output, targets[:, step + 1])
 
+        lengths = torch.from_numpy(lengths).float()
+
+        if self._use_cuda:
+            lengths = lengths.cuda()
+
+        outputs['loss'] = outputs['loss'] / torch.autograd.Variable(lengths)
+        outputs['loss'] = outputs['loss'].sum() / batch_size
         outputs['loss'].backward()
 
         self._model.step()
 
         return outputs
 
+    def _create_checkpoint(self):
+        return {
+            'model': self._model.state_dict(),
+            'optimizers': self._model.get_optimizer_states()
+        }
+
+    def save_checkpoint(self, checkpoint):
+        torch.save(checkpoint, self._checkpoint)
+
     def load_checkpoint(self):
-        self._load_model(self._model, self._default)
+        checkpoint = torch.load(self._checkpoint)
+        self._model.load_state_dict(checkpoint['model'])
+        self._model.set_optimizer_states(**checkpoint['optimizers'])
 
 
 class SupervisedTranslation(Task):
-
-    def __init__(self):
-        pass
 
     @classmethod
     def interface(cls):
         return OrderedDict(**{
             'use_cuda': None,
-            'reader':   reader.Reader,
-            'model':    models.Model
+            'reader': reader.Reader,
+            'model': models.Model
         })
+
+    def __init__(self):
+        pass

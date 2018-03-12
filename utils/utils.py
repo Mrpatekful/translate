@@ -1,5 +1,3 @@
-from torch.nn.utils.rnn import pack_padded_sequence
-from torch.nn.utils.rnn import pad_packed_sequence
 
 from functools import wraps
 
@@ -7,25 +5,6 @@ import time
 import pickle
 import os.path
 import inspect
-
-
-def batch_to_padded_sequence(batch, lengths):
-    """
-
-    :param batch:
-    :param lengths:
-    :return:
-    """
-    return pack_padded_sequence(batch, lengths=lengths, batch_first=True)
-
-
-def padded_sequence_to_batch(padded_sequence):
-    """
-
-    :param padded_sequence:
-    :return:
-    """
-    return pad_packed_sequence(padded_sequence, batch_first=True)
 
 
 def subclasses(base_cls):
@@ -88,6 +67,21 @@ def create_leaf_dict(dictionary):
             leaf_dict = {**leaf_dict, key: dictionary[key]}
 
     return leaf_dict
+
+
+def reduce_parameters(func, parameters):
+    """
+    Reduce a set of parameters, given in a form of dictionary, to the
+    set of parameters, that are required by the function.
+    :param func: Function, that requires a subset of parameters given as second argument.
+    :param parameters: dict, a set of parameters, that yields a subset of parameters,
+                       that is required by the func parameter.
+    :return: dict, the subset of parameters for the 'func' function.
+    """
+    func_params = {}
+    for parameter in inspect.signature(func).parameters.keys():
+        func_params[parameter] = parameters[parameter]
+    return func_params
 
 
 def logging(logger):

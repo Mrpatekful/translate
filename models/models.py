@@ -3,6 +3,7 @@ from torch.nn import Module
 from modules.rnn import encoders
 from modules.rnn import decoders
 from utils.utils import Component
+from utils.utils import reduce_parameters
 
 from collections import OrderedDict
 
@@ -24,6 +25,10 @@ class Model(Module, Component):
     def zero_grad(self):
         return NotImplementedError
 
+    @property
+    def optimizer_states(self):
+        return NotImplementedError
+
 
 class SeqToSeq(Model):
     """
@@ -37,6 +42,17 @@ class SeqToSeq(Model):
     by encoding it to a fixed size representation, and then decoding this latent meaning
     vector to the desired sequence.
     """
+
+    @classmethod
+    def abstract(cls):
+        return False
+
+    @classmethod
+    def interface(cls):
+        return OrderedDict(**{
+            'encoder': encoders.Encoder,
+            'decoder': decoders.Decoder
+        })
 
     def __init__(self, encoder, decoder):
         """
@@ -81,16 +97,23 @@ class SeqToSeq(Model):
         self._encoder.optimizer.zero_grad()
         self._decoder.optimizer.zero_grad()
 
-    @classmethod
-    def abstract(cls):
-        return False
+    def get_optimizer_states(self):
+        """
+        Gets the states of the optimizers, used by the decoder and encoder.
+        :return: dict, states of the optimizers.
+        """
+        return {
+            **self._encoder.get_optimizer_states(),
+            **self._decoder.get_optimizer_states()
+        }
 
-    @classmethod
-    def interface(cls):
-        return OrderedDict(
-            encoder=encoders.Encoder,
-            decoder=decoders.Decoder
-        )
+    def set_optimizer_states(self, **kwargs):
+        """
+        Sets the parameters for the optimizers of the encoder and decoder.
+        :param kwargs: dict, the states of the optimizers for the encoder and decoder.
+        """
+        self._encoder.set_optimizer_states(**reduce_parameters(self._encoder.set_optimizer_states, kwargs))
+        self._decoder.set_optimizer_states(**reduce_parameters(self._decoder.set_optimizer_states, kwargs))
 
     @property
     def decoder_tokens(self):

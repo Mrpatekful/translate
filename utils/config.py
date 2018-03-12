@@ -120,7 +120,9 @@ class Config:
     def _create_node(self, entity, config, lookup_id):
         """
         Creates a given entity. The entity's interface is called, and passed to the build_params function,
-        that recursively creates the required parameters for the entity.
+        that recursively creates the required parameters for the entity. _registered_parameters
+        dictionary is updated with the created entity's property values, so entities, that will
+        be created later in the instantiation tree can reference these values.
         :param entity: Component, type class, that must have an interface() method.
         :param config: dict, configuration file of the entity.
         :param lookup_id: str, an identifier, that creates the keys for the shared parameter values.
@@ -164,12 +166,24 @@ class Config:
         :raises ValueError: if the description was incorrect.
         :return: The value of the parameter, that was created by the interpretation of the description.
         """
+        def is_number(s):
+            try:
+                int(s)
+                return True
+            except ValueError:
+                return False
+
         if isinstance(description, str):
             expressions = description.split(' ')
 
             if len(expressions) == 3:
-                return self._apply_operator((self._registered_params[self._get_key(expressions[0])],
-                                             self._registered_params[self._get_key(expressions[2])]), expressions[1])
+                x = int(expressions[0]) if is_number(expressions[0]) \
+                    else self._registered_params[self._get_key(expressions[0])]
+
+                y = int(expressions[2]) if is_number(expressions[2]) \
+                    else self._registered_params[self._get_key(expressions[2])]
+
+                return self._apply_operator((x, y), expressions[1])
 
             elif len(expressions) == 1:
                 return self._registered_params[self._get_key(expressions[0])]

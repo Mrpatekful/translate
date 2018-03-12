@@ -6,8 +6,8 @@ import torch.optim
 from modules.encoder import Encoder
 
 from utils.utils import ParameterSetter
-from utils.utils import batch_to_padded_sequence
-from utils.utils import padded_sequence_to_batch
+from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pad_packed_sequence
 
 from collections import OrderedDict
 
@@ -97,9 +97,7 @@ class RNNEncoder(Encoder):
 
         return self
 
-    def forward(self,
-                inputs,
-                lengths):
+    def forward(self, inputs, lengths):
         """
         A forward step of the encoder. The batch of sequences with word ids are
         packed into padded_sequence object, which are processed by the recurrent layer.
@@ -112,12 +110,12 @@ class RNNEncoder(Encoder):
         initial_state = self._init_hidden(inputs.size(0))
 
         embedded_inputs = self._embedding_layer(inputs)
-        padded_sequence = batch_to_padded_sequence(embedded_inputs, lengths)
+        padded_sequence = pack_padded_sequence(embedded_inputs, lengths=lengths, batch_first=True)
 
         self._recurrent_layer.flatten_parameters()
 
         outputs, self._outputs['hidden_state'] = self._recurrent_layer(padded_sequence, initial_state)
-        self._outputs['encoder_outputs'], _ = padded_sequence_to_batch(outputs)
+        self._outputs['encoder_outputs'], _ = pad_packed_sequence(outputs, batch_first=True)
 
         return self._outputs
 
@@ -135,6 +133,26 @@ class RNNEncoder(Encoder):
             return result, result
         else:
             return result
+
+    def get_optimizer_states(self):
+        """
+        Returns the state dicts of the encoder's optimizer(s).
+        :return: dict, containing the state of the optimizer(s).
+        """
+        return {
+            'encoder': self.optimizer.state_dict()
+        }
+
+    def set_optimizer_states(self, encoder):
+        """
+        Setter for the state dicts of the encoder's optimizer(s).
+        :param encoder: dict, state of the encoder's optimizer.
+        """
+        self.optimizer.load_state_dict(encoder)
+
+    @property
+    def optimizer_states(self):
+        return
 
     @property
     def optimizer(self):
