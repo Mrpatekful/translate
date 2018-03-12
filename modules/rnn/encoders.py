@@ -3,6 +3,8 @@ import torch.autograd as autograd
 import torch.nn as nn
 import torch.optim
 
+import inspect
+
 from modules.encoder import Encoder
 
 from utils.utils import ParameterSetter
@@ -17,23 +19,24 @@ class RNNEncoder(Encoder):
     Recurrent encoder module of the sequence to sequence model.
     """
 
+    @staticmethod
+    def interface():
+        return OrderedDict(**{
+            'hidden_size': None,
+            'recurrent_type': None,
+            'num_layers': None,
+            'optimizer_type': None,
+            'learning_rate': None,
+            'use_cuda': 'Task:use_cuda$',
+            'embedding_size': 'source_embedding_size$'
+        })
+
     @classmethod
     def abstract(cls):
         return False
 
-    @classmethod
-    def interface(cls):
-        return OrderedDict(**{
-            'hidden_size':      None,
-            'recurrent_type':   None,
-            'num_layers':       None,
-            'optimizer_type':   None,
-            'learning_rate':    None,
-            'use_cuda':        'Task:use_cuda$',
-            'embedding_size':  'source_embedding_size$'
-        })
-
-    @ParameterSetter.pack
+    # noinspection PyUnresolvedReferences
+    @ParameterSetter.pack(interface.__func__())
     def __init__(self, parameter_setter):
         """
         A recurrent encoder module for the sequence to sequence model.
@@ -55,6 +58,16 @@ class RNNEncoder(Encoder):
         self._outputs = {
             'hidden_state':     None,
             'encoder_outputs':  None
+        }
+
+    def properties(self):
+        """
+        Convenience function for retrieving the properties of an instances, with their values.
+        :return:
+        """
+        return {
+            name: getattr(self, name) for (name, _) in
+            inspect.getmembers(type(self), lambda x: isinstance(x, property)) if name != 'optimizer_states'
         }
 
     def init_parameters(self):
@@ -108,7 +121,6 @@ class RNNEncoder(Encoder):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
         """
         initial_state = self._init_hidden(inputs.size(0))
-
         embedded_inputs = self._embedding_layer(inputs)
         padded_sequence = pack_padded_sequence(embedded_inputs, lengths=lengths, batch_first=True)
 
@@ -140,25 +152,29 @@ class RNNEncoder(Encoder):
         :return: dict, containing the state of the optimizer(s).
         """
         return {
-            'encoder': self.optimizer.state_dict()
+            'encoder_optimizer': self.optimizer.state_dict()
         }
 
-    def set_optimizer_states(self, encoder):
+    def set_optimizer_states(self, encoder_optimizer):
         """
         Setter for the state dicts of the encoder's optimizer(s).
-        :param encoder: dict, state of the encoder's optimizer.
+        :param encoder_optimizer: dict, state of the encoder's optimizer.
         """
-        self.optimizer.load_state_dict(encoder)
+        self.optimizer.load_state_dict(encoder_optimizer)
 
-    @property
-    def optimizer_states(self):
-        return
+    def set_embedding(self, embedding):
+        """
+
+        :param embedding:
+        :return:
+        """
+        self._embedding_layer = embedding
 
     @property
     def optimizer(self):
         """
         Property for the optimizer of the encoder.
-        :return self.__optimizer: Optimizer, the currently used optimizer of the encoder.
+        :return self._optimizer: Optimizer, the currently used optimizer of the encoder.
         """
         return self._optimizer
 
@@ -169,21 +185,3 @@ class RNNEncoder(Encoder):
         :param optimizer: Optimizer, instance to be set as the new optimizer for the encoder.
         """
         self._optimizer.value = optimizer
-
-    @property
-    def embedding(self):
-        """
-        Property for the encoder's embedding layer.
-        :return: The currently used embeddings of the encoder.
-        """
-        return self._embedding_layer
-
-    @embedding.setter
-    def embedding(self, embedding):
-        """
-        Setter for the encoder's embedding layer.
-        :param embedding: Embedding, to be set as the embedding layer of the encoder.
-        """
-        self._embedding_layer = nn.Embedding(embedding['weights'].size(0), embedding['weights'].size(1))
-        self._embedding_layer.weight = nn.Parameter(embedding['weights'])
-        self._embedding_layer.weight.requires_grad = embedding['requires_grad']

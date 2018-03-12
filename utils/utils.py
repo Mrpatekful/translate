@@ -1,10 +1,78 @@
-
 from functools import wraps
 
 import time
 import pickle
 import os.path
 import inspect
+
+
+class Component:
+    """
+    The base class for the components of the API.
+    """
+
+    @staticmethod
+    def interface():
+        return NotImplementedError
+
+    @classmethod
+    def abstract(cls):
+        return True
+
+    def properties(self):
+        """
+        Convenience function for retrieving the properties of an instances, with their values.
+        :return:
+        """
+        return {
+            name: getattr(self, name) for (name, _) in
+            inspect.getmembers(type(self), lambda x: isinstance(x, property))
+        }
+
+
+class ParameterSetter:
+    """
+    This class handles the initialization of the given object's parameters.
+    """
+
+    @staticmethod
+    def pack(cls_interface):
+        """
+        Packs the parameters of the decorated function.
+        :param cls_interface: dict, interface of the instance.
+        """
+        def pack_wrapper(func):
+            """
+            Decorator for the functions, that require parameter packing.
+            """
+            def wrapper(*args, **kwargs):
+                flattened_interface = create_leaf_dict(cls_interface)
+                packed_parameters = reduce_dict(kwargs, flattened_interface)
+                if len(packed_parameters) > 0:
+                    free_parameters = subtract_dict(kwargs, packed_parameters)
+                    return func(*args, ParameterSetter(kwargs), **free_parameters)
+                else:
+                    return func(*args, **kwargs)
+
+            return wrapper
+
+        return pack_wrapper
+
+    def __init__(self, param_dict):
+        """
+        An instance of a ParameterSetter class.
+        :param param_dict: dict, containing the key value pairs of the object's parameters.
+        """
+        self._param_dict = param_dict
+
+    def initialize(self, instance):
+        """
+        This function creates the attributes of an instances. The instance must have an interface() method,
+        that describes the required attributes.
+        :param instance: instance, that will be initialized with the parameters, stored in the parameter dict.
+        """
+        for parameter in instance.interface():
+            instance.__dict__['_' + parameter] = self._param_dict[parameter]
 
 
 def subclasses(base_cls):
@@ -35,6 +103,7 @@ def copy_dict_hierarchy(dictionary, fill_value=None):
     new_dict = dict(zip(dictionary.keys(), [fill_value] * len(dictionary.keys())))
     for key in [k for k in dictionary.keys() if isinstance(dictionary[k], dict)]:
         new_dict[key] = copy_dict_hierarchy(dictionary[key])
+
     return new_dict
 
 
@@ -49,6 +118,7 @@ def merge_dicts(create_dict, iterable):
     merged_dict = {}
     for dictionary in map(create_dict, iterable):
         merged_dict = {**merged_dict, **dictionary}
+
     return merged_dict
 
 
@@ -81,7 +151,38 @@ def reduce_parameters(func, parameters):
     func_params = {}
     for parameter in inspect.signature(func).parameters.keys():
         func_params[parameter] = parameters[parameter]
+
     return func_params
+
+
+def reduce_dict(whole_dict, sub_dict):
+    """
+    Reduces a dictionary to have the same keys as an another dict.
+    :param whole_dict: dict, the dictionary to be reduced.
+    :param sub_dict: dict, the dictionary with the required keys.
+    :return: dict, the reduced dict.
+    """
+    reduced_dict = {}
+    for parameter in sub_dict.keys():
+        if whole_dict.get(parameter, None) is None:
+            return {}
+        reduced_dict[parameter] = whole_dict[parameter]
+
+    return reduced_dict
+
+
+def subtract_dict(whole_dict, sub_dict):
+    """
+    Creates a dictionary with a set of keys, that only present in the 'greater' dictionary.
+    :param whole_dict: dict, the dictionary to be reduced.
+    :param sub_dict: dict, the dictionary with the required keys.
+    :return: dict, the reduced dict.
+    """
+    reduced_dict = {}
+    for parameter in [key for key in whole_dict.keys() if key not in sub_dict.keys()]:
+        reduced_dict[parameter] = whole_dict[parameter]
+
+    return reduced_dict
 
 
 def logging(logger):
@@ -101,6 +202,7 @@ def logging(logger):
         def wrapper(*args, **kwargs):
             return logger(*args, func=func, **kwargs)
         return wrapper
+
     return log_wrapper
 
 
@@ -180,62 +282,3 @@ class Logger:
         Setter for the directory of the logging directory.
         """
         self._log_dir = log_dir
-
-
-class ParameterSetter:
-    """
-    This class handles the initialization of the given object's parameters.
-    """
-
-    @staticmethod
-    def pack(func):
-        """
-        Decorator for the functions, that require parameter packing.
-        """
-        def wrapper(*args, **kwargs):
-            if len(kwargs.keys()) == 1:
-                return func(*args, **kwargs)
-            else:
-                return func(*args, ParameterSetter(kwargs))
-
-        return wrapper
-
-    def __init__(self, param_dict):
-        """
-        An instance of a ParameterSetter class.
-        :param param_dict: dict, containing the key value pairs of the object's parameters.
-        """
-        self._param_dict = param_dict
-
-    def initialize(self, instance):
-        """
-        This function creates the attributes of an instances. The instance must have an interface() method,
-        that describes the required attributes.
-        :param instance: instance, that will be initialized with the parameters, stored in the parameter dict.
-        """
-        for parameter in instance.interface():
-            instance.__dict__['_' + parameter] = self._param_dict[parameter]
-
-
-class Component:
-    """
-    The base class for the components of the API.
-    """
-
-    @classmethod
-    def interface(cls):
-        return NotImplementedError
-
-    @classmethod
-    def abstract(cls):
-        return True
-
-    def properties(self):
-        """
-        Convenience function for retrieving the properties of an instances, with their values.
-        :return:
-        """
-        return {
-            name: getattr(self, name) for (name, _) in
-            inspect.getmembers(type(self), lambda x: isinstance(x, property))
-        }

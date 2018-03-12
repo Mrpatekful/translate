@@ -5,7 +5,7 @@ from modules.decoder import Decoder
 from modules.utils.utils import Discriminator
 
 from utils.reader import Reader
-from utils.reader import Corpus
+from utils.reader import Corpora
 from models.models import Model
 from tasks.tasks import Task
 
@@ -19,9 +19,11 @@ class Config:
     """
     Class for handling configurations of models and tasks.
     The configs are defined in JSON format files, which are parsed,
-    and instantiated by the corresponding modules.
+    and instantiated with the help of interface definitions of the components.
+    Each node of the JSON file, that has a 'type' and 'params' key are Component type
+    objects.
     """
-    _base_nodes = [Encoder, Decoder, Discriminator, Reader, Corpus, Model]
+    _base_nodes = [Encoder, Decoder, Discriminator, Reader, Corpora, Model]
 
     _tasks = utils.subclasses(Task)
 

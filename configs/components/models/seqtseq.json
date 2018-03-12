@@ -12,7 +12,7 @@
             }
         },
         "decoder": {
-            "type": "DotAttentionRNNDecoder",
+            "type": "BahdanauAttentionRNNDecoder",
             "params": {
                 "hidden_size": 50,
                 "recurrent_type": "LSTM",

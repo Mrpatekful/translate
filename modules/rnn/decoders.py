@@ -16,26 +16,27 @@ class RNNDecoder(Decoder):
     An implementation of recurrent decoder unit for the sequence to sequence model.
     """
 
+    @staticmethod
+    def interface():
+        return OrderedDict(**{
+            'hidden_size': None,
+            'recurrent_type': None,
+            'num_layers': None,
+            'optimizer_type': None,
+            'learning_rate': None,
+            'max_length': None,
+            'use_cuda': 'Task:use_cuda$',
+            'embedding_size': 'target_embedding_size$',
+            'output_size': 'target_vocab_size$',
+            'input_size': 'target_embedding_size$'
+        })
+
     @classmethod
     def abstract(cls):
         return False
 
-    @classmethod
-    def interface(cls):
-        return OrderedDict(**{
-            'hidden_size':       None,
-            'recurrent_type':    None,
-            'num_layers':        None,
-            'optimizer_type':    None,
-            'learning_rate':     None,
-            'max_length':        None,
-            'use_cuda':         'Task:use_cuda$',
-            'embedding_size':   'target_embedding_size$',
-            'output_size':      'target_vocab_size$',
-            'input_size':       'target_embedding_size$'
-        })
-
-    @ParameterSetter.pack
+    # noinspection PyUnresolvedReferences
+    @ParameterSetter.pack(interface.__func__())
     def __init__(self, parameter_setter):
         """
         A recurrent decoder module for the sequence to sequence model.
@@ -126,25 +127,24 @@ class RNNDecoder(Decoder):
                         provides a probability distribution over the words of the vocabulary.
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         """
-        embedded_input = self.embedding(inputs)
-        output, hidden_state = self._recurrent_layer(embedded_input, hidden_state)
+        output, hidden_state = self._recurrent_layer(inputs, hidden_state)
         output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size)),
                                         dim=1).view(batch_size, -1, self._output_size)
 
         return output, hidden_state, None
 
     def forward(self,
-                targets,
-                max_length,
                 encoder_outputs,
-                hidden_state):
+                hidden_state,
+                targets=None,
+                max_length=None):
         """
-        Forward step of the decoder unit. A sequence start token is provided as the first input, then the
-        model starts to predict the words of the sequence, based on the final hidden state of the encoder and
-        the previous hidden state of the decoder. During training there are two alternatives, the model may
-        receive the previous decoded word, or the target word can be forced as if the model had correctly
-        predicted the next word in the previous time step.
-        :param targets: Variable, (batch_size, sequence_length) a batch of word ids.
+        Forward step of the decoder unit. If the targets parameter is not None, then teacher forcing is used,
+        so during decoding, the previous output word will be provided at time step t. If targets is None, decoding
+        follows the general method, when the input word for the recurrent unit at time step t, is the output word at
+        time step t-1.
+        :param targets: Variable, (batch_size, sequence_length) a batch of word ids. If None, then normal teacher
+                        forcing is not applied.
         :param max_length: int, maximum length of the decoded sequence. If None, the maximum length parameter from
                            the configuration file will be used as maximum length. This parameter has no effect, if
                            targets parameter is provided, because in that case, the length of the target sequence
@@ -152,53 +152,106 @@ class RNNDecoder(Decoder):
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size). This parameter
                                 is redundant for the standard decoder unit.
         :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :return decoder_outputs: dict, containing two string keys, loss: int, loss of the decoding and
-                                 symbols: Ndarray, the decoded word ids.
+        :return decoder_outputs: dict, containing two string keys, symbols: Ndarray, the decoded word ids.
         """
         batch_size = encoder_outputs.size(0)
         self._outputs['outputs'] = []
 
         if targets is not None:
-            output_sequence_length = targets.size(1) - 1
 
-            self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
-            inputs = targets[:, :-1].contiguous()
-
-            outputs, hidden_state, _ = self._decode(inputs=inputs,
-                                                    hidden_state=hidden_state,
-                                                    encoder_outputs=None,
-                                                    batch_size=batch_size,
-                                                    sequence_length=None)
-
-            for step in range(output_sequence_length):
-                self._outputs['symbols'][:, step] = outputs[:, step, :].topk(1)[1].squeeze(-1).data.cpu().numpy()
-                self._outputs['outputs'].append(outputs[:, step, :])
+            self._forced_decode(targets=targets,
+                                batch_size=batch_size,
+                                hidden_state=hidden_state,
+                                encoder_outputs=encoder_outputs,
+                                input_sequence_length=None)
 
         else:
-            output_sequence_length = max_length if max_length is not None else self._max_length
-            self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
 
-            sos_tokens = torch.from_numpy(np.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
-            if self._use_cuda.value:
-                sos_tokens = sos_tokens.cuda()
-
-            step_input = autograd.Variable(sos_tokens)
-
-            for step in range(output_sequence_length):
-                step_output, hidden_state, _ = self._decode(inputs=step_input,
-                                                            hidden_state=hidden_state,
-                                                            encoder_outputs=None,
-                                                            batch_size=batch_size,
-                                                            sequence_length=None)
-
-                symbol_output = step_output.topk(1)[1].data.squeeze(-1)
-
-                self._outputs['symbols'][:, step] = symbol_output.squeeze(-1).cpu().numpy()
-                self._outputs['outputs'].append(step_output.squeeze(1))
-
-                step_input = symbol_output
+            self._predictive_decode(max_length=max_length,
+                                    batch_size=batch_size,
+                                    hidden_state=hidden_state,
+                                    encoder_outputs=encoder_outputs,
+                                    input_sequence_length=None)
 
         return self._outputs
+
+    def _forced_decode(self,
+                       targets,
+                       batch_size,
+                       hidden_state,
+                       encoder_outputs,
+                       input_sequence_length):
+        """
+        This method is primarily used during training, when target outputs are provided to the decoder.
+        These target sequences start with an <SOS> token, which will serve as the first input to the _decode
+        function. During the decoding iterations the decoder's predictions will only be used as final outputs to
+        measure the loss, so the input for the (t)-th time step will be the (t-1)-th element of the provided
+        targets.
+        :param targets:  Variable, (batch_size, sequence_length) a batch of word ids.
+        :param batch_size: int, size of the currently processed batch.
+        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param input_sequence_length:This parameter is required only by the attentional version of this method.
+        """
+        output_sequence_length = targets.size(1) - 1
+
+        self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='in'
+                                                                                        't')
+        inputs = targets[:, :-1].contiguous()
+        embedded_inputs = self.embedding(inputs)
+
+        outputs, hidden_state, _ = self._decode(inputs=embedded_inputs,
+                                                hidden_state=hidden_state,
+                                                encoder_outputs=None,
+                                                batch_size=batch_size,
+                                                sequence_length=None)
+
+        for step in range(output_sequence_length):
+            self._outputs['symbols'][:, step] = outputs[:, step, :].topk(1)[1].squeeze(-1).data.cpu().numpy()
+            self._outputs['outputs'].append(outputs[:, step, :])
+
+    def _predictive_decode(self,
+                           max_length,
+                           batch_size,
+                           hidden_state,
+                           encoder_outputs,
+                           input_sequence_length):
+        """
+        This method is used during unforced training and evaluation. Targets are not provided, so the decoding
+        will go on, until the length of the output reaches the given max_length, or the _max_length attribute.
+        During the decoding iteration of the sequence, the input word of the decoder at time step (t) is the
+        output word of the decoder from the time step (t-1).
+        :param max_length: int, maximum length for the decoded sequence. If None the max_length parameter's
+                           value will be used.
+        :param batch_size: int, size of the currently processed batch.
+        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param input_sequence_length: This parameter is required only by the attentional version of this method.
+        """
+        output_sequence_length = max_length if max_length is not None else self._max_length
+        self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
+
+        sos_tokens = torch.from_numpy(np.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
+        if self._use_cuda.value:
+            sos_tokens = sos_tokens.cuda()
+
+        step_input = autograd.Variable(sos_tokens)
+
+        for step in range(output_sequence_length):
+            embedded_input = self.embedding(step_input)
+
+            step_output, hidden_state, _ = self._decode(inputs=embedded_input,
+                                                        hidden_state=hidden_state,
+                                                        encoder_outputs=None,
+                                                        batch_size=batch_size,
+                                                        sequence_length=None)
+
+            symbol_output = step_output.topk(1)[1].data.squeeze(-1)
+
+            self._outputs['symbols'][:, step] = symbol_output.squeeze(-1).cpu().numpy()
+            self._outputs['outputs'].append(step_output.squeeze(1))
+
+            step_input = symbol_output
 
     def get_optimizer_states(self):
         """
@@ -206,18 +259,27 @@ class RNNDecoder(Decoder):
         :return: dict, containing the state of the optimizer(s).
         """
         return {
-            'decoder': self.optimizer.state_dict()
+            'decoder_optimizer': self.optimizer.state_dict()
         }
 
-    def set_optimizer_states(self, decoder):
+    def set_optimizer_states(self, decoder_optimizer):
         """
         Setter for the state dicts of the decoder's optimizer(s).
-        :param decoder: dict, state of the decoder's optimizer.
+        :param decoder_optimizer: dict, state of the decoder's optimizer.
         """
-        self.optimizer.load_state_dict(decoder)
+        self.optimizer.load_state_dict(decoder_optimizer)
+
+    def set_embedding(self, embedding):
+        """
+        Sets the embedding layer of the decoder.
+        """
+        self._embedding_layer = embedding
 
     @property
     def tokens(self):
+        """
+        Property for the tokens of the decoder.
+        """
         return self._tokens
 
     @tokens.setter
@@ -268,9 +330,10 @@ class RNNDecoder(Decoder):
         Setter for the decoder's embedding layer.
         :param embedding: Embedding, to be set as the embedding layer of the decoder.
         """
-        self._embedding_layer = nn.Embedding(embedding['weights'].size(0), embedding['weights'].size(1))
-        self._embedding_layer.weight = nn.Parameter(embedding['weights'])
-        self._embedding_layer.weight.requires_grad = embedding['requires_grad']
+        self._embedding_layer = embedding
+        # nn.Embedding(embedding['weights'].size(0), embedding['weights'].size(1))
+        # self._embedding_layer.weight = nn.Parameter(embedding['weights'])
+        # self._embedding_layer.weight.requires_grad = embedding['requires_grad']
 
 
 class AttentionRNNDecoder(RNNDecoder):
@@ -320,18 +383,22 @@ class AttentionRNNDecoder(RNNDecoder):
         return context, attn_weights
 
     def forward(self,
-                targets,
-                max_length,
                 encoder_outputs,
-                hidden_state):
+                hidden_state,
+                targets=None,
+                max_length=None):
         """
-        An attentional forward step. The calculations can be done with or without teacher fording.
+        Forward step of the attentional decoder unit. If the targets parameter is not None, then teacher forcing is
+        used, so during decoding, the previous output word will be provided at time step t. If targets is None, decoding
+        follows the general method, when the input word for the recurrent unit at time step t, is the output word at
+        time step t-1.
         :param targets: Variable, (batch_size, sequence_length) a batch of word ids.
-        :param max_length:
+        :param max_length: int, maximum length for the decoded sequence. If None the max_length parameter's
+                           value will be used.
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :return loss: int, loss of the decoding
-        :return symbols: Ndarray, the decoded word ids.
+        :return outputs: dict, containing three string keys, symbols: Ndarray, the decoded word ids,
+                         alignment_weights:
         """
         batch_size = encoder_outputs.size(0)
         input_sequence_length = encoder_outputs.size(1)
@@ -339,53 +406,108 @@ class AttentionRNNDecoder(RNNDecoder):
         self._outputs['outputs'] = []
 
         if targets is not None:
-            output_sequence_length = targets.size(1) - 1
 
-            inputs = targets[:, :-1].contiguous()
-
-            self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
-            self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
-
-            for step in range(output_sequence_length):
-                step_input = inputs[:, step].unsqueeze(-1)
-                step_output, hidden_state, attn_weights = self._decode(inputs=step_input,
-                                                                       hidden_state=hidden_state,
-                                                                       encoder_outputs=encoder_outputs,
-                                                                       batch_size=batch_size,
-                                                                       sequence_length=input_sequence_length)
-
-                self._outputs['outputs'].append(step_output.squeeze(1))
-                self._outputs['alignment_weights'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
-                self._outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
+            self._forced_decode(targets=targets,
+                                batch_size=batch_size,
+                                hidden_state=hidden_state,
+                                encoder_outputs=encoder_outputs,
+                                input_sequence_length=input_sequence_length)
 
         else:
-            output_sequence_length = max_length if max_length is not None else self._max_length.value
 
-            self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
-            self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
-
-            sos_tokens = torch.from_numpy(np.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
-            if self._use_cuda:
-                sos_tokens = sos_tokens.cuda()
-
-            step_input = autograd.Variable(sos_tokens)
-
-            for step in range(output_sequence_length):
-                step_output, hidden_state, attn_weights = self._decode(inputs=step_input,
-                                                                       hidden_state=hidden_state,
-                                                                       encoder_outputs=encoder_outputs,
-                                                                       batch_size=batch_size,
-                                                                       sequence_length=input_sequence_length)
-
-                symbol_output = step_output.topk(1)[1].data.squeeze(-1)
-
-                self._outputs['outputs'].append(step_output.squeeze(1))
-                self._outputs['alignment_weights'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
-                self._outputs['symbols'][:, step] = symbol_output.squeeze(-1).cpu().numpy()
-
-                step_input = symbol_output
+            self._predictive_decode(max_length=max_length,
+                                    batch_size=batch_size,
+                                    hidden_state=hidden_state,
+                                    encoder_outputs=encoder_outputs,
+                                    input_sequence_length=input_sequence_length)
 
         return self._outputs
+
+    def _forced_decode(self,
+                       targets,
+                       batch_size,
+                       hidden_state,
+                       encoder_outputs,
+                       input_sequence_length):
+        """
+        This method is primarily used during training, when target outputs are provided to the decoder.
+        These target sequences start with an <SOS> token, which will serve as the first input to the _decode
+        function. During the decoding iterations the decoder's predictions will only be used as final outputs to
+        measure the loss, so the input for the (t)-th time step will be the (t-1)-th element of the provided
+        targets.
+        :param targets:  Variable, (batch_size, sequence_length) a batch of word ids.
+        :param batch_size: int, size of the currently processed batch.
+        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param input_sequence_length: int, length of the input (for the encoder) sequence.
+        """
+        output_sequence_length = targets.size(1) - 1
+
+        inputs = targets[:, :-1].contiguous()
+        embedded_inputs = self._embedding_layer(inputs)
+
+        self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
+        self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
+
+        for step in range(output_sequence_length):
+            step_input = embedded_inputs[:, step, :]
+            step_input = step_input.unsqueeze(1)
+            step_output, hidden_state, attn_weights = self._decode(inputs=step_input,
+                                                                   hidden_state=hidden_state,
+                                                                   encoder_outputs=encoder_outputs,
+                                                                   batch_size=batch_size,
+                                                                   sequence_length=input_sequence_length)
+
+            self._outputs['outputs'].append(step_output.squeeze(1))
+            self._outputs['alignment_weights'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+            self._outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
+
+    def _predictive_decode(self,
+                           max_length,
+                           batch_size,
+                           hidden_state,
+                           encoder_outputs,
+                           input_sequence_length):
+        """
+        This method is used during unforced training and evaluation. Targets are not provided, so the decoding
+        will go on, until the length of the output reaches the given max_length, or the _max_length attribute.
+        During the decoding iteration of the sequence, the input word of the decoder at time step (t) is the
+        output word of the decoder from the time step (t-1).
+        :param max_length: int, maximum length for the decoded sequence. If None the max_length parameter's
+                           value will be used.
+        :param batch_size: int, size of the currently processed batch.
+        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param input_sequence_length: int, length of the input (for the encoder) sequence.
+        """
+        output_sequence_length = max_length if max_length is not None else self._max_length.value
+
+        self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
+        self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
+
+        sos_tokens = torch.from_numpy(np.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
+
+        if self._use_cuda:
+            sos_tokens = sos_tokens.cuda()
+
+        step_input = autograd.Variable(sos_tokens)
+
+        for step in range(output_sequence_length):
+            embedded_input = self._embedding_layer(step_input)
+
+            step_output, hidden_state, attn_weights = self._decode(inputs=embedded_input,
+                                                                   hidden_state=hidden_state,
+                                                                   encoder_outputs=encoder_outputs,
+                                                                   batch_size=batch_size,
+                                                                   sequence_length=input_sequence_length)
+
+            symbol_output = step_output.topk(1)[1].data.squeeze(-1)
+
+            self._outputs['outputs'].append(step_output.squeeze(1))
+            self._outputs['alignment_weights'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
+            self._outputs['symbols'][:, step] = symbol_output.squeeze(-1).cpu().numpy()
+
+            step_input = symbol_output
 
     def _score(self, encoder_outputs, decoder_state):
         return NotImplementedError
@@ -409,25 +531,27 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
     probability distribution over the word ids.
     """
 
+    @staticmethod
+    def interface():
+        interface = OrderedDict(RNNDecoder.interface())
+        interface['input_size'] = 'Decoder:embedding_size$ + Decoder:hidden_size$'
+
+        return interface
+
     @classmethod
     def abstract(cls):
         return False
 
-    @classmethod
-    def interface(cls):
-        interface = OrderedDict(**super().interface())
-        interface['input_size'] = 'Decoder:embedding_size$ + Decoder:hidden_size$'
-        return interface
-
-    @ParameterSetter.pack
+    # noinspection PyUnresolvedReferences
+    @ParameterSetter.pack(interface.__func__())
     def __init__(self, parameter_setter):
         """
-        An attentional rnn decoder object.
+        An a bahdanau-type attentional RNN decoder instance.
         """
         super().__init__(parameter_setter=parameter_setter)
 
-        self._attention_layer = None
         self._projection_layer = None
+        self._attention_layer = None
         self._transformer = None
 
     def init_parameters(self):
@@ -468,7 +592,6 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
-        embedded_input = self.embedding(inputs)
         previous_state = hidden_state[0][-1] if isinstance(hidden_state, tuple) else hidden_state[-1]
 
         context, attn_weights = self._calculate_context(decoder_state=previous_state,
@@ -476,10 +599,10 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
                                                         batch_size=batch_size,
                                                         sequence_length=sequence_length)
 
-        concat_input = torch.cat((embedded_input, context), dim=2)
+        concat_input = torch.cat((inputs, context), dim=2)
         output, hidden_state = self._recurrent_layer(concat_input, hidden_state)
 
-        output = self._projection_layer(torch.cat((embedded_input, output), dim=2))
+        output = self._projection_layer(torch.cat((inputs, output), dim=2))
 
         output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size)),
                                         dim=1).view(batch_size, -1, self._output_size)
@@ -497,6 +620,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         """
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)
+
         return energy
 
 
@@ -556,8 +680,7 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
-        embedded_input = self.embedding(inputs)
-        output, hidden_state = self._recurrent_layer(embedded_input, hidden_state)
+        output, hidden_state = self._recurrent_layer(inputs, hidden_state)
 
         previous_state = hidden_state[0][-1] if isinstance(hidden_state, tuple) else hidden_state[-1]
 
@@ -582,11 +705,18 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
     activation from the linear layer.
     """
 
+    @staticmethod
+    def interface():
+        return {
+            **RNNDecoder.interface()
+        }
+
     @classmethod
     def abstract(cls):
         return False
 
-    @ParameterSetter.pack
+    # noinspection PyUnresolvedReferences
+    @ParameterSetter.pack(interface.__func__())
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
 
@@ -619,6 +749,7 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
         """
         energy = self._attention_layer(encoder_output)
         energy = torch.bmm(decoder_state.unsqueeze(1), energy.unsqueeze(1).transpose(1, 2)).squeeze(-1)
+
         return energy
 
 
@@ -629,11 +760,18 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
     encoder and decoder states.
     """
 
+    @staticmethod
+    def interface():
+        return {
+            **RNNDecoder.interface()
+        }
+
     @classmethod
     def abstract(cls):
         return False
 
-    @ParameterSetter.pack
+    # noinspection PyUnresolvedReferences
+    @ParameterSetter.pack(interface.__func__())
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
 
@@ -669,11 +807,18 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
     method, however the computation path follows the Luong style.
     """
 
+    @staticmethod
+    def interface():
+        return {
+            **RNNDecoder.interface()
+        }
+
     @classmethod
     def abstract(cls):
         return False
 
-    @ParameterSetter.pack
+    # noinspection PyUnresolvedReferences
+    @ParameterSetter.pack(interface.__func__())
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
 
@@ -713,4 +858,5 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
         """
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)
+
         return energy

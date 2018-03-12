@@ -1,5 +1,8 @@
 import torch
+import torch.nn
+
 from torch.autograd import Variable
+from torch.optim import SGD
 
 from utils import utils
 from tqdm import trange
@@ -40,24 +43,24 @@ class FastReader(Reader):
     the memory.
     """
 
+    @staticmethod
+    def interface():
+        return OrderedDict(**{
+            'max_segment_size': None,
+            'batch_size': None,
+            'padding_type': None,
+            'use_cuda': 'Task:use_cuda$',
+            'corpora': Corpora
+        })
+
     @classmethod
     def abstract(cls):
         return False
 
-    @classmethod
-    def interface(cls):
-        return OrderedDict(**{
-            'max_segment_size': None,
-            'batch_size':       None,
-            'padding_type':     None,
-            'use_cuda':        'Task:use_cuda$',
-            'corpus':           Corpus
-        })
-
     def __init__(self,
                  batch_size,
                  use_cuda,
-                 corpus,
+                 corpora,
                  padding_type,
                  max_segment_size):
         """
@@ -69,7 +72,7 @@ class FastReader(Reader):
                              them to equal lengths.
         :param max_segment_size: int, the size of each segment, that will contain the similar length data.
         """
-        self._corpus = corpus
+        self._corpora = corpora
         self._use_cuda = use_cuda
         self._batch_size = batch_size
         self._max_segment_size = max_segment_size
@@ -77,11 +80,11 @@ class FastReader(Reader):
 
         padding = utils.subclasses(Padding)
 
-        self._data_processor = padding[padding_type](self._corpus.source_language, max_segment_size)
+        self._data_processor = padding[padding_type](self._corpora.source_language, max_segment_size)
 
-        self._train_data = self._data_processor(self._corpus.train)
-        self._dev_data = self._data_processor(self._corpus.dev)
-        self._test_data = self._data_processor(self._corpus.test)
+        self._train_data = self._data_processor(self._corpora.train)
+        self._dev_data = self._data_processor(self._corpora.dev)
+        self._test_data = self._data_processor(self._corpora.test)
 
         self._modes = {
             'train': self._train_data,
@@ -129,7 +132,7 @@ class FastReader(Reader):
         for index, ids in enumerate(zip(*id_batches)):
             expression += '{%d}:\n' % index
             for param in zip(kwargs, ids):
-                expression += ('> [%s]:\t%s\n' % (param[0], '\t'.join(sentence_from_ids(self._corpus.source_language,
+                expression += ('> [%s]:\t%s\n' % (param[0], '\t'.join(sentence_from_ids(self._corpora.source_language,
                                                                                         param[1]))))
             expression += '\n'
         print(expression)
@@ -174,12 +177,19 @@ class FastReader(Reader):
         self._mode = mode
 
     @property
+    def corpora(self):
+        """
+        Property for the corpora of the reader.
+        """
+        return self._corpora
+
+    @property
     def source_language(self):
         """
         Property for the reader object's source language.
         :return: Language object, the source language.
         """
-        return self._corpus.source_language
+        return self._corpora.source_language
 
     @property
     def target_language(self):
@@ -187,7 +197,7 @@ class FastReader(Reader):
         Property for the reader object's target language.
         :return: Language object, the source language.
         """
-        return self._corpus.target_language
+        return self._corpora.target_language
 
 
 class FileReader(Reader):  # TODO
@@ -197,13 +207,13 @@ class FileReader(Reader):  # TODO
     in memory.
     """
 
+    @staticmethod
+    def interface():
+        return NotImplementedError
+
     @classmethod
     def abstract(cls):
         return False
-
-    @classmethod
-    def interface(cls):
-        return NotImplementedError
 
     def __init__(self,
                  language,
@@ -265,24 +275,24 @@ class FileReader(Reader):  # TODO
         return self._language
 
 
-class Corpus(Component):
+class Corpora(Component):
     """
     Wrapper class for the corpus of the task. Stores information about the corpus, and
     stores the location of the train, development and test data.
     """
 
+    @staticmethod
+    def interface():
+        return OrderedDict(**{
+            'train': None,
+            'dev': None,
+            'test': None,
+            'use_cuda': 'Task:use_cuda$'
+        })
+
     @classmethod
     def abstract(cls):
         return True
-
-    @classmethod
-    def interface(cls):
-        return OrderedDict(**{
-            'train':     None,
-            'dev':       None,
-            'test':      None,
-            'use_cuda': 'Task:use_cuda$'
-        })
 
     def __init__(self,
                  train,
@@ -403,23 +413,23 @@ class Corpus(Component):
         return self._test
 
 
-class Monolingual(Corpus):
+class Monolingual(Corpora):
     """
-    Special case of Corpus class, where the data read from the files only have a single language.
+    Special case of Corpora class, where the data read from the files only have a single language.
     """
+
+    @staticmethod
+    def interface():
+        return OrderedDict(**{
+            **Corpora.interface(),
+            'vocab': None,
+            'trained': None,
+            'token': None
+        })
 
     @classmethod
     def abstract(cls):
         return False
-
-    @classmethod
-    def interface(cls):
-        return OrderedDict(**{
-            **super().interface(),
-            'vocab':    None,
-            'trained':  None,
-            'token':    None
-        })
 
     def __init__(self,
                  train,
@@ -440,10 +450,7 @@ class Monolingual(Corpus):
         :param use_cuda: bool, true, if cuda support is enabled.
         """
 
-        super().__init__(train,
-                         dev,
-                         test,
-                         use_cuda)
+        super().__init__(train, dev, test, use_cuda)
 
         self._train = self._load_data(self.train)
         self._dev = self._load_data(self.dev)
@@ -467,29 +474,36 @@ class Monolingual(Corpus):
             raise ValueError('The given file is empty.')
         return data
 
+    def step(self):
+        """
 
-class Parallel(Corpus):
+        :return:
+        """
+        self._source_language.step()
+
+
+class Parallel(Corpora):
     """
     Wrapper class for the corpora, that yields two languages. The languages are paired, and
     are separated by a special separator token.
     """
 
+    @staticmethod
+    def interface():
+        return OrderedDict(**{
+            **Corpora.interface(),
+            'source_trained': None,
+            'source_vocab': None,
+            'source_token': None,
+            'target_trained': None,
+            'target_vocab': None,
+            'target_token': None,
+            'separator_token': None
+        })
+
     @classmethod
     def abstract(cls):
         return False
-
-    @classmethod
-    def interface(cls):
-        return OrderedDict(**{
-            **super().interface(),
-            'source_trained':   None,
-            'source_vocab':     None,
-            'source_token':     None,
-            'target_trained':   None,
-            'target_vocab':     None,
-            'target_token':     None,
-            'separator_token':  None
-        })
 
     def __init__(self,
                  train,
@@ -505,17 +519,17 @@ class Parallel(Corpus):
                  use_cuda):
         """
         An instance of a wrapper for parallel corpora.
-        :param train: str, path of the train data.
-        :param dev: str, path of the development data.
-        :param test: str, path of the test data.
-        :param source_trained: bool, true, if the embeddings, used by the source language have been pre-trained.
-        :param source_vocab: str, path of the vocabulary, containing the embeddings for the source language.
-        :param source_token: str, token for the source language. E.g: <ESP>, <ENG>, <GER>
-        :param target_trained: bool, true, if the embeddings, used by the target language have been pre-trained.
-        :param target_vocab: str, path of the vocabulary, containing the embeddings for the target language.
-        :param target_token: str, token for the target language. E.g: <ESP>, <ENG>, <GER>
-        :param separator_token: str, a special separator token, that divides the paired corpus.
-        :param use_cuda: bool, true, if cuda support is enabled.
+        -:parameter train: str, path of the train data.
+        -:parameter dev: str, path of the development data.
+        -:parameter test: str, path of the test data.
+        -:parameter source_trained: bool, true, if the embeddings of the source language have been pre-trained.
+        -:parameter source_vocab: str, path of the vocabulary, containing the embeddings for the source language.
+        -:parameter source_token: str, token for the source language. E.g: <ESP>, <ENG>, <GER>
+        -:parameter target_trained: bool, true, if the embeddings, if the target language have been pre-trained.
+        -:parameter target_vocab: str, path of the vocabulary, containing the embeddings for the target language.
+        -:parameter target_token: str, token for the target language. E.g: <ESP>, <ENG>, <GER>
+        -:parameter separator_token: str, a special separator token, that divides the paired corpus.
+        -:parameter use_cuda: bool, true, if cuda support is enabled.
         """
 
         super().__init__(train,
@@ -548,11 +562,7 @@ class Language:
     Wrapper class for the lookup tables of the languages.
     """
 
-    def __init__(self,
-                 path,
-                 token,
-                 trained,
-                 use_cuda):
+    def __init__(self, path, token, trained, use_cuda):
         """
         A language instance for storing the embedding and vocabulary.
         :param path: str, path of the embedding/vocabulary for the language.
@@ -570,6 +580,12 @@ class Language:
         self._embedding = None
         self._load_vocab(path)
 
+        self._embedding_layer = torch.nn.Embedding(self._embedding.size(0), self._embedding.size(1))
+        self._embedding_layer.weight = torch.nn.Parameter(self._embedding)
+        self._embedding_layer.weight.requires_grad = self.requires_grad
+
+        self._optimizer = SGD([self._embedding_layer.weight], lr=0.01)
+
     def _load_vocab(self, path):
         """
         Loads the vocabulary from a file. Path is assumed to be a text
@@ -585,8 +601,9 @@ class Language:
             for index, line in enumerate(file):
                 line_as_list = list(line.split(' '))
                 self._word_to_id[line_as_list[0]] = index + 1  # all values are incremented by 1 because 0 is <PAD>
-                self._embedding[index + 1, :] = numpy.array([float(element) for element in line_as_list[1:]],
-                                                            dtype=float)
+                if not self.requires_grad:
+                    self._embedding[index + 1, :] = numpy.array([float(element) for element in line_as_list[1:]],
+                                                                dtype=float)
 
             self._word_to_id['<PAD>'] = 0
             self._word_to_id[self._language_token] = len(self._word_to_id)
@@ -594,19 +611,28 @@ class Language:
             self._word_to_id['<EOS>'] = len(self._word_to_id)
             self._word_to_id['<UNK>'] = len(self._word_to_id)
 
-            self._id_to_word = dict(zip(self._word_to_id.values(),
-                                        self._word_to_id.keys()))
+            self._id_to_word = dict(zip(self._word_to_id.values(), self._word_to_id.keys()))
 
-            self._embedding[0, :] = numpy.zeros(embedding_dim)
-            self._embedding[-1, :] = numpy.zeros(embedding_dim)
-            self._embedding[-2, :] = numpy.zeros(embedding_dim)
-            self._embedding[-3, :] = numpy.zeros(embedding_dim)
-            self._embedding[-4, :] = numpy.random.rand(embedding_dim)
+            if not self.requires_grad:
+                self._embedding[0, :] = numpy.zeros(embedding_dim)
+                self._embedding[-1, :] = numpy.zeros(embedding_dim)
+                self._embedding[-2, :] = numpy.zeros(embedding_dim)
+                self._embedding[-3, :] = numpy.zeros(embedding_dim)
+                self._embedding[-4, :] = numpy.random.rand(embedding_dim)
+            else:
+                self._embedding = numpy.random.rand(self._embedding.shape[0], self._embedding.shape[1])
 
             self._embedding = torch.from_numpy(self._embedding).float()
 
             if self._use_cuda:
                 self._embedding = self._embedding.cuda()
+
+    def step(self):
+        """
+
+        """
+        if self.requires_grad:
+            self._optimizer.step()
 
     @property
     def tokens(self):
@@ -623,13 +649,12 @@ class Language:
     @property
     def embedding(self):
         """
-        Property for the embedding matrix.
-        :return: A PyTorch Variable object, that contains the embedding matrix
-                for the language.
+        Property for the embedding layer.
+        :return: A PyTorch Embedding type object.
         """
-        if self._embedding is None:
+        if self._embedding_layer is None:
             raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding
+        return self._embedding_layer
 
     @property
     def embedding_size(self):
@@ -639,7 +664,7 @@ class Language:
         """
         if self._embedding is None:
             raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding.shape[1]
+        return self._embedding_layer.weight.size(1)
 
     @property
     def vocab_size(self):
@@ -649,7 +674,7 @@ class Language:
         """
         if self._embedding is None:
             raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding.shape[0]
+        return self._embedding_layer.weight.size(0)
 
     @property
     def word_to_id(self):

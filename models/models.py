@@ -25,10 +25,6 @@ class Model(Module, Component):
     def zero_grad(self):
         return NotImplementedError
 
-    @property
-    def optimizer_states(self):
-        return NotImplementedError
-
 
 class SeqToSeq(Model):
     """
@@ -115,6 +111,22 @@ class SeqToSeq(Model):
         self._encoder.set_optimizer_states(**reduce_parameters(self._encoder.set_optimizer_states, kwargs))
         self._decoder.set_optimizer_states(**reduce_parameters(self._decoder.set_optimizer_states, kwargs))
 
+    def set_encoder_embedding(self, embedding):
+        """
+
+        :param embedding:
+        :return:
+        """
+        self._encoder.set_embedding(embedding)
+
+    def set_decoder_embedding(self, embedding):
+        """
+
+        :param embedding:
+        :return:
+        """
+        self._decoder.set_embedding(embedding)
+
     @property
     def decoder_tokens(self):
         """
@@ -129,33 +141,3 @@ class SeqToSeq(Model):
         :param tokens: dict, tokens from the lut of decoding target.
         """
         self._decoder.tokens = tokens
-
-    @property
-    def decoder_embedding(self):
-        """
-        Property for the embedding of the decoder.
-        :return embedding: Embedding, the currently used embedding of the decoder.
-        """
-        return self._decoder.embedding
-
-    @decoder_embedding.setter
-    def decoder_embedding(self, embedding):
-        """
-        Setter for the embedding of the decoder.
-        """
-        self._decoder.embedding = embedding
-
-    @property
-    def encoder_embedding(self):
-        """
-        Property for the embedding of the decoder.
-        :return embedding: Embedding, the currently used embedding of the encoder.
-        """
-        return self._encoder.embedding
-
-    @encoder_embedding.setter
-    def encoder_embedding(self, embedding):
-        """
-        Setter for the embedding of the encoder.
-        """
-        self._encoder.embedding = embedding

@@ -1,0 +1,8 @@
+{
+    "type": "RNNDiscriminator",
+    "params": {
+        "hidden_size": 50,
+        "optimizer_type": "RMSProp",
+        "learning_rate": 0.01
+    }
+}
