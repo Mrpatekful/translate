@@ -2,7 +2,6 @@ import torch
 import torch.nn
 
 from torch.autograd import Variable
-from torch.optim import SGD
 
 from utils import utils
 from tqdm import trange
@@ -13,6 +12,10 @@ import numpy
 import inspect
 
 from utils.utils import Component
+from utils.utils import ParameterSetter
+from utils.utils import subtract_dict
+
+from modules.utils.utils import Embedding
 
 from collections import OrderedDict
 
@@ -46,11 +49,11 @@ class FastReader(Reader):
     @staticmethod
     def interface():
         return OrderedDict(**{
-            'max_segment_size': None,
-            'batch_size': None,
-            'padding_type': None,
-            'use_cuda': 'Task:use_cuda$',
-            'corpora': Corpora
+            'max_segment_size':  None,
+            'batch_size':        None,
+            'padding_type':      None,
+            'use_cuda':         'Task:use_cuda$',
+            'corpora':           Corpora
         })
 
     @classmethod
@@ -80,7 +83,7 @@ class FastReader(Reader):
 
         padding = utils.subclasses(Padding)
 
-        self._data_processor = padding[padding_type](self._corpora.source_language, max_segment_size)
+        self._data_processor = padding[padding_type](self._corpora.source_vocabulary, max_segment_size)
 
         self._train_data = self._data_processor(self._corpora.train)
         self._dev_data = self._data_processor(self._corpora.dev)
@@ -132,7 +135,7 @@ class FastReader(Reader):
         for index, ids in enumerate(zip(*id_batches)):
             expression += '{%d}:\n' % index
             for param in zip(kwargs, ids):
-                expression += ('> [%s]:\t%s\n' % (param[0], '\t'.join(sentence_from_ids(self._corpora.source_language,
+                expression += ('> [%s]:\t%s\n' % (param[0], '\t'.join(sentence_from_ids(self._corpora.source_vocabulary,
                                                                                         param[1]))))
             expression += '\n'
         print(expression)
@@ -184,20 +187,20 @@ class FastReader(Reader):
         return self._corpora
 
     @property
-    def source_language(self):
+    def source_vocabulary(self):
         """
         Property for the reader object's source language.
         :return: Language object, the source language.
         """
-        return self._corpora.source_language
+        return self._corpora.source_vocabulary
 
     @property
-    def target_language(self):
+    def target_vocabulary(self):
         """
         Property for the reader object's target language.
         :return: Language object, the source language.
         """
-        return self._corpora.target_language
+        return self._corpora.target_vocabulary
 
 
 class FileReader(Reader):  # TODO
@@ -284,9 +287,9 @@ class Corpora(Component):
     @staticmethod
     def interface():
         return OrderedDict(**{
-            'train': None,
-            'dev': None,
-            'test': None,
+            'train':     None,
+            'dev':       None,
+            'test':      None,
             'use_cuda': 'Task:use_cuda$'
         })
 
@@ -294,47 +297,43 @@ class Corpora(Component):
     def abstract(cls):
         return True
 
-    def __init__(self,
-                 train,
-                 dev,
-                 test,
-                 use_cuda):
+    # noinspection PyUnresolvedReferences
+    @ParameterSetter.pack(interface.__func__())
+    def __init__(self, parameter_setter):
         """
         An instance of a corpora.
-        :param train: str, path of the train data.
-        :param dev: str, path of the development data.
-        :param test: str, path of the test data.
+        :param parameter_setter: ParameterSetter object, that requires the following parameters.
+            -:parameter train: str, path of the train data.
+            -:parameter dev: str, path of the development data.
+            -:parameter test: str, path of the test data.
         """
-        self._train = train
-        self._dev = dev
-        self._test = test
-        self._use_cuda = use_cuda
+        parameter_setter.initialize(self)
 
-        self._source_language = None
-        self._target_language = None
+        self._source_vocabulary = None
+        self._target_vocabulary = None
 
     def _load_data(self, data_path):
         return NotImplementedError
 
     @property
-    def source_language(self):
+    def source_vocabulary(self):
         """
         Property for the source language of the text corpora.
         :return: Language, instance of the wrapper class for the source language.
         """
-        if self._source_language is None:
+        if self._source_vocabulary is None:
             raise ValueError('Source language has not been set.')
-        return self._source_language
+        return self._source_vocabulary
 
     @property
-    def target_language(self):
+    def target_vocabulary(self):
         """
         Property for the target language of the text corpora.
         :return: Language, instance of the wrapper class for the target language.
         """
-        if self._target_language is None:
+        if self._target_vocabulary is None:
             raise ValueError('Target language has not been set.')
-        return self._target_language
+        return self._target_vocabulary
 
     @property
     def source_embedding_size(self):
@@ -342,9 +341,9 @@ class Corpora(Component):
         Property for the embedding size of the source language.
         :return: int, size of the source language's word embedding.
         """
-        if self._source_language is None:
+        if self._source_vocabulary is None:
             raise ValueError('Source language has not been set.')
-        return self.source_language.embedding_size
+        return self.source_vocabulary.embedding_size
 
     @property
     def target_embedding_size(self):
@@ -352,9 +351,9 @@ class Corpora(Component):
         Property for the embedding size of the target language.
         :return: int, size of the target language's word embedding.
         """
-        if self._target_language is None:
+        if self._target_vocabulary is None:
             raise ValueError('Target language has not been set.')
-        return self.target_language.embedding_size
+        return self.target_vocabulary.embedding_size
 
     @property
     def source_vocab_size(self):
@@ -362,9 +361,9 @@ class Corpora(Component):
         Property for the vocab size of the source language.
         :return: int, number of words in the source language.
         """
-        if self._source_language is None:
+        if self._source_vocabulary is None:
             raise ValueError('Source language has not been set.')
-        return self.source_language.vocab_size
+        return self.source_vocabulary.vocab_size
 
     @property
     def target_vocab_size(self):
@@ -372,9 +371,9 @@ class Corpora(Component):
         Property for the vocab size of the target language.
         :return: int, number of words in the target language.
         """
-        if self._target_language is None:
+        if self._target_vocabulary is None:
             raise ValueError('Target language has not been set.')
-        return self.target_language.vocab_size
+        return self.target_vocabulary.vocab_size
 
     def properties(self):
         return {
@@ -398,7 +397,7 @@ class Corpora(Component):
         Property for the development data segment of the corpora.
         :return: str, the whole development data.
         """
-        if self._train is None:
+        if self._dev is None:
             raise ValueError('Development data path has not been set.')
         return self._dev
 
@@ -408,7 +407,7 @@ class Corpora(Component):
         Property for the test data segment of the corpora.
         :return: str, the whole test data.
         """
-        if self._train is None:
+        if self._test is None:
             raise ValueError('Test data path has not been set.')
         return self._test
 
@@ -422,44 +421,43 @@ class Monolingual(Corpora):
     def interface():
         return OrderedDict(**{
             **Corpora.interface(),
-            'vocab': None,
-            'trained': None,
-            'token': None
+            'vocab':    None,
+            'provided': None,
+            'fixed':    None,
+            'token':    None
         })
 
     @classmethod
     def abstract(cls):
         return False
 
-    def __init__(self,
-                 train,
-                 dev,
-                 test,
-                 trained,
-                 vocab,
-                 token,
-                 use_cuda):
+    # noinspection PyUnresolvedReferences
+    @ParameterSetter.pack(interface.__func__())
+    def __init__(self, parameter_setter):
         """
         Instance of a wrapper for Monolingual text corpora.
-        :param train: str, path of the train data.
-        :param dev: str, path of the development data.
-        :param test: str, path of the test data.
-        :param trained: bool, indicates, whether the embeddings, used by the language have been pre-trained.
-        :param vocab: str, path of the vocabulary, containing the embeddings.
-        :param token: str, token for the language. E.g: <ESP>, <ENG>, <GER>
-        :param use_cuda: bool, true, if cuda support is enabled.
+        :param parameter_setter:ParameterSetter object, that requires the following parameters.
+            -:parameter train: str, path of the train data.
+            -:parameter dev: str, path of the development data.
+            -:parameter test: str, path of the test data.
+            -:parameter vocab: str, path of the vocabulary, containing the embeddings.
+            -:parameter trained: bool, indicates, whether the embeddings, used by the language have been pre-trained.
+            -:parameter provided bool, indicates, whether the embeddings are provided to the model.
+            -:parameter token: str, token for the language. E.g: <ESP>, <ENG>, <GER>
+            -:parameter use_cuda: bool, true, if cuda support is enabled.
         """
+        super().__init__(parameter_setter=parameter_setter)
 
-        super().__init__(train, dev, test, use_cuda)
+        vocabulary = Vocabulary(**parameter_setter.extract(Vocabulary.interface()))
+
+        parameter_setter.initialize(self, subtract_dict(self.interface(), Corpora.interface()))
 
         self._train = self._load_data(self.train)
         self._dev = self._load_data(self.dev)
         self._test = self._load_data(self.test)
 
-        language = Language(vocab, token, trained, use_cuda)
-
-        self._source_language = language
-        self._target_language = language
+        self._source_vocabulary = vocabulary
+        self._target_vocabulary = vocabulary
 
     def _load_data(self, data_path):
         """
@@ -473,13 +471,6 @@ class Monolingual(Corpora):
         if len(data) == 0:
             raise ValueError('The given file is empty.')
         return data
-
-    def step(self):
-        """
-
-        :return:
-        """
-        self._source_language.step()
 
 
 class Parallel(Corpora):
@@ -505,42 +496,30 @@ class Parallel(Corpora):
     def abstract(cls):
         return False
 
-    def __init__(self,
-                 train,
-                 dev,
-                 test,
-                 source_trained,
-                 source_vocab,
-                 source_token,
-                 target_trained,
-                 target_vocab,
-                 target_token,
-                 separator_token,
-                 use_cuda):
+    # noinspection PyUnresolvedReferences
+    @ParameterSetter.pack(interface.__func__())
+    def __init__(self, parameter_setter):
         """
         An instance of a wrapper for parallel corpora.
-        -:parameter train: str, path of the train data.
-        -:parameter dev: str, path of the development data.
-        -:parameter test: str, path of the test data.
-        -:parameter source_trained: bool, true, if the embeddings of the source language have been pre-trained.
-        -:parameter source_vocab: str, path of the vocabulary, containing the embeddings for the source language.
-        -:parameter source_token: str, token for the source language. E.g: <ESP>, <ENG>, <GER>
-        -:parameter target_trained: bool, true, if the embeddings, if the target language have been pre-trained.
-        -:parameter target_vocab: str, path of the vocabulary, containing the embeddings for the target language.
-        -:parameter target_token: str, token for the target language. E.g: <ESP>, <ENG>, <GER>
-        -:parameter separator_token: str, a special separator token, that divides the paired corpus.
-        -:parameter use_cuda: bool, true, if cuda support is enabled.
+        :param parameter_setter: ParameterSetter object, that requires the following parameters.
+            -:parameter train: str, path of the train data.
+            -:parameter dev: str, path of the development data.
+            -:parameter test: str, path of the test data.
+            -:parameter source_trained: bool, true, if the embeddings of the source language have been pre-trained.
+            -:parameter source_vocab: str, path of the vocabulary, containing the embeddings for the source language.
+            -:parameter source_token: str, token for the source language. E.g: <ESP>, <ENG>, <GER>
+            -:parameter target_trained: bool, true, if the embeddings, if the target language have been pre-trained.
+            -:parameter target_vocab: str, path of the vocabulary, containing the embeddings for the target language.
+            -:parameter target_token: str, token for the target language. E.g: <ESP>, <ENG>, <GER>
+            -:parameter separator_token: str, a special separator token, that divides the paired corpus.
+            -:parameter use_cuda: bool, true, if cuda support is enabled.
         """
+        super().__init__(parameter_setter=parameter_setter)
 
-        super().__init__(train,
-                         dev,
-                         test,
-                         use_cuda)
+        self._source_language = Vocabulary(**parameter_setter.extract(Vocabulary.interface()))
+        self._target_language = Vocabulary(**parameter_setter.extract(Vocabulary.interface()))
 
-        self._separator_token = separator_token
-
-        self._source_language = Language(source_vocab, source_token, source_trained, use_cuda)
-        self._target_language = Language(target_vocab, target_token, target_trained, use_cuda)
+        parameter_setter.initialize(self, subtract_dict(self.interface(), super().interface()))
 
     def _load_data(self, data_path):
         """
@@ -557,36 +536,53 @@ class Parallel(Corpora):
         return data
 
 
-class Language:
+class Vocabulary:
     """
     Wrapper class for the lookup tables of the languages.
     """
+    PAD = -1
 
-    def __init__(self, path, token, trained, use_cuda):
+    @staticmethod
+    def interface():
+        return OrderedDict(**{
+            'vocab':        None,
+            'token':        None,
+            'provided':     None,
+            'fixed':        None,
+            'use_cuda':     None
+        })
+
+    def __init__(self, vocab, token, provided, fixed, use_cuda):
         """
         A language instance for storing the embedding and vocabulary.
-        :param path: str, path of the embedding/vocabulary for the language.
+        :param vocab: str, path of the embedding/vocabulary for the language.
         :param token: str, token, that identifies the language.
-        :param trained: bool, true, if the embeddings have been pre-trained.
+        :param provided: bool, indicates, whether the embeddings are provided to the model.
+        :param fixed: bool, true, if the embeddings are fixed, and do not require updates.
         """
         self._word_to_id = {}
         self._id_to_word = {}
         self._word_to_count = {}
+
         self._language_token = token
         self._use_cuda = use_cuda
+        self._provided = provided
 
-        self.requires_grad = not trained
+        self.requires_grad = not fixed
 
-        self._embedding = None
-        self._load_vocab(path)
+        self._vocab_size = None
+        self._embedding_size = None
+        self._embedding_weights = None
 
-        self._embedding_layer = torch.nn.Embedding(self._embedding.size(0), self._embedding.size(1))
-        self._embedding_layer.weight = torch.nn.Parameter(self._embedding)
-        self._embedding_layer.weight.requires_grad = self.requires_grad
+        self._load_data(vocab)
 
-        self._optimizer = SGD([self._embedding_layer.weight], lr=0.01)
+        self._embedding = Embedding(embedding_size=self._embedding_size,
+                                    vocab_size=self._vocab_size,
+                                    use_cuda=self._use_cuda,
+                                    weights=self._embedding_weights,
+                                    requires_grad=self.requires_grad)
 
-    def _load_vocab(self, path):
+    def _load_data(self, path):
         """
         Loads the vocabulary from a file. Path is assumed to be a text
         file, where each line contains a word and its corresponding embedding weights, separated by spaces.
@@ -594,45 +590,57 @@ class Language:
         """
         with open(path, 'r') as file:
             first_line = file.readline().split(' ')
-            num_of_words = int(first_line[0])
-            embedding_dim = int(first_line[1])
-            self._embedding = numpy.empty((num_of_words + 5, embedding_dim), dtype='float')
+            self._vocab_size = int(first_line[0]) + 4
+            self._embedding_size = int(first_line[1])
+
+            if self._provided:
+                self._embedding_weights = numpy.empty((self._vocab_size, self._embedding_size), dtype='float')
 
             for index, line in enumerate(file):
                 line_as_list = list(line.split(' '))
-                self._word_to_id[line_as_list[0]] = index + 1  # all values are incremented by 1 because 0 is <PAD>
-                if not self.requires_grad:
-                    self._embedding[index + 1, :] = numpy.array([float(element) for element in line_as_list[1:]],
-                                                                dtype=float)
+                self._word_to_id[line_as_list[0]] = index
+                if self._provided:
+                    self._embedding_weights[index + 1, :] = numpy.array([float(element) for element
+                                                                         in line_as_list[1:]], dtype=float)
 
-            self._word_to_id['<PAD>'] = 0
             self._word_to_id[self._language_token] = len(self._word_to_id)
+
             self._word_to_id['<SOS>'] = len(self._word_to_id)
             self._word_to_id['<EOS>'] = len(self._word_to_id)
             self._word_to_id['<UNK>'] = len(self._word_to_id)
 
+            self._vocab_size = len(self._word_to_id)
+
+            self._word_to_id['<PAD>'] = self.PAD
+
             self._id_to_word = dict(zip(self._word_to_id.values(), self._word_to_id.keys()))
 
-            if not self.requires_grad:
-                self._embedding[0, :] = numpy.zeros(embedding_dim)
-                self._embedding[-1, :] = numpy.zeros(embedding_dim)
-                self._embedding[-2, :] = numpy.zeros(embedding_dim)
-                self._embedding[-3, :] = numpy.zeros(embedding_dim)
-                self._embedding[-4, :] = numpy.random.rand(embedding_dim)
-            else:
-                self._embedding = numpy.random.rand(self._embedding.shape[0], self._embedding.shape[1])
+            if self._provided:
+                self._embedding_weights[-1, :] = numpy.zeros(self._embedding_size)
+                self._embedding_weights[-2, :] = numpy.zeros(self._embedding_size)
+                self._embedding_weights[-3, :] = numpy.zeros(self._embedding_size)
+                self._embedding_weights[-4, :] = numpy.random.rand(self._embedding_size)
 
-            self._embedding = torch.from_numpy(self._embedding).float()
+                self._embedding_weights = torch.from_numpy(self._embedding_weights).float()
 
-            if self._use_cuda:
-                self._embedding = self._embedding.cuda()
+                if self._use_cuda:
+                    self._embedding_weights = self._embedding_weights.cuda()
 
-    def step(self):
+    def __call__(self, expression):
         """
-
+        Translates the given expression to it's corresponding word or id.
+        :param expression: str or int, if str (word) is provided, then the id will be returned, and
+                           the behaviour is the same for the other case.
+        :return: int or str, (id or word) of the provided expression.
         """
-        if self.requires_grad:
-            self._optimizer.step()
+        if isinstance(expression, str):
+            return self._word_to_id[expression]
+
+        elif isinstance(expression, int):
+            return self._id_to_word[expression]
+
+        else:
+            raise ValueError('Expression must either be a string or an int.')
 
     @property
     def tokens(self):
@@ -652,9 +660,9 @@ class Language:
         Property for the embedding layer.
         :return: A PyTorch Embedding type object.
         """
-        if self._embedding_layer is None:
+        if self._embedding is None:
             raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding_layer
+        return self._embedding
 
     @property
     def embedding_size(self):
@@ -664,7 +672,7 @@ class Language:
         """
         if self._embedding is None:
             raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding_layer.weight.size(1)
+        return self._embedding_size
 
     @property
     def vocab_size(self):
@@ -672,45 +680,27 @@ class Language:
         Property for the dimension of the embeddings.
         :return: int, length of the vocabulary (dim 1 of the embedding matrix).
         """
-        if self._embedding is None:
-            raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding_layer.weight.size(0)
-
-    @property
-    def word_to_id(self):
-        """
-        Property for the word to id dictionary.
-        :return: dict, containing the word-id pairs.
-        """
-        return self._word_to_id
-
-    @property
-    def id_to_word(self):
-        """
-        Property for the word to id dictionary.
-        :return: dict, containing the word-id pairs.
-        """
-        return self._id_to_word
+        return self._vocab_size
 
 
-def ids_from_sentence(language, sentence):
+def ids_from_sentence(vocabulary, sentence):
     """
     Convenience method, for converting a sequence of words to ids.
-    :param language: Language, object of the language to use the look up of.
+    :param vocabulary: Language, object of the language to use the look up of.
     :param sentence: string, a tokenized sequence of words.
     :return: list, containing the ids (int) of the sentence in the same order.
     """
-    return [language.word_to_id[word.rstrip()] for word in sentence.split(' ') if word.rstrip() != '']
+    return [vocabulary(word.rstrip()) for word in sentence.split(' ') if word.rstrip() != '']
 
 
-def sentence_from_ids(language, ids):
+def sentence_from_ids(vocabulary, ids):
     """
     Convenience method, for converting a sequence of ids to words.
-    :param language:
+    :param vocabulary:
     :param ids:
     :return:
     """
-    return [language.id_to_word[word_id] for word_id in ids]
+    return [vocabulary(word_id) for word_id in ids]
 
 
 class DataQueue:
@@ -781,7 +771,7 @@ class PostPadding(Padding):
         batch_length = sorted_data[0][-1]
         for index in range(len(sorted_data)):
             while len(sorted_data[index]) - 1 < batch_length:
-                sorted_data[index].insert(-1, 0)
+                sorted_data[index].insert(-1, Vocabulary.PAD)
 
         return numpy.array(sorted_data, dtype='int')
 
@@ -853,7 +843,7 @@ class PrePadding(Padding):
                 ids = ids_from_sentence(self._language, line)
                 ids_len = len(ids)
                 while len(ids) < segment_length:
-                    ids.append(0)
+                    ids.append(Vocabulary.PAD)
                 data_line = numpy.zeros((segment_length + 1), dtype='int')
                 data_line[:-1] = ids
                 data_line[-1] = ids_len

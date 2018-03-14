@@ -3,10 +3,10 @@
     "params": {
         "use_cuda": true,
         "readers": {
-            "source": "configs/components/utils/reader.json",
-            "target": "configs/components/utils/reader.json"
+            "reader_1": "configs/components/utils/readers/fast.json",
+            "reader_2": "configs/components/utils/readers/fast.json"
         },
-        "model": "configs/components/models/seqtseq.json",
-        "reguralization": "configs/components/utils/mlpreg.json"
+        "model": "configs/components/models/sts.json",
+        "reguralization": "configs/components/utils/reguralization/mlp.json"
     }
 }

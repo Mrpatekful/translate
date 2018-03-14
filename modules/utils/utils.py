@@ -4,6 +4,8 @@ from torch.nn import Module
 from torch.nn import Linear
 from torch.nn import LeakyReLU
 
+from torch.optim import SGD
+
 from utils.utils import Component
 
 from collections import OrderedDict
@@ -216,6 +218,54 @@ class RNNDiscriminator(Discriminator):
         :param optimizer: Optimizer, instance to be set as the new optimizer of the discriminator.
         """
         self._optimizer = optimizer
+
+
+class Embedding:
+
+    def __init__(self,
+                 embedding_size,
+                 vocab_size,
+                 use_cuda,
+                 weights=None,
+                 requires_grad=True):
+
+        self._layer = torch.nn.Embedding(vocab_size, embedding_size)
+
+        if weights is not None:
+            self._layer.weight = torch.nn.Parameter(weights)
+
+        if use_cuda:
+            self._layer = self._layer.cuda()
+
+        self._requires_grad = requires_grad
+        self._layer.weight.requires_grad = requires_grad
+
+        self._optimizer = SGD([self._layer.weight], lr=0.01)
+
+    def __call__(self, inputs):
+        return self._layer(inputs)
+
+    def zero_grad(self):
+        if self._requires_grad:
+            self._layer.zero_grad()
+
+    def step(self):
+        if self._requires_grad:
+            self._optimizer.step()
+
+    @property
+    def requires_grad(self):
+        return self._requires_grad
+
+    @requires_grad.setter
+    def requires_grad(self, requires_grad):
+        self._requires_grad = requires_grad
+
+
+class Optimizer:
+
+    def __init__(self):
+        pass
 
 
 class Noise:

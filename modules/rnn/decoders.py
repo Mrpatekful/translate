@@ -6,7 +6,9 @@ import torch.nn as nn
 import torch.nn.functional as functional
 
 from modules.decoder import Decoder
+
 from utils.utils import ParameterSetter
+from utils.utils import subtract_dict
 
 from collections import OrderedDict
 
@@ -308,14 +310,6 @@ class RNNDecoder(Decoder):
         """
         return self._optimizer
 
-    @optimizer.setter
-    def optimizer(self, optimizer):
-        """
-        Setter for the optimizer of the decoder.
-        :param optimizer: Optimizer, instance to be set as the new optimizer for the decoder.
-        """
-        self._optimizer = optimizer
-
     @property
     def embedding(self):
         """
@@ -331,9 +325,6 @@ class RNNDecoder(Decoder):
         :param embedding: Embedding, to be set as the embedding layer of the decoder.
         """
         self._embedding_layer = embedding
-        # nn.Embedding(embedding['weights'].size(0), embedding['weights'].size(1))
-        # self._embedding_layer.weight = nn.Parameter(embedding['weights'])
-        # self._embedding_layer.weight.requires_grad = embedding['requires_grad']
 
 
 class AttentionRNNDecoder(RNNDecoder):
@@ -533,10 +524,10 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
     @staticmethod
     def interface():
-        interface = OrderedDict(RNNDecoder.interface())
-        interface['input_size'] = 'Decoder:embedding_size$ + Decoder:hidden_size$'
-
-        return interface
+        return OrderedDict({
+            **subtract_dict(RNNDecoder.interface(), {'input_size': None}),
+            'input_size': 'Decoder:embedding_size$ + Decoder:hidden_size$'
+        })
 
     @classmethod
     def abstract(cls):

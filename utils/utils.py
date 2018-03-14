@@ -47,10 +47,13 @@ class ParameterSetter:
             """
             def wrapper(*args, **kwargs):
                 flattened_interface = create_leaf_dict(cls_interface)
-                packed_parameters = reduce_dict(kwargs, flattened_interface)
+                packed_parameters = create_intersection(kwargs, flattened_interface)
+
                 if len(packed_parameters) > 0:
                     free_parameters = subtract_dict(kwargs, packed_parameters)
+
                     return func(*args, ParameterSetter(kwargs), **free_parameters)
+
                 else:
                     return func(*args, **kwargs)
 
@@ -65,14 +68,39 @@ class ParameterSetter:
         """
         self._param_dict = param_dict
 
-    def initialize(self, instance):
+    def initialize(self, instance, subset=None):
         """
         This function creates the attributes of an instances. The instance must have an interface() method,
         that describes the required attributes.
         :param instance: instance, that will be initialized with the parameters, stored in the parameter dict.
+        :param subset: dict, subset of the parameter setter's param dict, that specifies the subset
+                       that should be created for the instance. If None, all of the parameters will be
+                       initialized, that are stored in the param dict.
         """
-        for parameter in instance.interface():
+        params = create_leaf_dict(instance.interface())
+
+        if subset is not None:
+            if isinstance(subset, dict):
+                params = create_intersection(params, subset)
+                self._param_dict = subtract_dict(self._param_dict, params)
+
+            else:
+                raise ValueError('Error: \' subset \' parameter must be a dictionary.')
+
+        for parameter in params:
             instance.__dict__['_' + parameter] = self._param_dict[parameter]
+
+    def extract(self, parameter_dict):
+        """
+        Extracts a set of parameters from the parameter dictionary of the setter object. The extracted parameters
+        are then removed from the parameter setter's dictionary.
+        :param parameter_dict: dict, subset of parameters to be extracted. It is typically an interface of an instance.
+        :return: dict, extracted parameters.
+        """
+        extracted_parameters = create_intersection(self._param_dict, parameter_dict)
+        self._param_dict = subtract_dict(self._param_dict, extracted_parameters)
+
+        return extracted_parameters
 
 
 def subclasses(base_cls):
@@ -87,6 +115,7 @@ def subclasses(base_cls):
         hierarchy = {}
         for sub_cls_name in sub_classes:
             hierarchy = {**hierarchy, **get_hierarchy(sub_classes[sub_cls_name])}
+
         return {**hierarchy, **{name: sub_classes[name] for name in sub_classes if not sub_classes[name].abstract()}}
 
     return get_hierarchy(base_cls)
@@ -132,8 +161,11 @@ def create_leaf_dict(dictionary):
     leaf_dict = {}
     for key in dictionary:
         if isinstance(dictionary[key], dict):
+
             leaf_dict = {**leaf_dict, **create_leaf_dict(dictionary[key])}
+
         else:
+
             leaf_dict = {**leaf_dict, key: dictionary[key]}
 
     return leaf_dict
@@ -155,7 +187,7 @@ def reduce_parameters(func, parameters):
     return func_params
 
 
-def reduce_dict(whole_dict, sub_dict):
+def create_intersection(whole_dict, sub_dict):
     """
     Reduces a dictionary to have the same keys as an another dict.
     :param whole_dict: dict, the dictionary to be reduced.
@@ -165,7 +197,9 @@ def reduce_dict(whole_dict, sub_dict):
     reduced_dict = {}
     for parameter in sub_dict.keys():
         if whole_dict.get(parameter, None) is None:
+
             return {}
+
         reduced_dict[parameter] = whole_dict[parameter]
 
     return reduced_dict
@@ -200,7 +234,9 @@ def logging(logger):
         """
         @wraps(func)
         def wrapper(*args, **kwargs):
+
             return logger(*args, func=func, **kwargs)
+
         return wrapper
 
     return log_wrapper

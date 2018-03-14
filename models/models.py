@@ -39,16 +39,16 @@ class SeqToSeq(Model):
     vector to the desired sequence.
     """
 
-    @classmethod
-    def abstract(cls):
-        return False
-
-    @classmethod
-    def interface(cls):
+    @staticmethod
+    def interface():
         return OrderedDict(**{
             'encoder': encoders.Encoder,
             'decoder': decoders.Decoder
         })
+
+    @classmethod
+    def abstract(cls):
+        return False
 
     def __init__(self, encoder, decoder):
         """
@@ -75,6 +75,7 @@ class SeqToSeq(Model):
         :return decoder_outputs: dict, containing the concatenated outputs of the encoder and decoder.
         """
         encoder_outputs = self._encoder.forward(inputs=inputs, lengths=lengths)
+
         decoder_outputs = self._decoder.forward(targets=targets, max_length=max_length, **encoder_outputs)
 
         return {**decoder_outputs, **encoder_outputs}
@@ -84,14 +85,20 @@ class SeqToSeq(Model):
         Updates the parameters of the encoder and decoder modules.
         """
         self._encoder.optimizer.step()
+        self._encoder.embedding.step()
+
         self._decoder.optimizer.step()
+        self._decoder.embedding.step()
 
     def zero_grad(self):
         """
         Refreshes the gradients of the optimizer.
         """
         self._encoder.optimizer.zero_grad()
+        self._encoder.embedding.zero_grad()
+
         self._decoder.optimizer.zero_grad()
+        self._decoder.embedding.zero_grad()
 
     def get_optimizer_states(self):
         """
@@ -111,21 +118,16 @@ class SeqToSeq(Model):
         self._encoder.set_optimizer_states(**reduce_parameters(self._encoder.set_optimizer_states, kwargs))
         self._decoder.set_optimizer_states(**reduce_parameters(self._decoder.set_optimizer_states, kwargs))
 
-    def set_encoder_embedding(self, embedding):
+    def set_embeddings(self, encoder_embedding, decoder_embedding):
         """
-
-        :param embedding:
-        :return:
+        Sets the embedding layers for the encoder and decoder module.
+        :param encoder_embedding: Embedding, layer type object, that will be used
+                                  to create word embeddings for the encoder.
+        :param decoder_embedding: Embedding, layer type object, that will be used
+                                  to create word embeddings for the decoder.
         """
-        self._encoder.set_embedding(embedding)
-
-    def set_decoder_embedding(self, embedding):
-        """
-
-        :param embedding:
-        :return:
-        """
-        self._decoder.set_embedding(embedding)
+        self._encoder.set_embedding(encoder_embedding)
+        self._decoder.set_embedding(decoder_embedding)
 
     @property
     def decoder_tokens(self):

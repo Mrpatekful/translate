@@ -1,6 +1,5 @@
 import torch
 import torch.autograd as autograd
-import torch.nn as nn
 import torch.optim
 
 import inspect
@@ -51,9 +50,9 @@ class RNNEncoder(Encoder):
         super().__init__()
         self._parameter_setter = parameter_setter
 
+        self._optimizer = None
         self._recurrent_layer = None
         self._embedding_layer = None
-        self._optimizer = None
 
         self._outputs = {
             'hidden_state':     None,
@@ -146,6 +145,14 @@ class RNNEncoder(Encoder):
         else:
             return result
 
+    def step(self):
+        """
+
+        :return:
+        """
+        self._optimizer.step()
+        self._embedding_layer.step()
+
     def get_optimizer_states(self):
         """
         Returns the state dicts of the encoder's optimizer(s).
@@ -174,14 +181,12 @@ class RNNEncoder(Encoder):
     def optimizer(self):
         """
         Property for the optimizer of the encoder.
-        :return self._optimizer: Optimizer, the currently used optimizer of the encoder.
         """
         return self._optimizer
 
-    @optimizer.setter
-    def optimizer(self, optimizer):
+    @property
+    def embedding(self):
         """
-        Setter for the optimizer of the encoder.
-        :param optimizer: Optimizer, instance to be set as the new optimizer for the encoder.
+        Property for the optimizer of the encoder.
         """
-        self._optimizer.value = optimizer
+        return self._embedding_layer

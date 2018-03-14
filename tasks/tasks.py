@@ -5,6 +5,8 @@ from models import models
 from modules.utils import utils
 from utils.utils import Component
 
+from utils.reader import Vocabulary
+
 import numpy
 import torch
 import torch.autograd
@@ -52,8 +54,8 @@ class UnsupervisedTranslation(Task):
         return OrderedDict(**{
             'use_cuda': None,
             'readers': OrderedDict(**{
-                'source': reader.Reader,
-                'target': reader.Reader
+                'reader_eng': reader.Reader,
+                'reader_fra': reader.Reader
             }),
             'model': models.Model,
             'reguralization': utils.Discriminator
@@ -73,37 +75,40 @@ class UnsupervisedTranslation(Task):
         :return lengths: Ndarray, the lengths of the inputs provided to the encoder. These are used
                          for sequence padding.
         """
-        inputs = torch.from_numpy(batch[:, 1:-2])
-        targets = torch.from_numpy(numpy.hstack((batch[:, 0].reshape(-1, 1), batch[:, 2:-1])))
-        lengths = batch[:, -1] - 2
+        formatted_batch = {'inputs': torch.from_numpy(batch[:, 1:-2]),
+                           'targets': torch.from_numpy(numpy.hstack((batch[:, 0].reshape(-1, 1), batch[:, 2:-1]))),
+                           'lengths': batch[:, -1] - 2}
 
         if use_cuda:
-            inputs = inputs.cuda()
-            targets = targets.cuda()
+            formatted_batch['inputs'] = formatted_batch['inputs'].cuda()
+            formatted_batch['targets'] = formatted_batch['targets'].cuda()
 
-        return torch.autograd.Variable(inputs), torch.autograd.Variable(targets), lengths
+        formatted_batch['inputs'] = torch.autograd.Variable(formatted_batch['inputs'])
+        formatted_batch['targets'] = torch.autograd.Variable(formatted_batch['targets'])
+
+        return formatted_batch
 
     @classmethod
     def abstract(cls):
         return False
 
     def __init__(self,
-                 source,
-                 target,
                  model,
                  use_cuda,
+                 reader_eng,
+                 reader_fra,
                  reguralization):
         """
         An instance of an unsupervised translation task.
-        :param source: Reader, an instance of a reader object, that may be a FastReader or FileReader.
-        :param target: Reader, that is the same as the source reader, but for the target language.
+        :param reader_eng: Reader, an instance of a reader object, that may be a FastReader or FileReader.
+        :param reader_fra: Reader, that is the same as the source reader, but for the target language.
         :param model: Model, the class of the model, that will be used for this task.
         """
-        self._source_reader = source
-        self._target_reader = target
+        self._reader_eng = reader_eng
+        self._reader_fra = reader_fra
 
-        self._source_reader.batch_format = self.format_batch
-        self._target_reader.batch_format = self.format_batch
+        self._reader_eng.batch_format = self.format_batch
+        self._reader_fra.batch_format = self.format_batch
 
         self._reguralization = reguralization
 
@@ -111,24 +116,20 @@ class UnsupervisedTranslation(Task):
 
         self._model = model
 
-        self._set_embeddings(self._source_reader)
-
     def fit_model(self, epochs):
         """
         Fits the model to the data. The training session runs until convergence, or
         the given epochs.
         :param epochs: int, the number of maximum epochs.
         """
-        loss_function = torch.nn.NLLLoss(ignore_index=0, reduce=False)
+        loss_function = torch.nn.NLLLoss(ignore_index=Vocabulary.PAD, reduce=False)
         noise_function = utils.Noise()
 
         for epoch in range(epochs):
 
-            self._set_embeddings(self._source_reader)
+            self._set_embeddings(self._reader_eng)
 
             self._train(loss_function, noise_function)
-
-            self._step_embeddings(self._source_reader)
 
             self._evaluate(noise_function)
 
@@ -142,16 +143,18 @@ class UnsupervisedTranslation(Task):
         :param noise_function: Function, a specific function to this task, that is used to
                                create a noisy version of the input.
         """
-        self._source_reader.mode = 'train'
+        self._reader_eng.mode = 'train'
         loss = 0
         steps = 0
 
-        for inputs, targets, lengths in self._source_reader.batch_generator():
-            outputs = self._train_step(inputs=inputs,
-                                       targets=targets,
-                                       lengths=lengths,
+        for l1_batch in self._reader_eng.batch_generator():
+
+            outputs = self._train_step(inputs=l1_batch['inputs'],
+                                       targets=l1_batch['targets'],
+                                       lengths=l1_batch['lengths'],
                                        loss_function=loss_function,
                                        noise_function=noise_function)
+
             steps += 1
             loss += outputs['loss']
 
@@ -163,8 +166,8 @@ class UnsupervisedTranslation(Task):
         :param noise_function: Function, a specific function to this task, that is used to
                                create a noisy version of the input.
         """
-        self._source_reader.mode = 'dev'
-        for inputs, targets, lengths in self._source_reader.batch_generator():
+        self._reader_eng.mode = 'dev'
+        for inputs, targets, lengths in self._reader_eng.batch_generator():
             max_length = targets.size(1)
             outputs = self._step(inputs=inputs,
                                  targets=targets,
@@ -176,28 +179,17 @@ class UnsupervisedTranslation(Task):
             outputs = outputs['symbols'][:, :]
             targets = targets.cpu().data[:, 1:].numpy()
 
-            # self._source_reader.print_validation_format(input=inputs, output=outputs, target=targets)
+            self._reader_eng.print_validation_format(input=inputs, output=outputs, target=targets)
 
     def _set_embeddings(self, reader_instance):
         """
         Sets the embeddings for the mode.
         :param reader_instance: Reader, that yields the new embeddings for the decoder and encoder.
         """
-        self._model.set_encoder_embedding(reader_instance.source_language.embedding)
-        self._model.set_decoder_embedding(reader_instance.target_language.embedding)
+        self._model.set_embeddings(reader_instance.source_vocabulary.embedding,
+                                   reader_instance.target_vocabulary.embedding)
 
-        self._model.decoder_tokens = reader_instance.target_language.tokens
-
-    @staticmethod
-    def _step_embeddings(reader_instance):
-        """
-        Steps the embedding of the languages. This method only has effect, if the embeddings require training.
-        :param reader_instance: Reader, that has reference to the language, which yields embeddings for
-                                the decoder and encoder.
-        """
-        print(reader_instance.source_language.embedding.weight)
-        reader_instance.corpora.step()
-        print(reader_instance.source_language.embedding.weight)
+        self._model.decoder_tokens = reader_instance.target_vocabulary.tokens
 
     def _step(self,
               inputs,
