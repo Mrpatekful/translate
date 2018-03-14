@@ -3,8 +3,8 @@
     "params": {
         "use_cuda": true,
         "readers": {
-            "reader_1": "configs/components/utils/readers/fast.json",
-            "reader_2": "configs/components/utils/readers/fast.json"
+            "reader_eng": "configs/components/utils/readers/fast.json",
+            "reader_fra": "configs/components/utils/readers/fast.json"
         },
         "model": "configs/components/models/sts.json",
         "reguralization": "configs/components/utils/reguralization/mlp.json"

@@ -315,6 +315,8 @@ class Corpora(Component):
     def _load_data(self, data_path):
         return NotImplementedError
 
+    # The following 'size' properties are required for the parameter value resolver mechanism.
+
     @property
     def source_vocabulary(self):
         """
@@ -473,7 +475,7 @@ class Monolingual(Corpora):
         return data
 
 
-class Parallel(Corpora):
+class Parallel(Corpora):  # TODO vocabulary parameter extraction
     """
     Wrapper class for the corpora, that yields two languages. The languages are paired, and
     are separated by a special separator token.
@@ -483,13 +485,13 @@ class Parallel(Corpora):
     def interface():
         return OrderedDict(**{
             **Corpora.interface(),
-            'source_trained': None,
-            'source_vocab': None,
-            'source_token': None,
-            'target_trained': None,
-            'target_vocab': None,
-            'target_token': None,
-            'separator_token': None
+            'source_trained':   None,
+            'source_vocab':     None,
+            'source_token':     None,
+            'target_trained':   None,
+            'target_vocab':     None,
+            'target_token':     None,
+            'separator_token':  None
         })
 
     @classmethod
@@ -545,11 +547,11 @@ class Vocabulary:
     @staticmethod
     def interface():
         return OrderedDict(**{
-            'vocab':        None,
-            'token':        None,
-            'provided':     None,
-            'fixed':        None,
-            'use_cuda':     None
+            'vocab':      None,
+            'token':      None,
+            'provided':   None,
+            'fixed':      None,
+            'use_cuda':   None
         })
 
     def __init__(self, vocab, token, provided, fixed, use_cuda):
@@ -696,9 +698,9 @@ def ids_from_sentence(vocabulary, sentence):
 def sentence_from_ids(vocabulary, ids):
     """
     Convenience method, for converting a sequence of ids to words.
-    :param vocabulary:
-    :param ids:
-    :return:
+    :param vocabulary: Language, object of the language to use the look up of.
+    :param ids: ids, representations of words.
+    :return: list, containing the ids (int) of the sentence in the same order.
     """
     return [vocabulary(word_id) for word_id in ids]
 

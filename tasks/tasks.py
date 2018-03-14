@@ -94,26 +94,26 @@ class UnsupervisedTranslation(Task):
 
     def __init__(self,
                  model,
+                 read_a,
+                 read_b,
                  use_cuda,
-                 reader_eng,
-                 reader_fra,
                  reguralization):
         """
-        An instance of an unsupervised translation task.
-        :param reader_eng: Reader, an instance of a reader object, that may be a FastReader or FileReader.
-        :param reader_fra: Reader, that is the same as the source reader, but for the target language.
-        :param model: Model, the class of the model, that will be used for this task.
-        """
-        self._reader_eng = reader_eng
-        self._reader_fra = reader_fra
 
-        self._reader_eng.batch_format = self.format_batch
-        self._reader_fra.batch_format = self.format_batch
+        :param model:
+        :param read_a:
+        :param read_b:
+        :param use_cuda:
+        :param reguralization:
+        """
+        self._reader_a = read_a
+        self._reader_b = read_b
+
+        self._reader_a.batch_format = self.format_batch
+        self._reader_b.batch_format = self.format_batch
 
         self._reguralization = reguralization
-
         self._use_cuda = use_cuda
-
         self._model = model
 
     def fit_model(self, epochs):
@@ -127,10 +127,8 @@ class UnsupervisedTranslation(Task):
 
         for epoch in range(epochs):
 
-            self._set_embeddings(self._reader_eng)
-
+            self._set_embeddings(self._reader_a)
             self._train(loss_function, noise_function)
-
             self._evaluate(noise_function)
 
         self.save_checkpoint(self._create_checkpoint())
@@ -143,15 +141,15 @@ class UnsupervisedTranslation(Task):
         :param noise_function: Function, a specific function to this task, that is used to
                                create a noisy version of the input.
         """
-        self._reader_eng.mode = 'train'
+        self._reader_a.mode = 'train'
         loss = 0
         steps = 0
 
-        for l1_batch in self._reader_eng.batch_generator():
+        for batch_a in self._reader_a.batch_generator():
 
-            outputs = self._train_step(inputs=l1_batch['inputs'],
-                                       targets=l1_batch['targets'],
-                                       lengths=l1_batch['lengths'],
+            outputs = self._train_step(inputs=batch_a['inputs'],
+                                       targets=batch_a['targets'],
+                                       lengths=batch_a['lengths'],
                                        loss_function=loss_function,
                                        noise_function=noise_function)
 
@@ -166,8 +164,8 @@ class UnsupervisedTranslation(Task):
         :param noise_function: Function, a specific function to this task, that is used to
                                create a noisy version of the input.
         """
-        self._reader_eng.mode = 'dev'
-        for inputs, targets, lengths in self._reader_eng.batch_generator():
+        self._reader_a.mode = 'dev'
+        for inputs, targets, lengths in self._reader_a.batch_generator():
             max_length = targets.size(1)
             outputs = self._step(inputs=inputs,
                                  targets=targets,
@@ -179,7 +177,7 @@ class UnsupervisedTranslation(Task):
             outputs = outputs['symbols'][:, :]
             targets = targets.cpu().data[:, 1:].numpy()
 
-            self._reader_eng.print_validation_format(input=inputs, output=outputs, target=targets)
+            self._reader_a.print_validation_format(input=inputs, output=outputs, target=targets)
 
     def _set_embeddings(self, reader_instance):
         """
@@ -207,11 +205,12 @@ class UnsupervisedTranslation(Task):
                                mechanism, or a translation model from the previous iteration.
         :return: int, loss at the current time step, produced by this iteration.
         """
-        self._model.zero_grad()
-
         noisy_inputs = noise_function(inputs)
 
-        outputs = self._model.forward(inputs=noisy_inputs, targets=targets, max_length=max_length, lengths=lengths)
+        outputs = self._model.forward(inputs=noisy_inputs,
+                                      targets=targets,
+                                      max_length=max_length,
+                                      lengths=lengths)
 
         return outputs
 
@@ -235,6 +234,8 @@ class UnsupervisedTranslation(Task):
         """
         batch_size = targets.size(0)
         max_length = targets.size(1) - 1
+
+        self._model.zero_grad()
 
         outputs = self._step(inputs=inputs,
                              targets=targets,
