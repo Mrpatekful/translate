@@ -46,9 +46,7 @@ class FastReader(Reader):
     the memory.
     """
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
+    interface = OrderedDict(**{
             'max_segment_size':  None,
             'batch_size':        None,
             'padding_type':      None,
@@ -56,9 +54,7 @@ class FastReader(Reader):
             'corpora':           Corpora
         })
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
     def __init__(self,
                  batch_size,
@@ -210,13 +206,9 @@ class FileReader(Reader):  # TODO
     in memory.
     """
 
-    @staticmethod
-    def interface():
-        return NotImplementedError
+    interface = None
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
     def __init__(self,
                  language,
@@ -284,21 +276,16 @@ class Corpora(Component):
     stores the location of the train, development and test data.
     """
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
+    interface = OrderedDict(**{
             'train':     None,
             'dev':       None,
             'test':      None,
             'use_cuda': 'Task:use_cuda$'
         })
 
-    @classmethod
-    def abstract(cls):
-        return True
+    abstract = True
 
-    # noinspection PyUnresolvedReferences
-    @ParameterSetter.pack(interface.__func__())
+    @ParameterSetter.pack(interface)
     def __init__(self, parameter_setter):
         """
         An instance of a corpora.
@@ -380,7 +367,8 @@ class Corpora(Component):
     def properties(self):
         return {
             name: getattr(self, name) for (name, _) in
-            inspect.getmembers(type(self), lambda x: isinstance(x, property)) if name not in ['train', 'dev', 'test']
+            inspect.getmembers(type(self), lambda x: isinstance(x, property))
+            if name not in ['train', 'dev', 'test']
         }
 
     @property
@@ -419,22 +407,17 @@ class Monolingual(Corpora):
     Special case of Corpora class, where the data read from the files only have a single language.
     """
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
-            **Corpora.interface(),
+    interface = OrderedDict(**{
+            **Corpora.interface,
             'vocab':    None,
             'provided': None,
             'fixed':    None,
             'token':    None
         })
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
-    # noinspection PyUnresolvedReferences
-    @ParameterSetter.pack(interface.__func__())
+    @ParameterSetter.pack(interface)
     def __init__(self, parameter_setter):
         """
         Instance of a wrapper for Monolingual text corpora.
@@ -450,9 +433,9 @@ class Monolingual(Corpora):
         """
         super().__init__(parameter_setter=parameter_setter)
 
-        vocabulary = Vocabulary(**parameter_setter.extract(Vocabulary.interface()))
+        vocabulary = Vocabulary(**parameter_setter.extract(Vocabulary.interface))
 
-        parameter_setter.initialize(self, subtract_dict(self.interface(), Corpora.interface()))
+        parameter_setter.initialize(self, subtract_dict(self.interface, Corpora.interface))
 
         self._train = self._load_data(self.train)
         self._dev = self._load_data(self.dev)
@@ -481,10 +464,8 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
     are separated by a special separator token.
     """
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
-            **Corpora.interface(),
+    interface = OrderedDict(**{
+            **Corpora.interface,
             'source_trained':   None,
             'source_vocab':     None,
             'source_token':     None,
@@ -494,12 +475,9 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
             'separator_token':  None
         })
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
-    # noinspection PyUnresolvedReferences
-    @ParameterSetter.pack(interface.__func__())
+    @ParameterSetter.pack(interface)
     def __init__(self, parameter_setter):
         """
         An instance of a wrapper for parallel corpora.
@@ -518,10 +496,10 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
         """
         super().__init__(parameter_setter=parameter_setter)
 
-        self._source_language = Vocabulary(**parameter_setter.extract(Vocabulary.interface()))
-        self._target_language = Vocabulary(**parameter_setter.extract(Vocabulary.interface()))
+        self._source_language = Vocabulary(**parameter_setter.extract(Vocabulary.interface))
+        self._target_language = Vocabulary(**parameter_setter.extract(Vocabulary.interface))
 
-        parameter_setter.initialize(self, subtract_dict(self.interface(), super().interface()))
+        parameter_setter.initialize(self, subtract_dict(self.interface, super().interface))
 
     def _load_data(self, data_path):
         """
@@ -544,9 +522,7 @@ class Vocabulary:
     """
     PAD = -1
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
+    interface = OrderedDict(**{
             'vocab':      None,
             'token':      None,
             'provided':   None,
@@ -743,9 +719,7 @@ class Padding:
     Base class for the padding types.
     """
 
-    @classmethod
-    def abstract(cls):
-        return True
+    abstract = True
 
     def __init__(self, language, max_segment_size):
         self._language = language
@@ -760,6 +734,8 @@ class PostPadding(Padding):
     Data is padded during the training iterations. Padding is determined by the longest
     sequence in the batch.
     """
+
+    abstract = False
 
     @staticmethod
     def create_batch(data):
@@ -776,10 +752,6 @@ class PostPadding(Padding):
                 sorted_data[index].insert(-1, Vocabulary.PAD)
 
         return numpy.array(sorted_data, dtype='int')
-
-    @classmethod
-    def abstract(cls):
-        return False
 
     def __init__(self, language, max_segment_size):
         """
@@ -809,6 +781,8 @@ class PrePadding(Padding):
     by the longest sequence in the data segment.
     """
 
+    abstract = False
+
     @staticmethod
     def create_batch(data):
         """
@@ -818,10 +792,6 @@ class PrePadding(Padding):
         :return: Numpy Array, sorted batch.
         """
         return numpy.array(sorted(data, key=lambda x: x[-1], reverse=True))
-
-    @classmethod
-    def abstract(cls):
-        return False
 
     def __init__(self, language, max_segment_size):
         """

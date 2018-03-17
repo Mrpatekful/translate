@@ -23,13 +23,8 @@ class Task(Component):
     def format_batch(batch, use_cuda):
         return NotImplementedError
 
-    def save_checkpoint(self, state):
-        return NotImplementedError
-
-    def load_checkpoint(self):
-        return NotImplementedError
-
-    def fit_model(self, *args, **kwargs):
+    @property
+    def optimizers(self):
         return NotImplementedError
 
 
@@ -44,22 +39,22 @@ class UnsupervisedTranslation(Task):
     sentences to sentences in two ways. The first way is to transform a noisy version of
     the source sentence to it's original form, and the second way is to transform a translated
     version of a sentence to it's original form. There is an additional factor during training,
-    which is an adversial reguralization, that learns to discriminate the hidden representations
+    which is an adversarial reguralization, that learns to discriminate the hidden representations
     of the source and target languages.
     """
     _checkpoint = 'logs/checkpoints/checkpoint.pt'
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
-            'use_cuda': None,
-            'readers': OrderedDict(**{
-                'reader_eng': reader.Reader,
-                'reader_fra': reader.Reader
-            }),
-            'model': models.Model,
-            'reguralization': utils.Discriminator
-        })
+    interface = OrderedDict(**{
+        'use_cuda': None,
+        'readers': OrderedDict(**{
+            'reader_a': reader.Reader,
+            'reader_b': reader.Reader
+        }),
+        'model': models.Model,
+        'reguralization': utils.Discriminator
+    })
+
+    abstract = False
 
     @staticmethod
     def format_batch(batch, use_cuda):
@@ -88,26 +83,27 @@ class UnsupervisedTranslation(Task):
 
         return formatted_batch
 
-    @classmethod
-    def abstract(cls):
-        return False
-
     def __init__(self,
                  model,
-                 read_a,
-                 read_b,
+                 reader_a,
+                 reader_b,
                  use_cuda,
                  reguralization):
         """
 
         :param model:
-        :param read_a:
-        :param read_b:
+        :param reader_a:
+        :param reader_b:
         :param use_cuda:
         :param reguralization:
         """
-        self._reader_a = read_a
-        self._reader_b = read_b
+        self._reader_a = reader_a
+        self._reader_b = reader_b
+
+        self._embedding = utils.MultiEmbedding({
+            'reader_a': self._reader_a.source_vocabulary.embedding,
+            'reader_b': self._reader_b.source_vocabulary.embedding
+        })
 
         self._reader_a.batch_format = self.format_batch
         self._reader_b.batch_format = self.format_batch
@@ -116,30 +112,13 @@ class UnsupervisedTranslation(Task):
         self._use_cuda = use_cuda
         self._model = model
 
-    def fit_model(self, epochs):
-        """
-        Fits the model to the data. The training session runs until convergence, or
-        the given epochs.
-        :param epochs: int, the number of maximum epochs.
-        """
-        loss_function = torch.nn.NLLLoss(ignore_index=Vocabulary.PAD, reduce=False)
-        noise_function = utils.Noise()
+        self.loss_function = torch.nn.NLLLoss(ignore_index=Vocabulary.PAD, reduce=False)
+        self.noise_function = utils.Noise()
 
-        for epoch in range(epochs):
-
-            self._set_embeddings(self._reader_a)
-            self._train(loss_function, noise_function)
-            self._evaluate(noise_function)
-
-        self.save_checkpoint(self._create_checkpoint())
-
-    def _train(self, loss_function, noise_function):
+    def train(self):
         """
         Training logic for the unsupervised translation task. The method iterates through
         the training corpora, updates the parameters of the model, based on the generated loss.
-        :param loss_function: Function, that will be used to calculate the loss of the training.
-        :param noise_function: Function, a specific function to this task, that is used to
-                               create a noisy version of the input.
         """
         self._reader_a.mode = 'train'
         loss = 0
@@ -150,19 +129,16 @@ class UnsupervisedTranslation(Task):
             outputs = self._train_step(inputs=batch_a['inputs'],
                                        targets=batch_a['targets'],
                                        lengths=batch_a['lengths'],
-                                       loss_function=loss_function,
-                                       noise_function=noise_function)
+                                       noise_function=self.noise_function)
 
             steps += 1
             loss += outputs['loss']
 
         print(loss / steps)
 
-    def _evaluate(self, noise_function):
+    def evaluate(self):
         """
         Evaluation of the trained model. The parameters are not updated by this method.
-        :param noise_function: Function, a specific function to this task, that is used to
-                               create a noisy version of the input.
         """
         self._reader_a.mode = 'dev'
         for inputs, targets, lengths in self._reader_a.batch_generator():
@@ -171,7 +147,7 @@ class UnsupervisedTranslation(Task):
                                  targets=targets,
                                  lengths=lengths,
                                  max_length=max_length,
-                                 noise_function=noise_function)
+                                 noise_function=self.noise_function)
 
             inputs = inputs.cpu().data[:, :].numpy()
             outputs = outputs['symbols'][:, :]
@@ -179,7 +155,7 @@ class UnsupervisedTranslation(Task):
 
             self._reader_a.print_validation_format(input=inputs, output=outputs, target=targets)
 
-    def _set_embeddings(self, reader_instance):
+    def _set_lookup(self, reader_instance):
         """
         Sets the embeddings for the mode.
         :param reader_instance: Reader, that yields the new embeddings for the decoder and encoder.
@@ -218,7 +194,6 @@ class UnsupervisedTranslation(Task):
                     inputs,
                     targets,
                     lengths,
-                    loss_function,
                     noise_function):
         """
         A single batch of data is propagated forward the model,
@@ -226,7 +201,6 @@ class UnsupervisedTranslation(Task):
         function of the components' optimizers.
         :param inputs: Variable, containing the ids of the words.
         :param lengths: Ndarray, containing the lengths of each sentence in the input batch.
-        :param loss_function: Loss function of the model.
         :param noise_function: The noise model, that will be applied to the input sentences. As
                                written in the task description, this could serve as a dropout like
                                mechanism, or a translation model from the previous iteration.
@@ -245,7 +219,7 @@ class UnsupervisedTranslation(Task):
 
         outputs['loss'] = 0
         for step, step_output in enumerate(outputs['outputs']):
-            outputs['loss'] += loss_function(step_output, targets[:, step + 1])
+            outputs['loss'] += self.loss_function(step_output, targets[:, step + 1])
 
         # outputs['loss'] += self._reguralization(outputs['encoder_outputs'])
 
@@ -262,19 +236,21 @@ class UnsupervisedTranslation(Task):
 
         return outputs
 
-    def _create_checkpoint(self):
+    @property
+    def state(self):
         return {
-            'model': self._model.state_dict(),
-            'optimizers': self._model.get_optimizer_states()
+            'model': self._model.state,
+            'embeddings': self._embedding.state
         }
 
-    def save_checkpoint(self, checkpoint):
-        torch.save(checkpoint, self._checkpoint)
+    @state.setter
+    def state(self, state):
+        self._model.state = state['model']
+        self._embedding.state = state['embeddings']
 
-    def load_checkpoint(self):
-        checkpoint = torch.load(self._checkpoint)
-        self._model.load_state_dict(checkpoint['model'])
-        self._model.set_optimizer_states(**checkpoint['optimizers'])
+    @property
+    def optimizers(self):
+        return self._model.optimizers
 
 
 class SupervisedTranslation(Task):

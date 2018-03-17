@@ -1,15 +1,15 @@
 
-class Trainer:
+class Session:
 
     class TrainingContext:
 
         def __init__(self, task):
-            pass
+            self._task = task
 
         def __enter__(self):
             pass
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
+        def __exit__(self):
             pass
 
         def fit(self):
@@ -19,11 +19,10 @@ class Trainer:
 
         self._task = task
 
-    def create_session(self):
-
-        with Trainer.TrainingContext(self._task) as tc:
-            tc.fit()
-            pass
+    def load(self):
+        pass
 
     def start(self):
-        pass
+
+        with Session.TrainingContext(self._task) as tc:
+            tc.fit()

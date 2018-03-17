@@ -5,6 +5,7 @@ import torch.optim
 import inspect
 
 from modules.encoder import Encoder
+from modules.utils.utils import Optimizer
 
 from utils.utils import ParameterSetter
 from torch.nn.utils.rnn import pack_padded_sequence
@@ -18,24 +19,19 @@ class RNNEncoder(Encoder):
     Recurrent encoder module of the sequence to sequence model.
     """
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
-            'hidden_size': None,
-            'recurrent_type': None,
-            'num_layers': None,
-            'optimizer_type': None,
-            'learning_rate': None,
-            'use_cuda': 'Task:use_cuda$',
-            'embedding_size': 'source_embedding_size$'
-        })
+    interface = OrderedDict(**{
+            'hidden_size':      None,
+            'recurrent_type':   None,
+            'num_layers':       None,
+            'optimizer_type':   None,
+            'learning_rate':    None,
+            'use_cuda':        'Task:use_cuda$',
+            'embedding_size':  'source_embedding_size$'
+    })
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
-    # noinspection PyUnresolvedReferences
-    @ParameterSetter.pack(interface.__func__())
+    @ParameterSetter.pack(interface)
     def __init__(self, parameter_setter):
         """
         A recurrent encoder module for the sequence to sequence model.
@@ -50,14 +46,15 @@ class RNNEncoder(Encoder):
         super().__init__()
         self._parameter_setter = parameter_setter
 
-        self._optimizer = None
         self._recurrent_layer = None
-        self._embedding_layer = None
+        self._optimizer = None
 
         self._outputs = {
             'hidden_state':     None,
             'encoder_outputs':  None
         }
+
+        self.embedding = None
 
     def properties(self):
         """
@@ -99,13 +96,10 @@ class RNNEncoder(Encoder):
         """
         Initializes the optimizer for the encoder.
         """
-        optimizers = {
-            'Adam':     torch.optim.Adam,
-            'SGD':      torch.optim.SGD,
-            'RMSProp':  torch.optim.RMSprop,
-        }
-
-        self._optimizer = optimizers[self._optimizer_type](self.parameters(), lr=self._learning_rate)
+        self._optimizer = Optimizer(parameters=self.parameters(),
+                                    optimizer_type=self._optimizer_type,
+                                    scheduler_type='ReduceLROnPlateau',
+                                    learning_rate=self._learning_rate)
 
         return self
 
@@ -130,63 +124,25 @@ class RNNEncoder(Encoder):
 
         return self._outputs
 
-    def _init_hidden(self, batch_size):
+    def _init_hidden(self, batch_size):  # TODO double state
         """
         Initializes the hidden state of the encoder module.
         :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
         """
-        result = autograd.Variable(torch.zeros(self._num_layers, batch_size, self._hidden_size))
+        state = autograd.Variable(torch.zeros(self._num_layers, batch_size, self._hidden_size))
 
         if self._use_cuda:
-            result = result.cuda()
+            state = state.cuda()
 
         if isinstance(self._recurrent_layer, torch.nn.LSTM):
-            return result, result
+            return state, state
         else:
-            return result
-
-    def step(self):
-        """
-
-        :return:
-        """
-        self._optimizer.step()
-        self._embedding_layer.step()
-
-    def get_optimizer_states(self):
-        """
-        Returns the state dicts of the encoder's optimizer(s).
-        :return: dict, containing the state of the optimizer(s).
-        """
-        return {
-            'encoder_optimizer': self.optimizer.state_dict()
-        }
-
-    def set_optimizer_states(self, encoder_optimizer):
-        """
-        Setter for the state dicts of the encoder's optimizer(s).
-        :param encoder_optimizer: dict, state of the encoder's optimizer.
-        """
-        self.optimizer.load_state_dict(encoder_optimizer)
-
-    def set_embedding(self, embedding):
-        """
-
-        :param embedding:
-        :return:
-        """
-        self._embedding_layer = embedding
+            return state
 
     @property
-    def optimizer(self):
+    def optimizers(self):
         """
-        Property for the optimizer of the encoder.
+        Property for the optimizers of the encoder.
+        :return: list, optimizers used by the encoder.
         """
-        return self._optimizer
-
-    @property
-    def embedding(self):
-        """
-        Property for the optimizer of the encoder.
-        """
-        return self._embedding_layer
+        return [self._optimizer, self.embedding.optimizer]

@@ -19,10 +19,8 @@ class Model(Module, Component):
     def forward(self, *args, **kwargs):
         return NotImplementedError
 
-    def step(self):
-        return NotImplementedError
-
-    def zero_grad(self):
+    @property
+    def optimizers(self):
         return NotImplementedError
 
 
@@ -75,59 +73,27 @@ class SeqToSeq(Model):
         :return decoder_outputs: dict, containing the concatenated outputs of the encoder and decoder.
         """
         encoder_outputs = self._encoder.forward(inputs=inputs, lengths=lengths)
-
         decoder_outputs = self._decoder.forward(targets=targets, max_length=max_length, **encoder_outputs)
 
         return {**decoder_outputs, **encoder_outputs}
 
-    def step(self):
-        """
-        Updates the parameters of the encoder and decoder modules.
-        """
-        self._encoder.optimizer.step()
-        self._encoder.embedding.step()
-
-        self._decoder.optimizer.step()
-        self._decoder.embedding.step()
-
-    def zero_grad(self):
-        """
-        Refreshes the gradients of the optimizer.
-        """
-        self._encoder.optimizer.zero_grad()
-        self._encoder.embedding.zero_grad()
-
-        self._decoder.optimizer.zero_grad()
-        self._decoder.embedding.zero_grad()
-
-    def get_optimizer_states(self):
-        """
-        Gets the states of the optimizers, used by the decoder and encoder.
-        :return: dict, states of the optimizers.
-        """
-        return {
-            **self._encoder.get_optimizer_states(),
-            **self._decoder.get_optimizer_states()
-        }
-
-    def set_optimizer_states(self, **kwargs):
-        """
-        Sets the parameters for the optimizers of the encoder and decoder.
-        :param kwargs: dict, the states of the optimizers for the encoder and decoder.
-        """
-        self._encoder.set_optimizer_states(**reduce_parameters(self._encoder.set_optimizer_states, kwargs))
-        self._decoder.set_optimizer_states(**reduce_parameters(self._decoder.set_optimizer_states, kwargs))
-
     def set_embeddings(self, encoder_embedding, decoder_embedding):
         """
         Sets the embedding layers for the encoder and decoder module.
-        :param encoder_embedding: Embedding, layer type object, that will be used
-                                  to create word embeddings for the encoder.
-        :param decoder_embedding: Embedding, layer type object, that will be used
-                                  to create word embeddings for the decoder.
+        :param encoder_embedding: Embedding, layer type object, that will be used by the encoder.
+        :param decoder_embedding: Embedding, layer type object, that will be used by the decoder.
         """
-        self._encoder.set_embedding(encoder_embedding)
-        self._decoder.set_embedding(decoder_embedding)
+        self._encoder.embedding = encoder_embedding
+        self._decoder.embedding = decoder_embedding
+
+    @property
+    def optimizers(self):
+        """
+        Convenience function for the optimizers of the encoder and decoder.
+        :return: dict, containing the names and instances of optimizers for the encoder/decoder
+                 and the currently used embeddings.
+        """
+        return [*self._encoder.optimizers, *self._decoder.optimizers]
 
     @property
     def decoder_tokens(self):
@@ -143,3 +109,12 @@ class SeqToSeq(Model):
         :param tokens: dict, tokens from the lut of decoding target.
         """
         self._decoder.tokens = tokens
+
+    @property
+    def state(self):
+        return {'encoder': self._encoder.state, 'decoder': self._decoder.state}
+
+    @state.setter
+    def state(self, state):
+        self._encoder.state = state['encoder']
+        self._decoder.state = state['decoder']

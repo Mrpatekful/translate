@@ -11,13 +11,9 @@ class Component:
     The base class for the components of the API.
     """
 
-    @staticmethod
-    def interface():
-        return NotImplementedError
+    interface = None
 
-    @classmethod
-    def abstract(cls):
-        return True
+    abstract = True
 
     def properties(self):
         """

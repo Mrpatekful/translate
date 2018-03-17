@@ -4,8 +4,6 @@ from torch.nn import Module
 from torch.nn import Linear
 from torch.nn import LeakyReLU
 
-from torch.optim import SGD
-
 from utils.utils import Component
 
 from collections import OrderedDict
@@ -18,6 +16,16 @@ class Discriminator(Module, Component):
     super class, otherwise it won't be discoverable by the hierarchy builder utility.
     """
 
+    @staticmethod
+    def interface():
+        return OrderedDict(**{
+            'hidden_size':      None,
+            'learning_rate':    None,
+            'optimizer_type':   None,
+            'use_cuda':        'Task:use_cuda$',
+            'input_size':      'Encoder:hidden_size$'
+        })
+
     def __init__(self, learning_rate, use_cuda):
         super().__init__()
 
@@ -27,10 +35,8 @@ class Discriminator(Module, Component):
     def forward(self, *args, **kwargs):
         return NotImplementedError
 
-    def get_optimizer_states(self):
-        return NotImplementedError
-
-    def set_optimizer_states(self, *args, **kwargs):
+    @property
+    def optimizers(self):
         return NotImplementedError
 
 
@@ -38,16 +44,6 @@ class FFDiscriminator(Discriminator):
     """
     Feed-forward discriminator module for the unsupervised neural translation task.
     """
-
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
-            'hidden_size': None,
-            'learning_rate': None,
-            'optimizer_type': None,
-            'use_cuda': 'Task:use_cuda$',
-            'input_size': 'Encoder:hidden_size$'
-        })
 
     @classmethod
     def abstract(cls):
@@ -79,13 +75,12 @@ class FFDiscriminator(Discriminator):
             self._output_layer = self._output_layer.cuda()
             self._activation = self._activation.cuda()
 
-        optimizers = {
-            'Adam': torch.optim.Adam,
-            'SGD': torch.optim.SGD,
-            'RMSProp': torch.optim.RMSprop,
-        }
-
-        self._optimizer = optimizers[optimizer_type](self.parameters(), lr=self._learning_rate)
+        self._optimizers = [
+            Optimizer(parameters=self.parameters(),
+                      optimizer_type=optimizer_type,
+                      scheduler_type='ReduceLROnPlateau',
+                      learning_rate=self._learning_rate)
+        ]
 
     def forward(self, inputs):
         """
@@ -100,43 +95,15 @@ class FFDiscriminator(Discriminator):
 
         return output
 
-    def get_optimizer_states(self):
-        return NotImplementedError
-
-    def set_optimizer_states(self, *args, **kwargs):
-        return NotImplementedError
-
     @property
-    def optimizer(self):
-        """
-        Property for the optimizer of the discriminator.
-        :return: Optimizer, the currently used optimizer of the discriminator.
-        """
-        return self._optimizer
-
-    @optimizer.setter
-    def optimizer(self, optimizer):
-        """
-        Setter for the optimizer of the discriminator.
-        :param optimizer: Optimizer, instance to be set as the new optimizer for the discriminator.
-        """
-        self._optimizer = optimizer
+    def optimizers(self):
+        return self._optimizers
 
 
 class RNNDiscriminator(Discriminator):
     """
     Recurrent discriminator module for the unsupervised neural translation task.
     """
-
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
-            'hidden_size': None,
-            'learning_rate': None,
-            'optimizer_type': None,
-            'use_cuda': 'Task:use_cuda$',
-            'input_size': 'Encoder:hidden_size$'
-        })
 
     @classmethod
     def abstract(cls):
@@ -167,13 +134,12 @@ class RNNDiscriminator(Discriminator):
             self._recurrent_layer = self._recurrent_layer.cuda()
             self._output_layer = self._output_layer.cuda()
 
-        optimizers = {
-            'Adam': torch.optim.Adam,
-            'SGD': torch.optim.SGD,
-            'RMSProp': torch.optim.RMSprop,
-        }
-
-        self._optimizer = optimizers[optimizer_type](self.parameters(), lr=self._learning_rate)
+        self._optimizers = [
+            Optimizer(parameters=self.parameters(),
+                      optimizer_type=optimizer_type,
+                      scheduler_type='ReduceLROnPlateau',
+                      learning_rate=self._learning_rate)
+        ]
 
     def forward(self, inputs):
         """
@@ -187,40 +153,12 @@ class RNNDiscriminator(Discriminator):
 
         return final_output
 
-    def get_optimizer_states(self):
-        """
-        Setter for the state dicts of the discriminator's optimizer(s).
-        :return: dict, containing the state of the optimizer(s).
-        """
-        return {
-            'discriminator_optimizer': self.optimizer.state_dict()
-        }
-
-    def set_optimizer_states(self, discriminator_optimizer):
-        """
-        Setter for the state dicts of the discriminator's optimizer(s).
-        :param discriminator_optimizer: dict, state of the discriminator's optimizer.
-        """
-        self.optimizer.load_state_dict(discriminator_optimizer)
-
     @property
-    def optimizer(self):
-        """
-        Property for the optimizer of the decoder.
-        :return: Optimizer, the currently used optimizer of the discriminator.
-        """
-        return self._optimizer
-
-    @optimizer.setter
-    def optimizer(self, optimizer):
-        """
-        Setter for the optimizer of the discriminator.
-        :param optimizer: Optimizer, instance to be set as the new optimizer of the discriminator.
-        """
-        self._optimizer = optimizer
+    def optimizers(self):
+        return self._optimizers
 
 
-class Embedding:
+class Embedding(Module):
 
     def __init__(self,
                  embedding_size,
@@ -228,6 +166,15 @@ class Embedding:
                  use_cuda,
                  weights=None,
                  requires_grad=True):
+        """
+
+        :param embedding_size:
+        :param vocab_size:
+        :param use_cuda:
+        :param weights:
+        :param requires_grad:
+        """
+        super().__init__()
 
         self._layer = torch.nn.Embedding(vocab_size, embedding_size)
 
@@ -237,35 +184,158 @@ class Embedding:
         if use_cuda:
             self._layer = self._layer.cuda()
 
-        self._requires_grad = requires_grad
-        self._layer.weight.requires_grad = requires_grad
+        self._optimizer = None
 
-        self._optimizer = SGD([self._layer.weight], lr=0.01)
+        if requires_grad:
+            self._optimizer = Optimizer(parameters=self._layer.weight,
+                                        optimizer_type='SGD',
+                                        scheduler_type='ReduceLROnPlateau',
+                                        learning_rate=0.01)
 
-    def __call__(self, inputs):
+    def forward(self, inputs):
+        """
+
+        :param inputs:
+        :return:
+        """
         return self._layer(inputs)
 
-    def zero_grad(self):
-        if self._requires_grad:
-            self._layer.zero_grad()
+    @property
+    def optimizer(self):
+        """
 
-    def step(self):
-        if self._requires_grad:
-            self._optimizer.step()
+        :return:
+        """
+        return self._optimizer
 
     @property
-    def requires_grad(self):
-        return self._requires_grad
+    def state(self):
+        return {
+            'weight': self.state_dict(),
+            'optimizer': self._optimizer.state
+        }
 
-    @requires_grad.setter
-    def requires_grad(self, requires_grad):
-        self._requires_grad = requires_grad
+    @state.setter
+    def state(self, states):
+        self.load_state_dict(states['weight'])
+        self._optimizer.state = states['optimizer']
+
+
+class MultiEmbedding(Module):
+
+    def __init__(self, embeddings):
+        super().__init__()
+        self._embeddings = embeddings
+        self._active = list(embeddings.keys())[0]
+
+    def forward(self, inputs):
+        """
+
+        :param inputs:
+        :return:
+        """
+        return self._embeddings[self._active].forward(inputs)
+
+    def optimizer(self):
+        """
+
+        :return:
+        """
+        return self._embeddings[self._active].optimizer
+
+    @property
+    def active(self):
+        """
+
+        :return:
+        """
+        return self._active
+
+    @active.setter
+    def active(self, value):
+        """
+
+        :param value:
+        :return:
+        """
+        self._active = value
+
+    @property
+    def state(self):
+        """
+
+        :return:
+        """
+        return {**{name: self._embeddings[name].state for name in self._embeddings}}
+
+    @state.setter
+    def state(self, states):
+        """
+
+        :param states:
+        """
+        for name in self._embeddings:
+            self._embeddings[name].state = states[name]
 
 
 class Optimizer:
 
-    def __init__(self):
-        pass
+    _algorithms = {
+        'Adam': torch.optim.Adam,
+        'SGD': torch.optim.SGD,
+        'RMSProp': torch.optim.RMSprop,
+    }
+
+    _schedulers = {
+        'ReduceLROnPlateau': torch.optim.lr_scheduler.ReduceLROnPlateau
+    }
+
+    def __init__(self,
+                 parameters,
+                 optimizer_type,
+                 scheduler_type,
+                 learning_rate):
+        """
+
+        :param parameters:
+        :param optimizer_type:
+        :param scheduler_type:
+        :param learning_rate:
+        """
+        try:
+
+            self._algorithm = self._algorithms[optimizer_type](params=parameters, lr=learning_rate)
+            self._scheduler = self._schedulers[scheduler_type](self._algorithm)
+
+        except KeyError as error:
+            raise RuntimeError('Invalid optimizer/scheduler type: %s' % error)
+
+    def step(self):
+        """
+
+        """
+        self._algorithm.step()
+
+    def clear(self):
+        """
+
+        """
+        self._algorithm.zero_grad()
+
+    def adjust(self, metric):
+        """
+
+        :param metric:
+        """
+        self._scheduler.step(metric)
+
+    @property
+    def state(self):
+        return self._algorithm.state_dict()
+
+    @state.setter
+    def state(self, state):
+        self._algorithm.load_state_dict(state)
 
 
 class Noise:

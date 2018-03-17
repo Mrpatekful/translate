@@ -5,6 +5,7 @@ import torch.autograd as autograd
 import torch.nn as nn
 import torch.nn.functional as functional
 
+from modules.utils.utils import Optimizer
 from modules.decoder import Decoder
 
 from utils.utils import ParameterSetter
@@ -18,27 +19,22 @@ class RNNDecoder(Decoder):
     An implementation of recurrent decoder unit for the sequence to sequence model.
     """
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
-            'hidden_size': None,
-            'recurrent_type': None,
-            'num_layers': None,
-            'optimizer_type': None,
-            'learning_rate': None,
-            'max_length': None,
-            'use_cuda': 'Task:use_cuda$',
-            'embedding_size': 'target_embedding_size$',
-            'output_size': 'target_vocab_size$',
-            'input_size': 'target_embedding_size$'
-        })
+    interface = OrderedDict(**{
+            'hidden_size':      None,
+            'recurrent_type':   None,
+            'num_layers':       None,
+            'optimizer_type':   None,
+            'learning_rate':    None,
+            'max_length':       None,
+            'use_cuda':        'Task:use_cuda$',
+            'embedding_size':  'target_embedding_size$',
+            'output_size':     'target_vocab_size$',
+            'input_size':      'target_embedding_size$'
+    })
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
-    # noinspection PyUnresolvedReferences
-    @ParameterSetter.pack(interface.__func__())
+    @ParameterSetter.pack(interface)
     def __init__(self, parameter_setter):
         """
         A recurrent decoder module for the sequence to sequence model.
@@ -57,16 +53,17 @@ class RNNDecoder(Decoder):
         self._parameter_setter = parameter_setter
 
         self._recurrent_layer = None
-        self._embedding_layer = None
         self._output_layer = None
         self._optimizer = None
         self._tokens = None
 
         self._outputs = {
             'alignment_weights': None,
-            'symbols': None,
-            'outputs': None
+            'symbols':           None,
+            'outputs':           None
         }
+
+        self.embedding = None
 
     def init_parameters(self):
         """
@@ -101,13 +98,10 @@ class RNNDecoder(Decoder):
         """
         Initializes the optimizer for the decoder.
         """
-        optimizers = {
-            'Adam': torch.optim.Adam,
-            'SGD': torch.optim.SGD,
-            'RMSProp': torch.optim.RMSprop,
-        }
-
-        self._optimizer = optimizers[self._optimizer_type](self.parameters(), lr=self._learning_rate)
+        self._optimizer = Optimizer(parameters=self.parameters(),
+                                    optimizer_type=self._optimizer_type,
+                                    scheduler_type='ReduceLROnPlateau',
+                                    learning_rate=self._learning_rate)
 
         return self
 
@@ -255,28 +249,6 @@ class RNNDecoder(Decoder):
 
             step_input = symbol_output
 
-    def get_optimizer_states(self):
-        """
-        Returns the state dicts of the encoder's optimizer(s).
-        :return: dict, containing the state of the optimizer(s).
-        """
-        return {
-            'decoder_optimizer': self.optimizer.state_dict()
-        }
-
-    def set_optimizer_states(self, decoder_optimizer):
-        """
-        Setter for the state dicts of the decoder's optimizer(s).
-        :param decoder_optimizer: dict, state of the decoder's optimizer.
-        """
-        self.optimizer.load_state_dict(decoder_optimizer)
-
-    def set_embedding(self, embedding):
-        """
-        Sets the embedding layer of the decoder.
-        """
-        self._embedding_layer = embedding
-
     @property
     def tokens(self):
         """
@@ -303,28 +275,32 @@ class RNNDecoder(Decoder):
             raise ValueError('%s was not provided for the decoder.' % error)
 
     @property
-    def optimizer(self):
+    def optimizers(self):
         """
-        Property for the optimizer of the decoder.
-        :return: Optimizer, the currently used optimizer of the decoder.
+        Property for the optimizers of the decoder.
+        :return: list, optimizers used by the decoder.
         """
-        return self._optimizer
+        return [self._optimizer, self.embedding.optimizer]
 
     @property
-    def embedding(self):
+    def state(self):
         """
-        Property for the decoder's embedding layer.
-        :return: The currently used embeddings of the decoder.
-        """
-        return self._embedding_layer
 
-    @embedding.setter
-    def embedding(self, embedding):
+        :return:
         """
-        Setter for the decoder's embedding layer.
-        :param embedding: Embedding, to be set as the embedding layer of the decoder.
+        return {
+            'weights': self.state_dict(),
+            'optimizer': self._optimizer.state
+        }
+
+    @state.setter
+    def state(self, state):
         """
-        self._embedding_layer = embedding
+
+        :param state:
+        """
+        self.load_state_dict(state['weights'])
+        self._optimizer.state = state['optimizer']
 
 
 class AttentionRNNDecoder(RNNDecoder):
@@ -332,9 +308,7 @@ class AttentionRNNDecoder(RNNDecoder):
     Abstract base class for the attentional variation of recurrent decoder unit.
     """
 
-    @classmethod
-    def abstract(cls):
-        return True
+    abstract = True
 
     def __init__(self, parameter_setter):
         """
@@ -522,19 +496,14 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
     probability distribution over the word ids.
     """
 
-    @staticmethod
-    def interface():
-        return OrderedDict({
-            **subtract_dict(RNNDecoder.interface(), {'input_size': None}),
-            'input_size': 'Decoder:embedding_size$ + Decoder:hidden_size$'
-        })
+    interface = OrderedDict({
+        **subtract_dict(RNNDecoder.interface, {'input_size': None}),
+        'input_size': 'Decoder:embedding_size$ + Decoder:hidden_size$'
+    })
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
-    # noinspection PyUnresolvedReferences
-    @ParameterSetter.pack(interface.__func__())
+    @ParameterSetter.pack(interface)
     def __init__(self, parameter_setter):
         """
         An a bahdanau-type attentional RNN decoder instance.
@@ -696,18 +665,11 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
     activation from the linear layer.
     """
 
-    @staticmethod
-    def interface():
-        return {
-            **RNNDecoder.interface()
-        }
+    interface = {**RNNDecoder.interface}
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
-    # noinspection PyUnresolvedReferences
-    @ParameterSetter.pack(interface.__func__())
+    @ParameterSetter.pack(interface)
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
 
@@ -751,18 +713,11 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
     encoder and decoder states.
     """
 
-    @staticmethod
-    def interface():
-        return {
-            **RNNDecoder.interface()
-        }
+    interface = {**RNNDecoder.interface}
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
-    # noinspection PyUnresolvedReferences
-    @ParameterSetter.pack(interface.__func__())
+    @ParameterSetter.pack(interface)
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
 
@@ -798,18 +753,11 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
     method, however the computation path follows the Luong style.
     """
 
-    @staticmethod
-    def interface():
-        return {
-            **RNNDecoder.interface()
-        }
+    interface = {**RNNDecoder.interface}
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
-    # noinspection PyUnresolvedReferences
-    @ParameterSetter.pack(interface.__func__())
+    @ParameterSetter.pack(interface)
     def __init__(self, parameter_setter):
         super().__init__(parameter_setter=parameter_setter)
 
