@@ -24,7 +24,7 @@ class Task(Component):
     def format_batch(batch, use_cuda):
         return NotImplementedError
 
-    def fit(self):
+    def train(self):
         return NotImplementedError
 
     def evaluate(self):
@@ -125,7 +125,7 @@ class UnsupervisedTranslation(Task):
         self.loss_function = torch.nn.NLLLoss(ignore_index=Vocabulary.PAD, reduce=False)
         self.noise_function = utils.Noise()
 
-    def fit(self):
+    def train(self):
         """
         Training logic for the unsupervised translation task. The method iterates through
         the training corpora, updates the parameters of the model, based on the generated loss.
@@ -219,7 +219,7 @@ class UnsupervisedTranslation(Task):
         batch_size = targets.size(0)
         max_length = targets.size(1) - 1
 
-        self._model.zero_grad()
+        map(lambda x: getattr(x, 'clear')(x), self._model.optimizers)
 
         outputs = self._step(inputs=inputs,
                              targets=targets,
@@ -242,7 +242,7 @@ class UnsupervisedTranslation(Task):
         outputs['loss'] = outputs['loss'].sum() / batch_size
         outputs['loss'].backward()
 
-        self._model.step()
+        map(lambda x: getattr(x, 'step')(x), self._model.optimizers)
 
         return outputs
 
@@ -264,10 +264,6 @@ class UnsupervisedTranslation(Task):
     @property
     def readers(self):
         return [self.reader_snd, self.reader_fst]
-
-    @property
-    def optimizers(self):
-        return self._model.optimizers
 
 
 class SupervisedTranslation(Task):

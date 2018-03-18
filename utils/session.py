@@ -3,6 +3,8 @@ import torch
 
 class Session:
 
+    CHECKPOINT = 'logs/checkpoints/checkpoint.pt'
+
     class TrainingContext:
 
         EPOCHS = 10
@@ -11,26 +13,30 @@ class Session:
             self._task = task
             self._path = path
 
+            self.epoch = None
+            self.loss = None
+
             self._state = {
-                'loss': None,
-                'epoch': None
+                'loss': self.loss,
+                'epoch': self.epoch
             }
 
         def __enter__(self):
             if self._path is not None:
                 state = Session.load(self._path)
-                self._task.state = state
+                self.state = state
+
+            map(lambda x: getattr(x, 'train')(x), self._task.readers)
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
+            map(lambda x: getattr(x, 'train')(x, False), self._task.readers)
+            Session.save(self.state)
 
-        def fit(self):
-            outputs = self._task.fit()
-            self._task.optimizers.step()
+        def train(self):
+            outputs = self._task.train()
 
-        def eval(self):
+        def evaluate(self):
             outputs = self._task.evaluate()
-            self._task.optimizers.adjust()
 
         @property
         def state(self):
@@ -51,10 +57,14 @@ class Session:
             self._path = path
 
         def __enter__(self):
-            pass
+            if self._path is not None:
+                state = Session.load(self._path)
+                self._task.state = state['task']
+
+            map(lambda x: getattr(x, 'eval')(x), self._task.readers)
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
+            map(lambda x: getattr(x, 'eval')(x, False), self._task.readers)
 
     @staticmethod
     def load(path=None):
@@ -64,20 +74,23 @@ class Session:
             return None
 
     @staticmethod
-    def save(task):
-        pass
+    def save(state):
+        torch.save(obj=state, f=Session.CHECKPOINT)
 
     @staticmethod
-    def evaluation(task):
+    def evaluate(task):
         with Session.EvaluationContext(task) as ec:
-            ec.eval()
+            ec.evaluate()
 
     @staticmethod
-    def training(task):
+    def train(task):
         with Session.TrainingContext(task) as tc:
 
             for epoch in range(tc.EPOCHS):
-                tc.fit()
+                tc.train()
 
                 with Session.EvaluationContext(task) as ec:
-                    ec.eval()
+                    ec.evaluate()
+
+                tc.epoch = epoch
+                Session.save(tc.state)

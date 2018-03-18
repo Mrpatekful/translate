@@ -15,8 +15,7 @@ TASK_CONFIG = 'configs/tasks/unmt.json'
 def main():
     task = Config(TASK_CONFIG).assemble()
 
-    session = Session(task)
-    session.start()
+    Session.train(task)
 
     # if sys.argv[1] == 'clear':
     #     session.start()
