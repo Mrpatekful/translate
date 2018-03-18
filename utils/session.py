@@ -10,7 +10,11 @@ class Session:
         def __init__(self, task, path=None):
             self._task = task
             self._path = path
-            self._state = None
+
+            self._state = {
+                'loss': None,
+                'epoch': None
+            }
 
         def __enter__(self):
             if self._path is not None:
@@ -22,13 +26,23 @@ class Session:
 
         def fit(self):
             outputs = self._task.fit()
+            self._task.optimizers.step()
 
         def eval(self):
             outputs = self._task.evaluate()
+            self._task.optimizers.adjust()
 
         @property
         def state(self):
-            return self._state
+            return {
+                'task': self._task.state,
+                'context': self._state
+            }
+
+        @state.setter
+        def state(self, state):
+            self._task.state = state['task']
+            self._state = state['context']
 
     class EvaluationContext:
 
@@ -41,10 +55,6 @@ class Session:
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
-
-    class Checkpoint:
-
-
 
     @staticmethod
     def load(path=None):

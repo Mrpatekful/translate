@@ -18,6 +18,7 @@ class Task(Component):
     """
     Abstract base class for the tasks.
     """
+    ID = None
 
     @staticmethod
     def format_batch(batch, use_cuda):
