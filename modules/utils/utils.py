@@ -221,63 +221,6 @@ class Embedding(Module):
         self._optimizer.state = states['optimizer']
 
 
-class MultiEmbedding(Module):
-
-    def __init__(self, embeddings):
-        super().__init__()
-        self._embeddings = embeddings
-        self._active = list(embeddings.keys())[0]
-
-    def forward(self, inputs):
-        """
-
-        :param inputs:
-        :return:
-        """
-        return self._embeddings[self._active].forward(inputs)
-
-    def optimizer(self):
-        """
-
-        :return:
-        """
-        return self._embeddings[self._active].optimizer
-
-    @property
-    def active(self):
-        """
-
-        :return:
-        """
-        return self._active
-
-    @active.setter
-    def active(self, value):
-        """
-
-        :param value:
-        :return:
-        """
-        self._active = value
-
-    @property
-    def state(self):
-        """
-
-        :return:
-        """
-        return {**{name: self._embeddings[name].state for name in self._embeddings}}
-
-    @state.setter
-    def state(self, states):
-        """
-
-        :param states:
-        """
-        for name in self._embeddings:
-            self._embeddings[name].state = states[name]
-
-
 class Optimizer:
 
     _algorithms = {

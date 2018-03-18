@@ -23,8 +23,22 @@ class Task(Component):
     def format_batch(batch, use_cuda):
         return NotImplementedError
 
+    def fit(self):
+        return NotImplementedError
+
+    def evaluate(self):
+        return NotImplementedError
+
     @property
     def optimizers(self):
+        return NotImplementedError
+
+    @property
+    def readers(self):
+        return NotImplementedError
+
+    @property
+    def state(self):
         return NotImplementedError
 
 
@@ -42,7 +56,6 @@ class UnsupervisedTranslation(Task):
     which is an adversarial reguralization, that learns to discriminate the hidden representations
     of the source and target languages.
     """
-    _checkpoint = 'logs/checkpoints/checkpoint.pt'
 
     interface = OrderedDict(**{
         'use_cuda': None,
@@ -85,75 +98,71 @@ class UnsupervisedTranslation(Task):
 
     def __init__(self,
                  model,
-                 reader_a,
-                 reader_b,
                  use_cuda,
+                 reader_fst,
+                 reader_snd,
                  reguralization):
         """
 
         :param model:
-        :param reader_a:
-        :param reader_b:
         :param use_cuda:
         :param reguralization:
         """
-        self._reader_a = reader_a
-        self._reader_b = reader_b
 
-        self._embedding = utils.MultiEmbedding({
-            'reader_a': self._reader_a.source_vocabulary.embedding,
-            'reader_b': self._reader_b.source_vocabulary.embedding
-        })
+        self.reader_fst = reader_fst
+        self.reader_snd = reader_snd
 
-        self._reader_a.batch_format = self.format_batch
-        self._reader_b.batch_format = self.format_batch
+        self.reader_fst.batch_format = self.format_batch
+        self.reader_snd.batch_format = self.format_batch
 
         self._reguralization = reguralization
         self._use_cuda = use_cuda
+
         self._model = model
+        self._prev_model = None
 
         self.loss_function = torch.nn.NLLLoss(ignore_index=Vocabulary.PAD, reduce=False)
         self.noise_function = utils.Noise()
 
-    def train(self):
+    def fit(self):
         """
         Training logic for the unsupervised translation task. The method iterates through
         the training corpora, updates the parameters of the model, based on the generated loss.
         """
-        self._reader_a.mode = 'train'
         loss = 0
         steps = 0
+        outputs = None
 
-        for batch_a in self._reader_a.batch_generator():
+        for batch_fst, batch_snd in zip(self.reader_fst.batch_generator(), self.reader_snd.batch_generator()):
 
-            outputs = self._train_step(inputs=batch_a['inputs'],
-                                       targets=batch_a['targets'],
-                                       lengths=batch_a['lengths'],
+            outputs = self._train_step(inputs=batch_fst['inputs'],
+                                       targets=batch_fst['targets'],
+                                       lengths=batch_fst['lengths'],
                                        noise_function=self.noise_function)
 
             steps += 1
             loss += outputs['loss']
 
-        print(loss / steps)
+        return outputs
 
     def evaluate(self):
         """
         Evaluation of the trained model. The parameters are not updated by this method.
         """
-        self._reader_a.mode = 'dev'
-        for inputs, targets, lengths in self._reader_a.batch_generator():
-            max_length = targets.size(1)
-            outputs = self._step(inputs=inputs,
-                                 targets=targets,
-                                 lengths=lengths,
+        for batch_fst, batch_snd in zip(self.reader_fst.batch_generator(), self.reader_snd.batch_generator()):
+
+            max_length = batch_fst['targets'].size(1)
+            outputs = self._step(inputs=batch_fst['inputs'],
+                                 targets=batch_fst['targets'],
+                                 lengths=batch_fst['lengths'],
                                  max_length=max_length,
                                  noise_function=self.noise_function)
 
-            inputs = inputs.cpu().data[:, :].numpy()
-            outputs = outputs['symbols'][:, :]
-            targets = targets.cpu().data[:, 1:].numpy()
-
-            self._reader_a.print_validation_format(input=inputs, output=outputs, target=targets)
+            # inputs = batch_fst['inputs'].cpu().data[:, :].numpy()
+            # outputs = outputs['symbols'][:, :]
+            # targets = batch_fst['targets'].cpu().data[:, 1:].numpy()
+            #
+            # self._reader_a.print_validation_format(input=inputs, output=outputs, target=targets)
 
     def _set_lookup(self, reader_instance):
         """
@@ -240,13 +249,20 @@ class UnsupervisedTranslation(Task):
     def state(self):
         return {
             'model': self._model.state,
-            'embeddings': self._embedding.state
+            'embedding_fst': self.reader_fst.source_vocabulary.embedding.state,
+            'embedding_snd': self.reader_snd.source_vocabulary.embedding.state
         }
 
+    # noinspection PyMethodOverriding
     @state.setter
     def state(self, state):
         self._model.state = state['model']
-        self._embedding.state = state['embeddings']
+        self.reader_fst.source_vocabulary.embedding.state = state['embedding_fst']
+        self.reader_snd.source_vocabulary.embedding.state = state['embedding_snd']
+
+    @property
+    def readers(self):
+        return [self.reader_snd, self.reader_fst]
 
     @property
     def optimizers(self):

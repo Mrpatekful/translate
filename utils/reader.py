@@ -26,6 +26,9 @@ class Reader(Component):
     data into segments. The purpose of this behaviour, is to keep the sentences with similar lengths
     in segments, so they can be freely shuffled without mixing them together with larger sentences.
     """
+    def __init__(self):
+        self._train = None
+        self._eval = None
 
     def batch_generator(self):
         """
@@ -38,6 +41,12 @@ class Reader(Component):
 
     def print_validation_format(self, *args, **kwargs):
         return NotImplementedError
+
+    def train(self, boolean):
+        self._train = boolean
+
+    def eval(self, boolean):
+        self._eval = boolean
 
 
 class FastReader(Reader):
@@ -71,10 +80,13 @@ class FastReader(Reader):
                              them to equal lengths.
         :param max_segment_size: int, the size of each segment, that will contain the similar length data.
         """
+        super().__init__()
+
         self._corpora = corpora
         self._use_cuda = use_cuda
         self._batch_size = batch_size
         self._max_segment_size = max_segment_size
+
         self._batch_format = None
 
         padding = utils.subclasses(Padding)
@@ -85,13 +97,7 @@ class FastReader(Reader):
         self._dev_data = self._data_processor(self._corpora.dev)
         self._test_data = self._data_processor(self._corpora.test)
 
-        self._modes = {
-            'train': self._train_data,
-            'dev': self._dev_data,
-            'test': self._test_data
-        }
-
-        self._mode = 'train'
+        self._data = None
 
     def batch_generator(self):
         """
@@ -114,10 +120,9 @@ class FastReader(Reader):
         """
         Divides the data to segments of size MAX_SEGMENT_SIZE.
         """
-        data = self._modes[self._mode]
-        t = trange(0, len(data), self._max_segment_size)
+        t = trange(0, len(self._data), self._max_segment_size)
         for index in t:
-            yield copy.deepcopy(data[index:index + self._max_segment_size])
+            yield copy.deepcopy(self._data[index:index + self._max_segment_size])
 
     def print_validation_format(self, **kwargs):
         """
@@ -135,6 +140,24 @@ class FastReader(Reader):
                                                                                         param[1]))))
             expression += '\n'
         print(expression)
+
+    def train(self, boolean=True):
+        super().train(boolean)
+        if self._train:
+            self._data = self._train_data
+        else:
+            self._data = None
+
+    def eval(self, boolean=True):
+        super().eval(boolean)
+        if self._train and self._eval:
+            self._data = self._dev_data
+        elif self._train and not self._eval:
+            self._data = self._train_data
+        elif not self._train and self._eval:
+            self._data = self._test_data
+        else:
+            self._data = None
 
     @property
     def batch_format(self):
@@ -155,25 +178,6 @@ class FastReader(Reader):
                              and a bool, that indicates whether cuda is enabled.
         """
         self._batch_format = batch_format
-
-    @property
-    def mode(self):
-        """
-        Property for the mode of the reader.
-        :return: str, mode of the reader.
-        """
-        return self._mode
-
-    @mode.setter
-    def mode(self, mode):
-        """
-        Setter for the mode of the reader.
-        :param mode: str, the value may be 'train', 'dev' or 'test'
-        :raises ValueError: if the value is not a valid mode.
-        """
-        if mode not in self._modes.keys():
-            raise ValueError('Incorrect mode.')
-        self._mode = mode
 
     @property
     def corpora(self):
@@ -223,6 +227,8 @@ class FileReader(Reader):  # TODO
         :param batch_size: int, size of the input batches.
         :param use_cuda: bool, True if the device has cuda support.
         """
+        super().__init__()
+
         self._language = language
         self._use_cuda = use_cuda
         self._batch_size = batch_size
@@ -311,7 +317,7 @@ class Corpora(Component):
         :return: Language, instance of the wrapper class for the source language.
         """
         if self._source_vocabulary is None:
-            raise ValueError('Source language has not been set.')
+            raise ValueError('Source vocabulary has not been set.')
         return self._source_vocabulary
 
     @property
@@ -321,7 +327,7 @@ class Corpora(Component):
         :return: Language, instance of the wrapper class for the target language.
         """
         if self._target_vocabulary is None:
-            raise ValueError('Target language has not been set.')
+            raise ValueError('Target vocabulary has not been set.')
         return self._target_vocabulary
 
     @property
@@ -331,7 +337,7 @@ class Corpora(Component):
         :return: int, size of the source language's word embedding.
         """
         if self._source_vocabulary is None:
-            raise ValueError('Source language has not been set.')
+            raise ValueError('Source vocabulary has not been set.')
         return self.source_vocabulary.embedding_size
 
     @property
@@ -341,7 +347,7 @@ class Corpora(Component):
         :return: int, size of the target language's word embedding.
         """
         if self._target_vocabulary is None:
-            raise ValueError('Target language has not been set.')
+            raise ValueError('Target vocabulary has not been set.')
         return self.target_vocabulary.embedding_size
 
     @property
@@ -351,7 +357,7 @@ class Corpora(Component):
         :return: int, number of words in the source language.
         """
         if self._source_vocabulary is None:
-            raise ValueError('Source language has not been set.')
+            raise ValueError('Source vocabulary has not been set.')
         return self.source_vocabulary.vocab_size
 
     @property
@@ -361,7 +367,7 @@ class Corpora(Component):
         :return: int, number of words in the target language.
         """
         if self._target_vocabulary is None:
-            raise ValueError('Target language has not been set.')
+            raise ValueError('Target vocabulary has not been set.')
         return self.target_vocabulary.vocab_size
 
     def properties(self):
