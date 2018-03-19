@@ -3,7 +3,6 @@ from torch.nn import Module
 from modules.rnn import encoders
 from modules.rnn import decoders
 from utils.utils import Component
-from utils.utils import reduce_parameters
 
 from collections import OrderedDict
 
@@ -23,6 +22,10 @@ class Model(Module, Component):
     def optimizers(self):
         return NotImplementedError
 
+    @property
+    def state(self):
+        return NotImplementedError
+
 
 class SeqToSeq(Model):
     """
@@ -37,16 +40,12 @@ class SeqToSeq(Model):
     vector to the desired sequence.
     """
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
-            'encoder': encoders.Encoder,
-            'decoder': decoders.Decoder
-        })
+    interface = OrderedDict(**{
+        'encoder': encoders.Encoder,
+        'decoder': decoders.Decoder
+    })
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
     def __init__(self, encoder, decoder):
         """
@@ -114,6 +113,7 @@ class SeqToSeq(Model):
     def state(self):
         return {'encoder': self._encoder.state, 'decoder': self._decoder.state}
 
+    # noinspection PyMethodOverriding
     @state.setter
     def state(self, state):
         self._encoder.state = state['encoder']

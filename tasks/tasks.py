@@ -4,6 +4,7 @@ from models import models
 
 from modules.utils import utils
 from utils.utils import Component
+from utils.utils import execute
 
 from utils.reader import Vocabulary
 
@@ -18,7 +19,6 @@ class Task(Component):
     """
     Abstract base class for the tasks.
     """
-    ID = None
 
     @staticmethod
     def format_batch(batch, use_cuda):
@@ -28,10 +28,6 @@ class Task(Component):
         return NotImplementedError
 
     def evaluate(self):
-        return NotImplementedError
-
-    @property
-    def optimizers(self):
         return NotImplementedError
 
     @property
@@ -61,8 +57,8 @@ class UnsupervisedTranslation(Task):
     interface = OrderedDict(**{
         'use_cuda': None,
         'readers': OrderedDict(**{
-            'reader_a': reader.Reader,
-            'reader_b': reader.Reader
+            'reader_fst': reader.Reader,
+            'reader_snd': reader.Reader
         }),
         'model': models.Model,
         'reguralization': utils.Discriminator
@@ -120,7 +116,6 @@ class UnsupervisedTranslation(Task):
         self._use_cuda = use_cuda
 
         self._model = model
-        self._prev_model = None
 
         self.loss_function = torch.nn.NLLLoss(ignore_index=Vocabulary.PAD, reduce=False)
         self.noise_function = utils.Noise()
@@ -132,10 +127,10 @@ class UnsupervisedTranslation(Task):
         """
         loss = 0
         steps = 0
-        outputs = None
 
         for batch_fst, batch_snd in zip(self.reader_fst.batch_generator(), self.reader_snd.batch_generator()):
 
+            self._set_lookup(self.reader_fst)
             outputs = self._train_step(inputs=batch_fst['inputs'],
                                        targets=batch_fst['targets'],
                                        lengths=batch_fst['lengths'],
@@ -144,26 +139,25 @@ class UnsupervisedTranslation(Task):
             steps += 1
             loss += outputs['loss']
 
-        return outputs
+        return loss / steps
 
     def evaluate(self):
         """
         Evaluation of the trained model. The parameters are not updated by this method.
         """
-        for batch_fst, batch_snd in zip(self.reader_fst.batch_generator(), self.reader_snd.batch_generator()):
+        outputs = []
 
-            max_length = batch_fst['targets'].size(1)
-            outputs = self._step(inputs=batch_fst['inputs'],
-                                 targets=batch_fst['targets'],
-                                 lengths=batch_fst['lengths'],
-                                 max_length=max_length,
-                                 noise_function=self.noise_function)
+        for batch in self.reader_fst.batch_generator():
 
-            # inputs = batch_fst['inputs'].cpu().data[:, :].numpy()
-            # outputs = outputs['symbols'][:, :]
-            # targets = batch_fst['targets'].cpu().data[:, 1:].numpy()
-            #
-            # self._reader_a.print_validation_format(input=inputs, output=outputs, target=targets)
+            self._set_lookup(self.reader_fst)
+            max_length = batch['targets'].size(1)
+            outputs.append(self._step(inputs=batch['inputs'],
+                                      targets=batch['targets'],
+                                      lengths=batch['lengths'],
+                                      max_length=max_length,
+                                      noise_function=self.noise_function))
+
+        return outputs
 
     def _set_lookup(self, reader_instance):
         """
@@ -219,7 +213,7 @@ class UnsupervisedTranslation(Task):
         batch_size = targets.size(0)
         max_length = targets.size(1) - 1
 
-        map(lambda x: getattr(x, 'clear')(x), self._model.optimizers)
+        execute('clear', self._model.optimizers)
 
         outputs = self._step(inputs=inputs,
                              targets=targets,
@@ -242,7 +236,7 @@ class UnsupervisedTranslation(Task):
         outputs['loss'] = outputs['loss'].sum() / batch_size
         outputs['loss'].backward()
 
-        map(lambda x: getattr(x, 'step')(x), self._model.optimizers)
+        execute('step', self._model.optimizers)
 
         return outputs
 
@@ -268,9 +262,7 @@ class UnsupervisedTranslation(Task):
 
 class SupervisedTranslation(Task):
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
+    interface = OrderedDict(**{
             'use_cuda': None,
             'reader': reader.Reader,
             'model': models.Model

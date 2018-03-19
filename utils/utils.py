@@ -4,6 +4,7 @@ import time
 import pickle
 import os.path
 import inspect
+import numpy
 
 
 class Component:
@@ -23,6 +24,7 @@ class Component:
         return {
             name: getattr(self, name) for (name, _) in
             inspect.getmembers(type(self), lambda x: isinstance(x, property))
+            if name != 'optimizers' and name != 'state'
         }
 
 
@@ -73,7 +75,7 @@ class ParameterSetter:
                        that should be created for the instance. If None, all of the parameters will be
                        initialized, that are stored in the param dict.
         """
-        params = create_leaf_dict(instance.interface())
+        params = create_leaf_dict(instance.interface)
 
         if subset is not None:
             if isinstance(subset, dict):
@@ -112,7 +114,7 @@ def subclasses(base_cls):
         for sub_cls_name in sub_classes:
             hierarchy = {**hierarchy, **get_hierarchy(sub_classes[sub_cls_name])}
 
-        return {**hierarchy, **{name: sub_classes[name] for name in sub_classes if not sub_classes[name].abstract()}}
+        return {**hierarchy, **{name: sub_classes[name] for name in sub_classes if not sub_classes[name].abstract}}
 
     return get_hierarchy(base_cls)
 
@@ -213,6 +215,51 @@ def subtract_dict(whole_dict, sub_dict):
         reduced_dict[parameter] = whole_dict[parameter]
 
     return reduced_dict
+
+
+def execute(func, iterable, params=None):
+    if params is None:
+        params = {}
+    for element in iterable:
+        getattr(element, func)(**params)
+
+
+def print_validation_format(self, **kwargs):
+    """
+    Convenience function for printing the parameters of the function, to the standard output.
+    The parameters must be provided as keyword arguments. Each argument must contain a 2D
+    array containing word ids, which will be converted to the represented words from the
+    dictionary of the language, used by the reader instance.
+    """
+    id_batches = numpy.array(list(kwargs.values()))
+    expression = ''
+    for index, ids in enumerate(zip(*id_batches)):
+        expression += '{%d}:\n' % index
+        for param in zip(kwargs, ids):
+            expression += ('> [%s]:\t%s\n' % (param[0], '\t'.join(sentence_from_ids(self._corpora.source_vocabulary,
+                                                                                    param[1]))))
+        expression += '\n'
+    print(expression)
+
+
+def ids_from_sentence(vocabulary, sentence):
+    """
+    Convenience method, for converting a sequence of words to ids.
+    :param vocabulary: Language, object of the language to use the look up of.
+    :param sentence: string, a tokenized sequence of words.
+    :return: list, containing the ids (int) of the sentence in the same order.
+    """
+    return [vocabulary(word.rstrip()) for word in sentence.split(' ') if word.rstrip() != '']
+
+
+def sentence_from_ids(vocabulary, ids):
+    """
+    Convenience method, for converting a sequence of ids to words.
+    :param vocabulary: Language, object of the language to use the look up of.
+    :param ids: ids, representations of words.
+    :return: list, containing the ids (int) of the sentence in the same order.
+    """
+    return [vocabulary(word_id) for word_id in ids]
 
 
 def logging(logger):

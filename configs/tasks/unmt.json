@@ -3,10 +3,11 @@
     "params": {
         "use_cuda": true,
         "readers": {
-            "reader_eng": "configs/components/utils/readers/fast.json",
-            "reader_fra": "configs/components/utils/readers/fast.json"
+            "reader_fst": "configs/components/utils/readers/fast.json",
+            "reader_snd": "configs/components/utils/readers/fast.json"
         },
         "model": "configs/components/models/sts.json",
         "reguralization": "configs/components/utils/reguralization/mlp.json"
-    }
+    },
+    "log_dir": "logs/checkpoints/unmt_0"
 }

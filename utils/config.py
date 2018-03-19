@@ -66,6 +66,7 @@ class Config:
         """
         try:
 
+            log_dir = self._config['log_dir']
             task_type = self._tasks[self._config['type']]
             task = self._create_node(task_type, self._config['params'], 'Task')
 
@@ -73,7 +74,7 @@ class Config:
             print('Error: %s' % error)
             sys.exit()
 
-        return task
+        return task, log_dir
 
     def _build_params(self, param_dict, interface_dict, config, lookup_id):
         """
@@ -130,7 +131,7 @@ class Config:
         :param lookup_id: str, an identifier, that creates the keys for the shared parameter values.
         :return: Component, an instance of the passed entity.
         """
-        interface = entity.interface()
+        interface = entity.interface
         param_dict = utils.copy_dict_hierarchy(interface)
 
         instance = entity(**utils.create_leaf_dict(self._build_params(param_dict, interface, config, lookup_id)))

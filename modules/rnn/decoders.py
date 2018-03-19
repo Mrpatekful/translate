@@ -20,16 +20,16 @@ class RNNDecoder(Decoder):
     """
 
     interface = OrderedDict(**{
-            'hidden_size':      None,
-            'recurrent_type':   None,
-            'num_layers':       None,
-            'optimizer_type':   None,
-            'learning_rate':    None,
-            'max_length':       None,
-            'use_cuda':        'Task:use_cuda$',
-            'embedding_size':  'target_embedding_size$',
-            'output_size':     'target_vocab_size$',
-            'input_size':      'target_embedding_size$'
+        'hidden_size':      None,
+        'recurrent_type':   None,
+        'num_layers':       None,
+        'optimizer_type':   None,
+        'learning_rate':    None,
+        'max_length':       None,
+        'use_cuda':        'Task:use_cuda$',
+        'embedding_size':  'target_embedding_size$',
+        'output_size':     'target_vocab_size$',
+        'input_size':      'target_embedding_size$'
     })
 
     abstract = False
@@ -299,7 +299,7 @@ class RNNDecoder(Decoder):
 
         :param state:
         """
-        self.load_state_dict(state['weights'])
+        self.load_state_dict({k: v for k, v in state['weights'].items() if k in self.state_dict()})
         self._optimizer.state = state['optimizer']
 
 
@@ -409,7 +409,7 @@ class AttentionRNNDecoder(RNNDecoder):
         output_sequence_length = targets.size(1) - 1
 
         inputs = targets[:, :-1].contiguous()
-        embedded_inputs = self._embedding_layer(inputs)
+        embedded_inputs = self.embedding(inputs)
 
         self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
         self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))

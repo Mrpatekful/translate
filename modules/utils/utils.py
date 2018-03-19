@@ -16,9 +16,7 @@ class Discriminator(Module, Component):
     super class, otherwise it won't be discoverable by the hierarchy builder utility.
     """
 
-    @staticmethod
-    def interface():
-        return OrderedDict(**{
+    interface = OrderedDict(**{
             'hidden_size':      None,
             'learning_rate':    None,
             'optimizer_type':   None,
@@ -45,9 +43,7 @@ class FFDiscriminator(Discriminator):
     Feed-forward discriminator module for the unsupervised neural translation task.
     """
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
     def __init__(self,
                  input_size,
@@ -75,12 +71,12 @@ class FFDiscriminator(Discriminator):
             self._output_layer = self._output_layer.cuda()
             self._activation = self._activation.cuda()
 
-        self._optimizers = [
+        self._optimizers = (
             Optimizer(parameters=self.parameters(),
                       optimizer_type=optimizer_type,
                       scheduler_type='ReduceLROnPlateau',
                       learning_rate=self._learning_rate)
-        ]
+        )
 
     def forward(self, inputs):
         """
@@ -105,9 +101,7 @@ class RNNDiscriminator(Discriminator):
     Recurrent discriminator module for the unsupervised neural translation task.
     """
 
-    @classmethod
-    def abstract(cls):
-        return False
+    abstract = False
 
     def __init__(self,
                  input_size,
@@ -134,12 +128,12 @@ class RNNDiscriminator(Discriminator):
             self._recurrent_layer = self._recurrent_layer.cuda()
             self._output_layer = self._output_layer.cuda()
 
-        self._optimizers = [
+        self._optimizers = (
             Optimizer(parameters=self.parameters(),
                       optimizer_type=optimizer_type,
                       scheduler_type='ReduceLROnPlateau',
                       learning_rate=self._learning_rate)
-        ]
+        )
 
     def forward(self, inputs):
         """
@@ -187,7 +181,7 @@ class Embedding(Module):
         self._optimizer = None
 
         if requires_grad:
-            self._optimizer = Optimizer(parameters=self._layer.weight,
+            self._optimizer = Optimizer(parameters=self.parameters(),
                                         optimizer_type='SGD',
                                         scheduler_type='ReduceLROnPlateau',
                                         learning_rate=0.01)

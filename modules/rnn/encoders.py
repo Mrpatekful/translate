@@ -2,8 +2,6 @@ import torch
 import torch.autograd as autograd
 import torch.optim
 
-import inspect
-
 from modules.encoder import Encoder
 from modules.utils.utils import Optimizer
 
@@ -20,13 +18,13 @@ class RNNEncoder(Encoder):
     """
 
     interface = OrderedDict(**{
-            'hidden_size':      None,
-            'recurrent_type':   None,
-            'num_layers':       None,
-            'optimizer_type':   None,
-            'learning_rate':    None,
-            'use_cuda':        'Task:use_cuda$',
-            'embedding_size':  'source_embedding_size$'
+        'hidden_size':      None,
+        'recurrent_type':   None,
+        'num_layers':       None,
+        'optimizer_type':   None,
+        'learning_rate':    None,
+        'use_cuda':        'Task:use_cuda$',
+        'embedding_size':  'source_embedding_size$'
     })
 
     abstract = False
@@ -55,16 +53,6 @@ class RNNEncoder(Encoder):
         }
 
         self.embedding = None
-
-    def properties(self):
-        """
-        Convenience function for retrieving the properties of an instances, with their values.
-        :return:
-        """
-        return {
-            name: getattr(self, name) for (name, _) in
-            inspect.getmembers(type(self), lambda x: isinstance(x, property)) if name != 'optimizer_states'
-        }
 
     def init_parameters(self):
         """
@@ -114,7 +102,7 @@ class RNNEncoder(Encoder):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
         """
         initial_state = self._init_hidden(inputs.size(0))
-        embedded_inputs = self._embedding_layer(inputs)
+        embedded_inputs = self.embedding(inputs)
         padded_sequence = pack_padded_sequence(embedded_inputs, lengths=lengths, batch_first=True)
 
         self._recurrent_layer.flatten_parameters()
@@ -146,3 +134,23 @@ class RNNEncoder(Encoder):
         :return: list, optimizers used by the encoder.
         """
         return [self._optimizer, self.embedding.optimizer]
+
+    @property
+    def state(self):
+        """
+
+        :return:
+        """
+        return {
+            'weights': self.state_dict(),
+            'optimizer': self._optimizer.state
+        }
+
+    @state.setter
+    def state(self, state):
+        """
+
+        :param state:
+        """
+        self.load_state_dict({k: v for k, v in state['weights'].items() if k in self.state_dict()})
+        self._optimizer.state = state['optimizer']
