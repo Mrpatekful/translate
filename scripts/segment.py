@@ -1,7 +1,7 @@
 import re
 
-FILE_INPUT = '../data/eng/eng_org'
-FILE_OUTPUT = '../data/eng/eng_seg'
+FILE_INPUT = '../data/fra/fra_org'
+FILE_OUTPUT = '../data/fra/fra_seg'
 
 MIN_LENGTH = 5
 MAX_LENGTH = 10

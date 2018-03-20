@@ -133,24 +133,25 @@ class RNNEncoder(Encoder):
         Property for the optimizers of the encoder.
         :return: list, optimizers used by the encoder.
         """
-        return [self._optimizer, self.embedding.optimizer]
+        return [self._optimizer, *self.embedding.optimizer]
 
     @property
     def state(self):
         """
-
-        :return:
+        Property for the state of the encoder.
+        :return: dict, containing the state of the weights, and the optimizer.
         """
         return {
             'weights': self.state_dict(),
             'optimizer': self._optimizer.state
         }
 
+    # noinspection PyMethodOverriding
     @state.setter
     def state(self, state):
         """
-
-        :param state:
+        Setter method for the weights of the encoder, and the optimizer.
+        :param state: dict, containing the states.
         """
         self.load_state_dict({k: v for k, v in state['weights'].items() if k in self.state_dict()})
         self._optimizer.state = state['optimizer']

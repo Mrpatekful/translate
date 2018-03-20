@@ -12,6 +12,7 @@ from utils.utils import Component
 from utils.utils import ParameterSetter
 from utils.utils import subtract_dict
 from utils.utils import ids_from_sentence
+from utils.utils import sentence_from_ids
 from utils.utils import subclasses
 
 from modules.utils.utils import Embedding
@@ -370,6 +371,23 @@ class FastReader(Reader):
                     shuffled_data_segment[index:index + self._modes[self._mode]['batch_size']])
                 yield self.batch_format(batch, self._use_cuda)
 
+    def print_validation_format(self, dictionary):
+        """
+        Convenience function for printing the parameters of the function, to the standard output.
+        The parameters must be provided as keyword arguments. Each argument must contain a 2D
+        array containing word ids, which will be converted to the represented words from the
+        dictionary of the language, used by the reader instance.
+        """
+        id_batches = numpy.array(list(dictionary.values()))
+        expression = ''
+        for index, ids in enumerate(zip(*id_batches)):
+            expression += '{%d}:\n' % index
+            for param in zip(dictionary, ids):
+                expression += ('> [%s]:\t%s\n' % (param[0], '\t'.join(sentence_from_ids(self._corpora.source_vocabulary,
+                                                                                        param[1]))))
+            expression += '\n'
+        print(expression)
+
     def _segment_generator(self):
         """
         Divides the data to segments of size MAX_SEGMENT_SIZE.
@@ -608,7 +626,7 @@ class Vocabulary:
         if isinstance(expression, str):
             return self._word_to_id[expression]
 
-        elif isinstance(expression, int):
+        elif isinstance(expression, int) or isinstance(expression, numpy.int64):
             return self._id_to_word[expression]
 
         else:

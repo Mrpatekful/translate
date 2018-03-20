@@ -15,3 +15,11 @@ class Encoder(Module, Component):
 
     def forward(self, *args, **kwargs):
         return NotImplementedError
+
+    @property
+    def optimizers(self):
+        return NotImplementedError
+
+    @property
+    def state(self):
+        return NotImplementedError

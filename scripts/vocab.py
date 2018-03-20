@@ -1,9 +1,9 @@
 import re
 import numpy
 
-EMBEDDING_DIM = 3
-VOCAB_PATH = '../data/eng/eng_voc'
-CORPORA_PATH = '../data/eng/eng_tok'
+EMBEDDING_DIM = 25
+VOCAB_PATH = '../data/fra/fra_voc'
+CORPORA_PATH = '../data/fra/fra_tok'
 
 
 def vocab_creator(path):

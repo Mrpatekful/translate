@@ -5,6 +5,7 @@ from models import models
 from modules.utils import utils
 from utils.utils import Component
 from utils.utils import execute
+from utils.utils import format_outputs
 
 from utils.reader import Vocabulary
 
@@ -100,10 +101,12 @@ class UnsupervisedTranslation(Task):
                  reader_snd,
                  reguralization):
         """
-
-        :param model:
-        :param use_cuda:
-        :param reguralization:
+        An instance of an unsupervised translation task.
+        :param model: Model, that will be used to solve the task.
+        :param use_cuda: bool, if cuda support in enabled-
+        :param reader_fst: Reader, the reader for the first language of the task.
+        :param reader_snd: Reader, the reader for the second language.
+        :param reguralization: Reguralization, that will be used as an adversarial reguralizer during training.
         """
 
         self.reader_fst = reader_fst
@@ -124,6 +127,8 @@ class UnsupervisedTranslation(Task):
         """
         Training logic for the unsupervised translation task. The method iterates through
         the training corpora, updates the parameters of the model, based on the generated loss.
+        :return: average loss during training, normalized by the sequence length, batch size and
+        number of steps in an epoch.
         """
         loss = 0
         steps = 0
@@ -144,6 +149,8 @@ class UnsupervisedTranslation(Task):
     def evaluate(self):
         """
         Evaluation of the trained model. The parameters are not updated by this method.
+        :return: outputs of the evaluation. The it is a list, that stores the encoder and
+        decoder outputs, produced for a given sample.
         """
         outputs = []
 
@@ -151,17 +158,26 @@ class UnsupervisedTranslation(Task):
 
             self._set_lookup(self.reader_fst)
             max_length = batch['targets'].size(1)
-            outputs.append(self._step(inputs=batch['inputs'],
-                                      targets=batch['targets'],
-                                      lengths=batch['lengths'],
-                                      max_length=max_length,
-                                      noise_function=self.noise_function))
+            output = self._step(inputs=batch['inputs'],
+                                targets=batch['targets'],
+                                lengths=batch['lengths'],
+                                max_length=max_length,
+                                noise_function=self.noise_function)
+
+            outputs.append({
+                'outputs': output,
+                'symbols': format_outputs(
+                    (self.reader_fst.source_vocabulary, batch['inputs']),
+                    (self.reader_fst.source_vocabulary, batch['targets']),
+                    (self.reader_fst.source_vocabulary, output['symbols'][0])
+                )
+            })
 
         return outputs
 
     def _set_lookup(self, reader_instance):
         """
-        Sets the embeddings for the mode.
+        Sets the lookups (embeddings) for the encoder and decoder.
         :param reader_instance: Reader, that yields the new embeddings for the decoder and encoder.
         """
         self._model.set_embeddings(reader_instance.source_vocabulary.embedding,
@@ -242,6 +258,10 @@ class UnsupervisedTranslation(Task):
 
     @property
     def state(self):
+        """
+        Property for the state of the task.
+        :return: dict, containing the state of the model, and the embeddings.
+        """
         return {
             'model': self._model.state,
             'embedding_fst': self.reader_fst.source_vocabulary.embedding.state,
@@ -251,12 +271,22 @@ class UnsupervisedTranslation(Task):
     # noinspection PyMethodOverriding
     @state.setter
     def state(self, state):
+        """
+        Setter function for the state of the task, and the embeddings.
+        :param state: dict, state, to be set as the current state.
+        """
         self._model.state = state['model']
         self.reader_fst.source_vocabulary.embedding.state = state['embedding_fst']
         self.reader_snd.source_vocabulary.embedding.state = state['embedding_snd']
 
     @property
     def readers(self):
+        """
+        Property for the readers of the task. It is used by the session object,
+        to manage the state of the readers, and switch between train, dev and
+        evaluation mode.
+        :return: list, containing the readers of the task.
+        """
         return [self.reader_snd, self.reader_fst]
 
 

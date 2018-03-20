@@ -21,7 +21,7 @@ def main():
     group.add_argument('-t', '--train', action='store_true', dest='train')
     group.add_argument('-e', '--eval', action='store_true', dest='eval')
 
-    arguments = parser.parse_args(['-t'])
+    arguments = parser.parse_args(['-e'])
 
     task, log_dir = Config(arguments.config).assemble()
 

@@ -224,22 +224,14 @@ def execute(func, iterable, params=None):
         getattr(element, func)(**params)
 
 
-def print_validation_format(self, **kwargs):
-    """
-    Convenience function for printing the parameters of the function, to the standard output.
-    The parameters must be provided as keyword arguments. Each argument must contain a 2D
-    array containing word ids, which will be converted to the represented words from the
-    dictionary of the language, used by the reader instance.
-    """
-    id_batches = numpy.array(list(kwargs.values()))
-    expression = ''
-    for index, ids in enumerate(zip(*id_batches)):
-        expression += '{%d}:\n' % index
-        for param in zip(kwargs, ids):
-            expression += ('> [%s]:\t%s\n' % (param[0], '\t'.join(sentence_from_ids(self._corpora.source_vocabulary,
-                                                                                    param[1]))))
-        expression += '\n'
-    print(expression)
+def format_outputs(inputs, targets, outputs):
+    input_sentence = sentence_from_ids(inputs[0], inputs[1].cpu().data.squeeze(0).numpy())
+    target_sentence = sentence_from_ids(targets[0], targets[1].cpu().data.squeeze(0)[1:].numpy())
+    output_sentence = sentence_from_ids(outputs[0], outputs[1])
+
+    return '\n> [inputs]: %s\n> [targets]: %s\n> [outputs]: %s\n' % ('\t'.join(input_sentence),
+                                                                     '\t'.join(target_sentence),
+                                                                     '\t'.join(output_sentence))
 
 
 def ids_from_sentence(vocabulary, sentence):

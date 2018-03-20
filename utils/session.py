@@ -80,7 +80,7 @@ class TrainingContext:
         execute('train', self._session.task.readers, {'boolean': False})
 
     def train(self):
-        print(self.epoch)
+        print('Epoch: %d' % self.epoch)
         outputs = self._session.task.train()
         print(outputs)
 
@@ -104,4 +104,5 @@ class EvaluationContext:
 
     def evaluate(self):
         outputs = self._session.task.evaluate()
-        print(outputs)
+        for output in outputs:
+            print(output['symbols'])
