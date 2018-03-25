@@ -459,7 +459,7 @@ class AttentionRNNDecoder(RNNDecoder):
         step_input = autograd.Variable(sos_tokens)
 
         for step in range(output_sequence_length):
-            embedded_input = self._embedding_layer(step_input)
+            embedded_input = self.embedding(step_input)
 
             step_output, hidden_state, attn_weights = self._decode(inputs=embedded_input,
                                                                    hidden_state=hidden_state,
