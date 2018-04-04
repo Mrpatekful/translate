@@ -2,12 +2,14 @@
     "type": "UnsupervisedTranslation",
     "params": {
         "use_cuda": true,
-        "readers": {
-            "reader_fst": "configs/components/utils/readers/eng.json",
-            "reader_snd": "configs/components/utils/readers/eng.json"
-        },
-        "model": "configs/components/models/sts.json",
-        "reguralization": "configs/components/utils/reguralization/mlp.json"
+        "tokens": [
+            "<ENG>"
+        ],
+        "input_pipelines": [
+            "configs/components/utils/input_pipelines/eng.json"
+        ],
+        "model": "configs/components/models/sts.json"
     },
-    "log_dir": "logs/checkpoints/unmt_0"
+    "checkpoints": "logs/checkpoints/unmt_0",
+    "analysis": "logs/analysis/unmt_0"
 }

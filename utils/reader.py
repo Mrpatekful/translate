@@ -27,11 +27,11 @@ class Corpora(Component):
     """
 
     interface = OrderedDict(**{
-            'train':     None,
-            'dev':       None,
-            'test':      None,
-            'use_cuda': 'Task:use_cuda$'
-        })
+        'train':     None,
+        'dev':       None,
+        'test':      None,
+        'use_cuda': 'Task:use_cuda$'
+    })
 
     abstract = True
 
@@ -46,8 +46,7 @@ class Corpora(Component):
         """
         parameter_setter.initialize(self)
 
-        self._source_vocabulary = None
-        self._target_vocabulary = None
+        self._vocabulary = []
 
     def _load_data(self, data_path):
         return NotImplementedError
@@ -55,64 +54,24 @@ class Corpora(Component):
     # The following 'size' properties are required for the parameter value resolver mechanism.
 
     @property
-    def source_vocabulary(self):
-        """
-        Property for the source language of the text corpora.
-        :return: Language, instance of the wrapper class for the source language.
-        """
-        if self._source_vocabulary is None:
-            raise ValueError('Source vocabulary has not been set.')
-        return self._source_vocabulary
-
-    @property
-    def target_vocabulary(self):
-        """
-        Property for the target language of the text corpora.
-        :return: Language, instance of the wrapper class for the target language.
-        """
-        if self._target_vocabulary is None:
-            raise ValueError('Target vocabulary has not been set.')
-        return self._target_vocabulary
-
-    @property
-    def source_embedding_size(self):
+    def embedding_size(self):
         """
         Property for the embedding size of the source language.
         :return: int, size of the source language's word embedding.
         """
-        if self._source_vocabulary is None:
-            raise ValueError('Source vocabulary has not been set.')
-        return self.source_vocabulary.embedding_size
+        if self._vocabulary is None:
+            raise ValueError('Vocabulary has not been set.')
+        if self._vocabulary[0].embedding_size != self._vocabulary[-1].embedding_size:
+            raise ValueError('Embedding dimensions must be the same for the source and target language.')
+        return self._vocabulary[0].embedding_size
 
     @property
-    def target_embedding_size(self):
+    def vocabulary(self):
         """
-        Property for the embedding size of the target language.
-        :return: int, size of the target language's word embedding.
+        Property for the vocabularies of the corpora.
+        :return: list, containing vocabulary objects for the corpora.
         """
-        if self._target_vocabulary is None:
-            raise ValueError('Target vocabulary has not been set.')
-        return self.target_vocabulary.embedding_size
-
-    @property
-    def source_vocab_size(self):
-        """
-        Property for the vocab size of the source language.
-        :return: int, number of words in the source language.
-        """
-        if self._source_vocabulary is None:
-            raise ValueError('Source vocabulary has not been set.')
-        return self.source_vocabulary.vocab_size
-
-    @property
-    def target_vocab_size(self):
-        """
-        Property for the vocab size of the target language.
-        :return: int, number of words in the target language.
-        """
-        if self._target_vocabulary is None:
-            raise ValueError('Target vocabulary has not been set.')
-        return self.target_vocabulary.vocab_size
+        return self._vocabulary
 
     def properties(self):
         return {
@@ -162,7 +121,7 @@ class Monolingual(Corpora):
             'vocab':    None,
             'provided': None,
             'fixed':    None,
-            'token':    None
+            'tokens':  'Task:tokens'
         })
 
     abstract = False
@@ -183,16 +142,13 @@ class Monolingual(Corpora):
         """
         super().__init__(parameter_setter=parameter_setter)
 
-        vocabulary = Vocabulary(**parameter_setter.extract(Vocabulary.interface))
+        self._vocabulary.append(Vocabulary(**parameter_setter.extract(Vocabulary.interface)))
 
         parameter_setter.initialize(self, subtract_dict(self.interface, Corpora.interface))
 
         self._train = self._load_data(self.train)
         self._dev = self._load_data(self.dev)
         self._test = self._load_data(self.test)
-
-        self._source_vocabulary = vocabulary
-        self._target_vocabulary = vocabulary
 
     def _load_data(self, data_path):
         """
@@ -206,6 +162,14 @@ class Monolingual(Corpora):
         if len(data) == 0:
             raise ValueError('The given file is empty.')
         return data
+
+    @property
+    def vocab_size(self):
+        """
+        Property for the vocab size of the language.
+        :return: int, number of words in the language.
+        """
+        return self._vocabulary[0].vocab_size
 
 
 class Parallel(Corpora):  # TODO vocabulary parameter extraction
@@ -246,8 +210,10 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
         """
         super().__init__(parameter_setter=parameter_setter)
 
-        self._source_language = Vocabulary(**parameter_setter.extract(Vocabulary.interface))
-        self._target_language = Vocabulary(**parameter_setter.extract(Vocabulary.interface))
+        self._vocabulary = []
+
+        self._vocabulary.append(Vocabulary(**parameter_setter.extract(Vocabulary.interface)))
+        self._vocabulary.append(Vocabulary(**parameter_setter.extract(Vocabulary.interface)))
 
         parameter_setter.initialize(self, subtract_dict(self.interface, super().interface))
 
@@ -265,8 +231,48 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
             raise ValueError('The given file is empty.')
         return data
 
+    @property
+    def source_vocabulary(self):
+        """
+        Property for the source language of the text corpora.
+        :return: Language, instance of the wrapper class for the source language.
+        """
+        if self._vocabulary is None:
+            raise ValueError('Source vocabulary has not been set.')
+        return self._vocabulary[0]
 
-class Reader(Component):
+    @property
+    def target_vocabulary(self):
+        """
+        Property for the target language of the text corpora.
+        :return: Language, instance of the wrapper class for the target language.
+        """
+        if self._vocabulary is None:
+            raise ValueError('Target vocabulary has not been set.')
+        return self._vocabulary[-1]
+
+    @property
+    def source_vocab_size(self):
+        """
+        Property for the vocab size of the source language.
+        :return: int, number of words in the source language.
+        """
+        if self._vocabulary is None:
+            raise ValueError('Source vocabulary has not been set.')
+        return self._vocabulary[0].vocab_size
+
+    @property
+    def target_vocab_size(self):
+        """
+        Property for the vocab size of the target language.
+        :return: int, number of words in the target language.
+        """
+        if self._vocabulary is None:
+            raise ValueError('Target vocabulary has not been set.')
+        return self._vocabulary[-1].vocab_size
+
+
+class InputPipeline(Component):
     """
     Derived classes should implement the reading logic for the seq2seq model. Readers divide the
     data into segments. The purpose of this behaviour, is to keep the sentences with similar lengths
@@ -292,7 +298,7 @@ class Reader(Component):
         self._eval = boolean
 
 
-class FastReader(Reader):
+class FastInput(InputPipeline):
     """
     A faster implementation of reader class than FileReader. The source data is fully loaded into
     the memory.
@@ -331,22 +337,22 @@ class FastReader(Reader):
 
         self._batch_format = None
 
-        padding = subclasses(Padding)
+        padding_types = subclasses(Padding)
 
-        self._data_processor = padding[padding_type](self._corpora.source_vocabulary, max_segment_size)
+        self._padder = padding_types[padding_type](self._corpora.vocabulary, max_segment_size)
 
         self._modes = {
             'train': {
-                'batch_size': batch_size,
-                'data': self._data_processor(self._corpora.train)
+                'batch_size':   batch_size,
+                'data':         self._padder(self._corpora.train)
             },
             'dev': {
-                'batch_size': 1,
-                'data': self._data_processor(self._corpora.dev)
+                'batch_size':   1,
+                'data':         self._padder(self._corpora.dev)
             },
             'test': {
-                'batch_size': 1,
-                'data': self._data_processor(self._corpora.test)
+                'batch_size':   1,
+                'data':         self._padder(self._corpora.test)
             }
         }
 
@@ -367,7 +373,7 @@ class FastReader(Reader):
             shuffled_data_segment = sklearn.utils.shuffle(data_segment)
             for index in range(0, len(shuffled_data_segment)-self._modes[self._mode]['batch_size'],
                                self._modes[self._mode]['batch_size']):
-                batch = self._data_processor.create_batch(
+                batch = self._padder.create_batch(
                     shuffled_data_segment[index:index + self._modes[self._mode]['batch_size']])
                 yield self.batch_format(batch, self._use_cuda)
 
@@ -383,7 +389,7 @@ class FastReader(Reader):
         for index, ids in enumerate(zip(*id_batches)):
             expression += '{%d}:\n' % index
             for param in zip(dictionary, ids):
-                expression += ('> [%s]:\t%s\n' % (param[0], '\t'.join(sentence_from_ids(self._corpora.source_vocabulary,
+                expression += ('> [%s]:\t%s\n' % (param[0], '\t'.join(sentence_from_ids(self._corpora.vocabulary,
                                                                                         param[1]))))
             expression += '\n'
         print(expression)
@@ -442,23 +448,31 @@ class FastReader(Reader):
         return self._corpora
 
     @property
+    def vocabulary(self):
+        """
+        Property for the reader object's vocabulary.
+        :return: Language object, the source vocabulary.
+        """
+        return self._corpora.vocabulary
+
+    @property
     def source_vocabulary(self):
         """
-        Property for the reader object's source language.
-        :return: Language object, the source language.
+        Property for the reader object's source vocabulary.
+        :return: Language object, the source vocabulary.
         """
-        return self._corpora.source_vocabulary
+        return self._corpora.vocabulary[0]
 
     @property
     def target_vocabulary(self):
         """
-        Property for the reader object's target language.
-        :return: Language object, the source language.
+        Property for the reader object's target vocabulary.
+        :return: Language object, the source vocabulary.
         """
-        return self._corpora.target_vocabulary
+        return self._corpora.vocabulary[-1]
 
 
-class FileReader(Reader):  # TODO
+class FileInput(InputPipeline):  # TODO
     """
     An implementation of the reader class. Batches are read from the source in file real-time.
     This version of the reader should only be used if the source file is too large to be stored
@@ -509,7 +523,7 @@ class FileReader(Reader):  # TODO
         :param sentences: string, a tokenized sequence of words.
         :return: Variable, containing the ids of the sentence.
         """
-        ids = numpy.empty((len(sentences), len(sentences[0].split(' '))-2))
+        ids = numpy.empty((len(sentences), len(sentences[0].split(' ')) - 2))
         for index in range(len(sentences)):
             ids[index, :len(sentences[index])] = numpy.array(ids_from_sentence(self._language, sentences[index]))
 
@@ -533,20 +547,21 @@ class Vocabulary:
     Wrapper class for the lookup tables of the languages.
     """
     PAD = -1
+    LNG = -2
 
     interface = OrderedDict(**{
-            'vocab':      None,
-            'token':      None,
-            'provided':   None,
-            'fixed':      None,
-            'use_cuda':   None
-        })
+        'vocab':      None,
+        'provided':   None,
+        'fixed':      None,
+        'use_cuda':   None,
+        'tokens':     None,
+    })
 
-    def __init__(self, vocab, token, provided, fixed, use_cuda):
+    def __init__(self, vocab, tokens, provided, fixed, use_cuda):
         """
         A language instance for storing the embedding and vocabulary.
         :param vocab: str, path of the embedding/vocabulary for the language.
-        :param token: str, token, that identifies the language.
+        :param tokens: list, tokens, that identifies the languages.
         :param provided: bool, indicates, whether the embeddings are provided to the model.
         :param fixed: bool, true, if the embeddings are fixed, and do not require updates.
         """
@@ -554,7 +569,7 @@ class Vocabulary:
         self._id_to_word = {}
         self._word_to_count = {}
 
-        self._language_token = token
+        self._language_tokens = tokens
         self._use_cuda = use_cuda
         self._provided = provided
 
@@ -580,7 +595,7 @@ class Vocabulary:
         """
         with open(path, 'r') as file:
             first_line = file.readline().split(' ')
-            self._vocab_size = int(first_line[0]) + 4
+            self._vocab_size = int(first_line[0]) + 3 + len(self._language_tokens)
             self._embedding_size = int(first_line[1])
 
             if self._provided:
@@ -593,15 +608,17 @@ class Vocabulary:
                     self._embedding_weights[index + 1, :] = numpy.array([float(element) for element
                                                                          in line_as_list[1:]], dtype=float)
 
-            self._word_to_id[self._language_token] = len(self._word_to_id)
+            for token in self._language_tokens:
+                self._word_to_id[token] = len(self._word_to_id)
 
             self._word_to_id['<SOS>'] = len(self._word_to_id)
             self._word_to_id['<EOS>'] = len(self._word_to_id)
             self._word_to_id['<UNK>'] = len(self._word_to_id)
 
-            self._vocab_size = len(self._word_to_id)
+            # self._vocab_size = len(self._word_to_id)
 
             self._word_to_id['<PAD>'] = self.PAD
+            self._word_to_id['<LNG>'] = self.LNG
 
             self._id_to_word = dict(zip(self._word_to_id.values(), self._word_to_id.keys()))
 
@@ -609,7 +626,9 @@ class Vocabulary:
                 self._embedding_weights[-1, :] = numpy.zeros(self._embedding_size)
                 self._embedding_weights[-2, :] = numpy.zeros(self._embedding_size)
                 self._embedding_weights[-3, :] = numpy.zeros(self._embedding_size)
-                self._embedding_weights[-4, :] = numpy.random.rand(self._embedding_size)
+
+                for index in range(-4, -4-len(self._language_tokens), -1):
+                    self._embedding_weights[index, :] = numpy.random.rand(self._embedding_size)
 
                 self._embedding_weights = torch.from_numpy(self._embedding_weights).float()
 
@@ -706,15 +725,15 @@ class DataQueue:
             yield data_segment
 
 
-class Padding:
+class Padding:  # TODO parallel support
     """
     Base class for the padding types.
     """
 
     abstract = True
 
-    def __init__(self, language, max_segment_size):
-        self._language = language
+    def __init__(self, vocabulary, max_segment_size):
+        self._vocabulary = vocabulary[0]
         self._max_segment_size = max_segment_size
 
     def create_batch(self, ):
@@ -745,12 +764,12 @@ class PostPadding(Padding):
 
         return numpy.array(sorted_data, dtype='int')
 
-    def __init__(self, language, max_segment_size):
+    def __init__(self, vocabulary, max_segment_size):
         """
         An instance of a post-padder object.
-        :param language: Language, instance of the used language object.
+        :param vocabulary: Vocabulary, instance of the used language object.
         """
-        super().__init__(language, max_segment_size)
+        super().__init__(vocabulary, max_segment_size)
 
     def __call__(self, data):
         """
@@ -761,9 +780,10 @@ class PostPadding(Padding):
         data_to_ids = []
         for index in range(0, len(data), self._max_segment_size):
             for line in data[index:index + self._max_segment_size]:
-                ids = ids_from_sentence(self._language, line)
+                ids = ids_from_sentence(self._vocabulary, line)
                 ids.append(len(ids))
                 data_to_ids.append(ids)
+
         return data_to_ids
 
 
@@ -785,12 +805,12 @@ class PrePadding(Padding):
         """
         return numpy.array(sorted(data, key=lambda x: x[-1], reverse=True))
 
-    def __init__(self, language, max_segment_size):
+    def __init__(self, vocabulary, max_segment_size):
         """
         An instance of a pre-padder object.
-        :param language: Language, instance of the used language object.
+        :param vocabulary: Vocabulary, instance of the used language object.
         """
-        super().__init__(language, max_segment_size)
+        super().__init__(vocabulary, max_segment_size)
 
     def __call__(self, data):
         """
@@ -802,9 +822,9 @@ class PrePadding(Padding):
         """
         data_to_ids = []
         for index in range(0, len(data), self._max_segment_size):
-            segment_length = len(ids_from_sentence(self._language, data[index:index + self._max_segment_size][0]))
+            segment_length = len(ids_from_sentence(self._vocabulary, data[index:index + self._max_segment_size][0]))
             for line in data[index:index + self._max_segment_size]:
-                ids = ids_from_sentence(self._language, line)
+                ids = ids_from_sentence(self._vocabulary, line)
                 ids_len = len(ids)
                 while len(ids) < segment_length:
                     ids.append(Vocabulary.PAD)

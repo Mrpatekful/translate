@@ -28,6 +28,33 @@ class Component:
         }
 
 
+class ModelManager:
+
+    def __init__(self, model):
+        self._model = model
+
+        self._table = {
+            'E':    None,
+            'E_I':  None,
+            'D':    None,
+            'D_I':  None,
+            'D_O':  None
+        }
+
+    def init_table(self, lookups):
+        self._table['E_I'] = lookups['E_I']
+        self._table['D_I'] = lookups['D_I']
+        self._table['D_O'] = lookups['D_O']
+
+    def switch_lookups(self, lookups):
+        self._model.encoder.embedding = self._table['E_I'][lookups['E_I']]
+        self._model.decoder.embedding = self._table['D_I'][lookups['D_I']]
+        self._model.decoder.output_layer = self._table['D_O'][lookups['D_O']]
+
+    def switch_encoder(self, encoder):
+        pass
+
+
 class ParameterSetter:
     """
     This class handles the initialization of the given object's parameters.
@@ -217,7 +244,7 @@ def subtract_dict(whole_dict, sub_dict):
     return reduced_dict
 
 
-def execute(func, iterable, params=None):
+def call(func, iterable, params=None):
     if params is None:
         params = {}
     for element in iterable:

@@ -13,6 +13,8 @@ class Decoder(Module, Component):
     def __init__(self, *args, **kwargs):
         super().__init__()
 
+        self._output_size = None
+
     def forward(self, *args, **kwargs):
         return NotImplementedError
 
@@ -23,3 +25,7 @@ class Decoder(Module, Component):
     @property
     def state(self):
         return NotImplementedError
+
+    @property
+    def output_size(self):
+        return self._output_size

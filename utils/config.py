@@ -4,7 +4,7 @@ from modules.encoder import Encoder
 from modules.decoder import Decoder
 from modules.utils.utils import Discriminator
 
-from utils.reader import Reader
+from utils.reader import InputPipeline
 from utils.reader import Corpora
 from models.models import Model
 from tasks.tasks import Task
@@ -13,6 +13,7 @@ from utils import utils
 
 import re
 import sys
+import logging
 
 
 class Config:
@@ -23,7 +24,7 @@ class Config:
     Each node of the JSON file, that has a 'type' and 'params' key are Component type
     objects.
     """
-    _base_nodes = [Encoder, Decoder, Discriminator, Reader, Corpora, Model]
+    _base_nodes = [Encoder, Decoder, Discriminator, InputPipeline, Corpora, Model]
 
     _tasks = utils.subclasses(Task)
 
@@ -66,7 +67,7 @@ class Config:
         """
         try:
 
-            log_dir = self._config['log_dir']
+            log_dir = self._config['checkpoints']
             task_type = self._tasks[self._config['type']]
             task = self._create_node(task_type, self._config['params'], 'Task')
 
@@ -100,15 +101,29 @@ class Config:
                                                      config[key],
                                                      lookup_id)
 
-            elif interface_dict[key] in self._base_nodes:
-                module_dict = config[key]
-                if isinstance(module_dict, str):
-                    module_dict = json.load(open(module_dict, 'r'))
+            elif interface_dict[key] in self._base_nodes and isinstance(config.get(key, None), list):
+                param_dict[key] = []
+                for index, element in enumerate(config[key]):
+                    module_dict = element
+                    if isinstance(module_dict, str):
+                        module_dict = json.load(open(module_dict, 'r'))
 
-                module_type = self._modules[module_dict['type']]
-                param_dict[key] = self._create_node(module_type,
-                                                    module_dict['params'],
-                                                    lookup_id + ':%s' % interface_dict[key].__name__)
+                    module_type = self._modules[module_dict['type']]
+                    param_dict[key].append(self._create_node(module_type,
+                                                             module_dict['params'],
+                                                             lookup_id + ':%s%s' % (interface_dict[key].__name__,
+                                                                                    index)))
+
+            elif interface_dict[key] in self._base_nodes:
+                if config.get(key, None) is not None:
+                    module_dict = config[key]
+                    if isinstance(module_dict, str):
+                        module_dict = json.load(open(module_dict, 'r'))
+
+                    module_type = self._modules[module_dict['type']]
+                    param_dict[key] = self._create_node(module_type,
+                                                        module_dict['params'],
+                                                        lookup_id + ':%s' % interface_dict[key].__name__)
 
             elif key in config.keys():
                 param_dict[key] = config[key]
@@ -153,10 +168,13 @@ class Config:
         """
         keys = [key for key in list(self._registered_params.keys()) if re.search(pattern, key) is not None]
         if len(keys) > 1:
-            raise ValueError('Ambiguous look up expression \' %s \'' % pattern)
+            logging.warning('Ambiguous look up expression \' %s \', the first matching '
+                            'key has been chosen as default \' %s \'' % (pattern, keys[0]))
+            return keys[0]
 
         if len(keys) == 0:
             raise ValueError('No currently registered keys match the given look up expression \' %s \'' % pattern)
+
         return keys[0]
 
     def _resolve_aggregation(self, description):

@@ -1,5 +1,5 @@
 {
-    "type": "FastReader",
+    "type": "FastInput",
     "params": {
         "max_segment_size": 1000,
         "batch_size": 32,
@@ -11,9 +11,8 @@
                 "dev": "data/eng/eng_dev",
                 "test": "data/eng/eng_test",
                 "vocab": "data/eng/eng_voc",
-                "provided": false,
-                "fixed": false,
-                "token": "<ENG>"
+                "provided": true,
+                "fixed": false
             }
         }
     }

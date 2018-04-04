@@ -1,4 +1,4 @@
-import numpy as np
+import numpy
 
 import torch
 import torch.autograd as autograd
@@ -27,9 +27,8 @@ class RNNDecoder(Decoder):
         'learning_rate':    None,
         'max_length':       None,
         'use_cuda':        'Task:use_cuda$',
-        'embedding_size':  'target_embedding_size$',
-        'output_size':     'target_vocab_size$',
-        'input_size':      'target_embedding_size$'
+        'embedding_size':  'embedding_size$',
+        'input_size':      'embedding_size$'
     })
 
     abstract = False
@@ -41,7 +40,6 @@ class RNNDecoder(Decoder):
         :param parameter_setter: required parameters for the setter object.
             -:parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
             -:parameter embedding_size: int, dimension of the word embeddings.
-            -:parameter output_size: int, size of the (vocabulary) output layer of the decoder.
             -:parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
             -:parameter num_layers: int, number of stacked RNN layers.
             -:parameter learning_rate: float, learning rate.
@@ -53,7 +51,6 @@ class RNNDecoder(Decoder):
         self._parameter_setter = parameter_setter
 
         self._recurrent_layer = None
-        self._output_layer = None
         self._optimizer = None
         self._tokens = None
 
@@ -64,6 +61,7 @@ class RNNDecoder(Decoder):
         }
 
         self.embedding = None
+        self.output_layer = None
 
     def init_parameters(self):
         """
@@ -80,17 +78,16 @@ class RNNDecoder(Decoder):
         else:
             raise ValueError('Invalid recurrent unit type.')
 
+        self._output_size = self._hidden_size
+
         self._recurrent_layer = unit_type(input_size=self._input_size,
                                           hidden_size=self._hidden_size,
                                           num_layers=self._num_layers,
                                           bidirectional=False,
                                           batch_first=True)
 
-        self._output_layer = nn.Linear(self._hidden_size, self._output_size)
-
         if self._use_cuda:
             self._recurrent_layer = self._recurrent_layer.cuda()
-            self._output_layer = self._output_layer.cuda()
 
         return self
 
@@ -124,8 +121,8 @@ class RNNDecoder(Decoder):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         """
         output, hidden_state = self._recurrent_layer(inputs, hidden_state)
-        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size)),
-                                        dim=1).view(batch_size, -1, self._output_size)
+        output = functional.log_softmax(self.output_layer(output.contiguous().view(-1, self._hidden_size)),
+                                        dim=1).view(batch_size, -1, self.output_layer.size)
 
         return output, hidden_state, None
 
@@ -189,10 +186,10 @@ class RNNDecoder(Decoder):
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param input_sequence_length:This parameter is required only by the attentional version of this method.
         """
+        self.embedding.unfreeze()
         output_sequence_length = targets.size(1) - 1
 
-        self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='in'
-                                                                                        't')
+        self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype=numpy.int32)
         inputs = targets[:, :-1].contiguous()
         embedded_inputs = self.embedding(inputs)
 
@@ -224,11 +221,12 @@ class RNNDecoder(Decoder):
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param input_sequence_length: This parameter is required only by the attentional version of this method.
         """
+        self.embedding.freeze()
         output_sequence_length = max_length if max_length is not None else self._max_length
-        self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
+        self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
 
-        sos_tokens = torch.from_numpy(np.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
-        if self._use_cuda.value:
+        sos_tokens = torch.from_numpy(numpy.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
+        if self._use_cuda:
             sos_tokens = sos_tokens.cuda()
 
         step_input = autograd.Variable(sos_tokens)
@@ -280,7 +278,11 @@ class RNNDecoder(Decoder):
         Property for the optimizers of the decoder.
         :return: list, optimizers used by the decoder.
         """
-        return [self._optimizer, *self.embedding.optimizer]
+        return [
+            self._optimizer,
+            *self.embedding.optimizer,
+            *self.output_layer.optimizer
+        ]
 
     @property
     def state(self):
@@ -407,13 +409,14 @@ class AttentionRNNDecoder(RNNDecoder):
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param input_sequence_length: int, length of the input (for the encoder) sequence.
         """
+        self.embedding.unfreeze()
         output_sequence_length = targets.size(1) - 1
 
         inputs = targets[:, :-1].contiguous()
         embedded_inputs = self.embedding(inputs)
 
-        self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
-        self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
+        self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
+        self._outputs['alignment_weights'] = numpy.zeros((batch_size, output_sequence_length, input_sequence_length))
 
         for step in range(output_sequence_length):
             step_input = embedded_inputs[:, step, :]
@@ -446,12 +449,13 @@ class AttentionRNNDecoder(RNNDecoder):
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param input_sequence_length: int, length of the input (for the encoder) sequence.
         """
-        output_sequence_length = max_length if max_length is not None else self._max_length.value
+        self.embedding.freeze()
+        output_sequence_length = max_length if max_length is not None else self._max_length
 
-        self._outputs['symbols'] = np.zeros((batch_size, output_sequence_length), dtype='int')
-        self._outputs['alignment_weights'] = np.zeros((batch_size, output_sequence_length, input_sequence_length))
+        self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
+        self._outputs['alignment_weights'] = numpy.zeros((batch_size, output_sequence_length, input_sequence_length))
 
-        sos_tokens = torch.from_numpy(np.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
+        sos_tokens = torch.from_numpy(numpy.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
 
         if self._use_cuda:
             sos_tokens = sos_tokens.cuda()
@@ -565,8 +569,8 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
         output = self._projection_layer(torch.cat((inputs, output), dim=2))
 
-        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size)),
-                                        dim=1).view(batch_size, -1, self._output_size)
+        output = functional.log_softmax(self.output_layer(output.contiguous().view(-1, self._hidden_size)),
+                                        dim=1).view(batch_size, -1, self.output_layer.size)
 
         return output, hidden_state, attn_weights
 
@@ -652,8 +656,8 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
 
         output = self._projection_layer(torch.cat((output, context), dim=2))
 
-        output = functional.log_softmax(self._output_layer(output.contiguous().view(-1, self._hidden_size)),
-                                        dim=1).view(batch_size, -1, self._output_size)
+        output = functional.log_softmax(self.output_layer(output.contiguous().view(-1, self._hidden_size)),
+                                        dim=1).view(batch_size, -1, self.output_layer.size)
 
         return output, hidden_state, attn_weights
 

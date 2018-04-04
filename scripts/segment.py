@@ -17,7 +17,7 @@ def main():
                 if not (MIN_LENGTH < len(line_as_list) < MAX_LENGTH):
                     continue
                 line_as_list.insert(-1, '<EOS>')
-                line_as_list.insert(0, '<ENG>')
+                line_as_list.insert(0, '<L>')
                 line_as_list.insert(0, '<SOS>')
 
                 new_line = str(line_as_list[0])

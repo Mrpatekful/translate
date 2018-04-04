@@ -5,7 +5,7 @@ import re
 
 from os.path import join
 
-from utils.utils import execute
+from utils.utils import call
 
 
 class Session:
@@ -28,10 +28,13 @@ class Session:
             self._last_log = int(re.search('\d', checkpoints[-1]).group(0))
             return torch.load(join(self._log_dir, checkpoints[-1]))
 
-    def _save(self, state):
+    def _save_state(self, state):
         checkpoint = join(self._log_dir, 'checkpoint_%d.pt' % (self._last_log + 1))
         self._last_log += 1
         torch.save(state, checkpoint)
+
+    def _save_outputs(self, outputs):
+        pass
 
     def evaluate(self):
         if self._state is None:
@@ -42,15 +45,17 @@ class Session:
     def train(self):
         with TrainingContext(session=self) as tc:
             for epoch in tc.epochs:
+
+                tc.epoch = epoch
+
                 tc.train()
 
                 with EvaluationContext(session=self) as ec:
                     ec.evaluate()
 
-                tc.epoch = epoch
-                self._save({
-                    'task': self._task.state,
-                    'epoch': epoch
+                self._save_state({
+                    'task':   self._task.state,
+                    'epoch':  epoch
                 })
 
     @property
@@ -71,22 +76,23 @@ class TrainingContext:
         self.epoch = 0
         if self._session.state is not None:
             self.epoch = self._session.state['epoch']
+        self._start_epoch = self.epoch
 
     def __enter__(self):
-        execute('train', self._session.task.readers)
+        call('train', self._session.task.input_pipelines)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        execute('train', self._session.task.readers, {'boolean': False})
+        call('train', self._session.task.input_pipelines, {'boolean': False})
 
     def train(self):
-        print('Epoch: %d' % self.epoch)
+        print(f'\nEpoch: {self.epoch}\n')
         outputs = self._session.task.train()
-        print(outputs)
+        print(f'\nAverage loss: {outputs[0]:.5}\n')
 
     @property
     def epochs(self):
-        return range(self.epoch, self.EPOCHS, 1)
+        return range(self._start_epoch, self.EPOCHS, 1)
 
 
 class EvaluationContext:
@@ -95,14 +101,14 @@ class EvaluationContext:
         self._session = session
 
     def __enter__(self):
-        execute('eval', self._session.task.readers)
-
+        call('eval', self._session.task.input_pipelines)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        execute('eval', self._session.task.readers, {'boolean': False})
+        call('eval', self._session.task.input_pipelines, {'boolean': False})
 
     def evaluate(self):
         outputs = self._session.task.evaluate()
+        print('\nOutputs:\n')
         for output in outputs:
             print(output['symbols'])

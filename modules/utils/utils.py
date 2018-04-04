@@ -17,16 +17,36 @@ class Discriminator(Module, Component):  # TODO states
     """
 
     interface = OrderedDict(**{
-            'hidden_size':      None,
-            'learning_rate':    None,
-            'optimizer_type':   None,
-            'use_cuda':        'Task:use_cuda$',
-            'input_size':      'Encoder:hidden_size$'
-        })
+        'hidden_size':      None,
+        'learning_rate':    None,
+        'optimizer_type':   None,
+        'tokens':          'Task:tokens$',
+        'use_cuda':        'Task:use_cuda$',
+        'input_size':      'Encoder:hidden_size$'
+    })
 
-    def __init__(self, learning_rate, use_cuda):
+    def __init__(self,
+                 hidden_size,
+                 learning_rate,
+                 optimizer_type,
+                 tokens,
+                 use_cuda,
+                 input_size):
+        """
+
+        :param hidden_size:
+        :param learning_rate:
+        :param optimizer_type:
+        :param use_cuda:
+        :param input_size:
+        """
         super().__init__()
 
+        self._output_size = len(tokens)
+
+        self._hidden_size = hidden_size
+        self._optimizer_type = optimizer_type
+        self._input_size = input_size
         self._learning_rate = learning_rate
         self._use_cuda = use_cuda
 
@@ -50,6 +70,7 @@ class FFDiscriminator(Discriminator):
                  hidden_size,
                  learning_rate,
                  optimizer_type,
+                 tokens,
                  use_cuda):
         """
         An instance of a feed-forward discriminator.
@@ -58,11 +79,16 @@ class FFDiscriminator(Discriminator):
         :param learning_rate: float, learning rate of the optimizer.
         :param use_cuda: bool, true if cuda support is enabled.
         """
-        super().__init__(learning_rate=learning_rate, use_cuda=use_cuda)
+        super().__init__(hidden_size=hidden_size,
+                         optimizer_type=optimizer_type,
+                         input_size=input_size,
+                         learning_rate=learning_rate,
+                         tokens=tokens,
+                         use_cuda=use_cuda)
 
         self._input_layer = Linear(input_size, hidden_size)
         self._hidden_layer = Linear(hidden_size, hidden_size)
-        self._output_layer = Linear(hidden_size, 1)
+        self._output_layer = Linear(hidden_size, self._output_size)
         self._activation = LeakyReLU()
 
         if self._use_cuda:
@@ -108,6 +134,7 @@ class RNNDiscriminator(Discriminator):
                  hidden_size,
                  learning_rate,
                  optimizer_type,
+                 tokens,
                  use_cuda):
         """
         An instance of a recurrent discriminator.
@@ -116,13 +143,18 @@ class RNNDiscriminator(Discriminator):
         :param learning_rate: float, learning rate of the optimizer.
         :param use_cuda: bool, true if cuda support is enabled.
         """
-        super().__init__(learning_rate=learning_rate, use_cuda=use_cuda)
+        super().__init__(hidden_size=hidden_size,
+                         optimizer_type=optimizer_type,
+                         input_size=input_size,
+                         learning_rate=learning_rate,
+                         tokens=tokens,
+                         use_cuda=use_cuda)
 
         self._recurrent_layer = torch.nn.GRU(input_size=input_size,
                                              hidden_size=hidden_size,
                                              batch_first=True)
 
-        self._output_layer = Linear(self._hidden_size, 1)
+        self._output_layer = Linear(self._hidden_size, self._output_size)
 
         if self._use_cuda:
             self._recurrent_layer = self._recurrent_layer.cuda()
@@ -142,8 +174,8 @@ class RNNDiscriminator(Discriminator):
                        hidden_size.
         :return: Variable, (batch_size, 1).
         """
-        outputs = self._recurrent_layer.forward(inputs)
-        final_output = torch.sigmoid(self._output_layer(outputs[-1]))
+        outputs, _ = self._recurrent_layer.forward(inputs)
+        final_output = torch.sigmoid(self._output_layer(outputs[:, -1, :]))
 
         return final_output
 
@@ -175,9 +207,10 @@ class Embedding(Module):
         super().__init__()
 
         self._layer = torch.nn.Embedding(vocab_size, embedding_size)
+        self._requires_grad = requires_grad
 
         if weights is not None:
-            self._layer.weight = torch.nn.Parameter(weights)
+            self._layer.weight = torch.nn.Parameter(weights, requires_grad=self._requires_grad)
 
         if use_cuda:
             self._layer = self._layer.cuda()
@@ -200,6 +233,16 @@ class Embedding(Module):
         """
         return self._layer(inputs)
 
+    def freeze(self):
+        if self._requires_grad:
+            for param in self.parameters():
+                param.requires_grad = False
+
+    def unfreeze(self):
+        if self._requires_grad:
+            for param in self.parameters():
+                param.requires_grad = True
+
     @property
     def optimizer(self):
         """
@@ -215,8 +258,8 @@ class Embedding(Module):
         :return: dict, containing the state of the weights and the optimizer.
         """
         return {
-            'weight': self.state_dict(),
-            'optimizer': None if len(self._optimizer) == 0 else self._optimizer[0].state
+            'weight':       self.state_dict(),
+            'optimizer':    None if len(self._optimizer) == 0 else self._optimizer[0].state
         }
 
     @state.setter
@@ -230,6 +273,61 @@ class Embedding(Module):
             self._optimizer[0].state = states['optimizer']
 
 
+class Layer(Module):
+
+    def __init__(self, input_size, output_size, use_cuda):
+        super().__init__()
+
+        self._weights = Linear(input_size, output_size)
+        self.size = output_size
+
+        if use_cuda:
+            self._weights = self._weights.cuda()
+
+        self._optimizer = [
+            Optimizer(parameters=self.parameters(),
+                      optimizer_type='Adam',
+                      scheduler_type='ReduceLROnPlateau',
+                      learning_rate=0.001)
+        ]
+
+    def forward(self, inputs):
+        """
+
+        :param inputs:
+        :return:
+        """
+        return self._weights(inputs)
+
+    @property
+    def optimizer(self):
+        """
+        Property for the optimizer of the layer.
+        :return: list, that only yields an optimizer
+        """
+        return self._optimizer
+
+    @property
+    def state(self):
+        """
+        Property for the state of the embedding.
+        :return: dict, containing the state of the weights and the optimizer.
+        """
+        return {
+            'weight':       self.state_dict(),
+            'optimizer':    self._optimizer[0].state
+        }
+
+    @state.setter
+    def state(self, states):
+        """
+        Setter method for the state of the embedding.
+        :param states: dict, containing the state of the weights and optimizer.
+        """
+        self.load_state_dict(states['weight'])
+        self._optimizer[0].state = states['optimizer']
+
+
 class Optimizer:
     """
     Wrapper class for the optimizers. Additionally to the optimizers provided by torch,
@@ -237,9 +335,9 @@ class Optimizer:
     """
 
     _algorithms = {
-        'Adam': torch.optim.Adam,
-        'SGD': torch.optim.SGD,
-        'RMSProp': torch.optim.RMSprop,
+        'Adam':     torch.optim.Adam,
+        'SGD':      torch.optim.SGD,
+        'RMSProp':  torch.optim.RMSprop,
     }
 
     _schedulers = {

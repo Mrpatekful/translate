@@ -24,7 +24,7 @@ class RNNEncoder(Encoder):
         'optimizer_type':   None,
         'learning_rate':    None,
         'use_cuda':        'Task:use_cuda$',
-        'embedding_size':  'source_embedding_size$'
+        'embedding_size':  'embedding_size$'
     })
 
     abstract = False
@@ -133,7 +133,10 @@ class RNNEncoder(Encoder):
         Property for the optimizers of the encoder.
         :return: list, optimizers used by the encoder.
         """
-        return [self._optimizer, *self.embedding.optimizer]
+        return [
+            self._optimizer,
+            *self.embedding.optimizer,
+        ]
 
     @property
     def state(self):
@@ -142,8 +145,8 @@ class RNNEncoder(Encoder):
         :return: dict, containing the state of the weights, and the optimizer.
         """
         return {
-            'weights': self.state_dict(),
-            'optimizer': self._optimizer.state
+            'weights':      self.state_dict(),
+            'optimizer':    self._optimizer.state
         }
 
     # noinspection PyMethodOverriding

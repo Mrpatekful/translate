@@ -41,8 +41,8 @@ class SeqToSeq(Model):
     """
 
     interface = OrderedDict(**{
-        'encoder': encoders.Encoder,
-        'decoder': decoders.Decoder
+        'encoder':      encoders.Encoder,
+        'decoder':      decoders.Decoder,
     })
 
     abstract = False
@@ -55,8 +55,8 @@ class SeqToSeq(Model):
         """
         super().__init__()
 
-        self._encoder = encoder.init_parameters().init_optimizer()
-        self._decoder = decoder.init_parameters().init_optimizer()
+        self.encoder = encoder.init_parameters().init_optimizer()
+        self.decoder = decoder.init_parameters().init_optimizer()
 
     def forward(self,
                 inputs,
@@ -71,19 +71,10 @@ class SeqToSeq(Model):
         :param lengths: Ndarray, containing the lengths of the original sequences.
         :return decoder_outputs: dict, containing the concatenated outputs of the encoder and decoder.
         """
-        encoder_outputs = self._encoder.forward(inputs=inputs, lengths=lengths)
-        decoder_outputs = self._decoder.forward(targets=targets, max_length=max_length, **encoder_outputs)
+        encoder_outputs = self.encoder.forward(inputs=inputs, lengths=lengths)
+        decoder_outputs = self.decoder.forward(targets=targets, max_length=max_length, **encoder_outputs)
 
         return {**decoder_outputs, **encoder_outputs}
-
-    def set_embeddings(self, encoder_embedding, decoder_embedding):
-        """
-        Sets the embedding layers for the encoder and decoder module.
-        :param encoder_embedding: Embedding, layer type object, that will be used by the encoder.
-        :param decoder_embedding: Embedding, layer type object, that will be used by the decoder.
-        """
-        self._encoder.embedding = encoder_embedding
-        self._decoder.embedding = decoder_embedding
 
     @property
     def optimizers(self):
@@ -92,14 +83,21 @@ class SeqToSeq(Model):
         :return: dict, containing the names and instances of optimizers for the encoder/decoder
                  and the currently used embeddings.
         """
-        return [*self._encoder.optimizers, *self._decoder.optimizers]
+        return [*self.encoder.optimizers, *self.decoder.optimizers]
+
+    @property
+    def output_size(self):
+        """
+        THe dimension of the decoder's output layer.
+        """
+        return self.decoder.output_size
 
     @property
     def decoder_tokens(self):
         """
         Tokens used by the decoder, for special outputs.
         """
-        return self._decoder.tokens
+        return self.decoder.tokens
 
     @decoder_tokens.setter
     def decoder_tokens(self, tokens):
@@ -107,14 +105,23 @@ class SeqToSeq(Model):
         Setter for the tokens, that will be used by the decoder.
         :param tokens: dict, tokens from the lut of decoding target.
         """
-        self._decoder.tokens = tokens
+        self.decoder.tokens = tokens
 
     @property
     def state(self):
-        return {'encoder': self._encoder.state, 'decoder': self._decoder.state}
+        """
+
+        :return:
+        """
+        return {'encoder': self.encoder.state, 'decoder': self.decoder.state}
 
     # noinspection PyMethodOverriding
     @state.setter
     def state(self, state):
-        self._encoder.state = state['encoder']
-        self._decoder.state = state['decoder']
+        """
+
+        :param state:
+        :return:
+        """
+        self.encoder.state = state['encoder']
+        self.decoder.state = state['decoder']
