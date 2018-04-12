@@ -41,8 +41,8 @@ class SeqToSeq(Model):
     """
 
     interface = OrderedDict(**{
-        'encoder':      encoders.Encoder,
-        'decoder':      decoders.Decoder,
+        'encoder':    encoders.Encoder,
+        'decoder':    decoders.Decoder
     })
 
     abstract = False
@@ -50,31 +50,64 @@ class SeqToSeq(Model):
     def __init__(self, encoder, decoder):
         """
         An instance of ta sequence to sequence model.
-        :param encoder: Encoder, an encoder instance.
-        :param decoder: Decoder, a decoder instance.
+
+        Args:
+            encoder:
+                Encoder, an encoder instance.
+
+            decoder:
+                Decoder, a decoder instance.
         """
         super().__init__()
 
         self.encoder = encoder.init_parameters().init_optimizer()
         self.decoder = decoder.init_parameters().init_optimizer()
 
+        self._parameter_names = [name for name, _ in self.named_parameters()]
+
     def forward(self,
                 inputs,
+                lengths,
                 targets,
-                max_length,
-                lengths):
+                max_length):
         """
         Forward step of the sequence to sequence model.
-        :param inputs: Variable, containing the ids of the tokens for the input sequence.
-        :param targets: Variable, containing the ids of the tokens for the target sequence.
-        :param max_length: int, the maximum length of the decoded sequence.
-        :param lengths: Ndarray, containing the lengths of the original sequences.
-        :return decoder_outputs: dict, containing the concatenated outputs of the encoder and decoder.
+
+        Args:
+            inputs:
+                Variable, containing the ids of the tokens for the input sequence.
+
+            targets:
+                Variable, containing the ids of the tokens for the target sequence.
+
+            max_length:
+                int, the maximum length of the decoded sequence.
+
+            lengths:
+                Ndarray, containing the lengths of the original sequences.
+
+        Returns:
+            outputs:
+                dict, containing the concatenated outputs of the encoder and decoder.
         """
-        encoder_outputs = self.encoder.forward(inputs=inputs, lengths=lengths)
-        decoder_outputs = self.decoder.forward(targets=targets, max_length=max_length, **encoder_outputs)
+        encoder_outputs = self.encoder(inputs=inputs, lengths=lengths)
+        decoder_outputs = self.decoder(targets=targets, max_length=max_length, **encoder_outputs)
 
         return {**decoder_outputs, **encoder_outputs}
+
+    def freeze(self):
+        """
+
+        """
+        for param in [param for name, param in self.named_parameters() if name in self._parameter_names]:
+            param.requires_grad = False
+
+    def unfreeze(self):
+        """
+
+        """
+        for param in [param for name, param in self.named_parameters() if name in self._parameter_names]:
+            param.requires_grad = True
 
     @property
     def optimizers(self):
@@ -103,15 +136,20 @@ class SeqToSeq(Model):
     def decoder_tokens(self, tokens):
         """
         Setter for the tokens, that will be used by the decoder.
-        :param tokens: dict, tokens from the lut of decoding target.
         """
         self.decoder.tokens = tokens
+
+    @property
+    def output_types(self):
+        return {
+            **self.encoder.output_types,
+            **self.decoder.output_types
+        }
 
     @property
     def state(self):
         """
 
-        :return:
         """
         return {'encoder': self.encoder.state, 'decoder': self.decoder.state}
 
@@ -120,8 +158,6 @@ class SeqToSeq(Model):
     def state(self, state):
         """
 
-        :param state:
-        :return:
         """
         self.encoder.state = state['encoder']
         self.decoder.state = state['decoder']

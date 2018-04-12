@@ -4,7 +4,8 @@ import time
 import pickle
 import os.path
 import inspect
-import numpy
+
+from collections import OrderedDict
 
 
 class Component:
@@ -19,7 +20,6 @@ class Component:
     def properties(self):
         """
         Convenience function for retrieving the properties of an instances, with their values.
-        :return:
         """
         return {
             name: getattr(self, name) for (name, _) in
@@ -47,12 +47,12 @@ class ModelManager:
         self._table['D_O'] = lookups['D_O']
 
     def switch_lookups(self, lookups):
-        self._model.encoder.embedding = self._table['E_I'][lookups['E_I']]
-        self._model.decoder.embedding = self._table['D_I'][lookups['D_I']]
-        self._model.decoder.output_layer = self._table['D_O'][lookups['D_O']]
-
-    def switch_encoder(self, encoder):
-        pass
+        if 'E_I' in lookups:
+            self._model.encoder.embedding = self._table['E_I'][lookups['E_I']]
+        if 'D_I' in lookups:
+            self._model.decoder.embedding = self._table['D_I'][lookups['D_I']]
+        if 'D_O' in lookups:
+            self._model.decoder.output_layer = self._table['D_O'][lookups['D_O']]
 
 
 class ParameterSetter:
@@ -359,8 +359,8 @@ class Logger:
         Serializes the log dictionary.
         """
         pickle.dump(obj=self._log_dict,
-                    file=open(os.path.join(self.log_dir, 'iter_%d-%d' %
-                                           (self._id-self._dump_interval, self._id)), 'wb'))
+                    file=open(os.path.join(self.log_dir, f'iter_{self._id-self._dump_interval}-{self._id}'), 'wb'))
+
         del self._log_dict
         self._log_dict = {}
 
@@ -380,3 +380,141 @@ class Logger:
         Setter for the directory of the logging directory.
         """
         self._log_dir = log_dir
+
+
+class Policy(Component):
+
+    interface = OrderedDict({
+        'use_cuda':     None,
+        'train':        None,
+        'validation':   None,
+        'test':         None
+    })
+
+    def __init__(self, train, validation, test, use_cuda):
+        self._train = train
+        self._validation = validation
+        self._test = test
+        self._use_cuda = use_cuda
+
+    @property
+    def train(self):
+        return self._train
+
+    @property
+    def validation(self):
+        return self._validation
+
+    @property
+    def test(self):
+        return self._test
+
+    @property
+    def cuda(self):
+        return self._use_cuda
+
+
+class UNMTPolicy(Policy):
+    """
+
+    """
+    abstract = False
+
+    def __init__(self,
+                 train,
+                 validation,
+                 test,
+                 use_cuda):
+        """
+
+
+        Args:
+            train:
+
+            validation:
+
+            test:
+
+            use_cuda:
+
+        """
+        super().__init__(train, validation, test, use_cuda)
+
+
+    @property
+    def train_tf_ratio(self):
+        """
+
+        """
+        try:
+            tf = self.train['tf_ratio']
+
+        except KeyError:
+            raise ValueError('')
+
+        return tf
+
+    @property
+    def train_noise(self):
+        """
+
+        """
+        try:
+            noise = self.train['noise']
+
+        except KeyError:
+            raise ValueError('')
+
+        return noise
+
+    @property
+    def validation_tf_ratio(self):
+        """
+
+        """
+        try:
+            tf = self.validation['tf_ratio']
+
+        except KeyError:
+            raise ValueError('')
+
+        return tf
+
+    @property
+    def validation_noise(self):
+        """
+
+        """
+        try:
+            noise = self.validation['noise']
+
+        except KeyError:
+            raise ValueError('')
+
+        return noise
+
+    @property
+    def test_tf_ratio(self):
+        """
+
+        """
+        try:
+            tf = self.test['tf_ratio']
+
+        except KeyError:
+            raise ValueError('')
+
+        return tf
+
+    @property
+    def test_noise(self):
+        """
+
+        """
+        try:
+            noise = self.test['noise']
+
+        except KeyError:
+            raise ValueError('')
+
+        return noise

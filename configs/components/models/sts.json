@@ -2,7 +2,7 @@
     "type": "SeqToSeq",
     "params": {
         "encoder":  {
-            "type": "RNNEncoder",
+            "type": "UnidirectionalRNNEncoder",
             "params": {
                 "hidden_size": 50,
                 "recurrent_type": "LSTM",
@@ -19,8 +19,7 @@
                 "num_layers": 2,
                 "optimizer_type": "Adam",
                 "learning_rate": 0.01,
-                "max_length": 15,
-                "tf_ratio": 0
+                "max_length": 15
             }
         }
     }

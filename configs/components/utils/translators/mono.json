@@ -1,0 +1,9 @@
+{
+    "type": "NaiveTranslator",
+    "params": {
+        "vocabs": [
+          "..data/eng/eng_voc",
+          "..data/fra/fra_voc"
+        ]
+    }
+}

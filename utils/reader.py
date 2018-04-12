@@ -30,7 +30,7 @@ class Corpora(Component):
         'train':     None,
         'dev':       None,
         'test':      None,
-        'use_cuda': 'Task:use_cuda$'
+        'use_cuda': 'Task:Policy:use_cuda$'
     })
 
     abstract = True
@@ -308,7 +308,7 @@ class FastInput(InputPipeline):
             'max_segment_size':  None,
             'batch_size':        None,
             'padding_type':      None,
-            'use_cuda':         'Task:use_cuda$',
+            'use_cuda':         'Task:Policy:use_cuda$',
             'corpora':           Corpora
         })
 
@@ -341,18 +341,22 @@ class FastInput(InputPipeline):
 
         self._padder = padding_types[padding_type](self._corpora.vocabulary, max_segment_size)
 
+        train = self._padder(self._corpora.train)
+        dev = self._padder(self._corpora.dev)
+        test = self._padder(self._corpora.test)
+
         self._modes = {
             'train': {
                 'batch_size':   batch_size,
-                'data':         self._padder(self._corpora.train)
+                'data':         train
             },
             'dev': {
                 'batch_size':   1,
-                'data':         self._padder(self._corpora.dev)
+                'data':         dev
             },
             'test': {
                 'batch_size':   1,
-                'data':         self._padder(self._corpora.test)
+                'data':         test
             }
         }
 
@@ -370,12 +374,16 @@ class FastInput(InputPipeline):
                  of the lengths of the original sequences (without padding).
         """
         for data_segment in self._segment_generator():
-            shuffled_data_segment = sklearn.utils.shuffle(data_segment)
-            for index in range(0, len(shuffled_data_segment)-self._modes[self._mode]['batch_size'],
+            if self._mode == 'train':
+                shuffled_data_segment = sklearn.utils.shuffle(data_segment)
+            else:
+                shuffled_data_segment = data_segment
+            for index in range(0, len(shuffled_data_segment)-self._modes[self._mode]['batch_size']+1,
                                self._modes[self._mode]['batch_size']):
                 batch = self._padder.create_batch(
-                    shuffled_data_segment[index:index + self._modes[self._mode]['batch_size']])
-                yield self.batch_format(batch, self._use_cuda)
+                    shuffled_data_segment[index:index + self._modes[self._mode]['batch_size']]
+                )
+                yield batch
 
     def print_validation_format(self, dictionary):
         """
@@ -546,8 +554,6 @@ class Vocabulary:
     """
     Wrapper class for the lookup tables of the languages.
     """
-    PAD = -1
-    LNG = -2
 
     interface = OrderedDict(**{
         'vocab':      None,
@@ -589,24 +595,24 @@ class Vocabulary:
 
     def _load_data(self, path):
         """
-        Loads the vocabulary from a file. Path is assumed to be a text
-        file, where each line contains a word and its corresponding embedding weights, separated by spaces.
+        Loads the vocabulary from a file. Path is assumed to be a text file, where each line contains
+        a word and its corresponding embedding weights, separated by spaces.
         :param path: string, the absolute path of the vocab.
         """
         with open(path, 'r') as file:
             first_line = file.readline().split(' ')
-            self._vocab_size = int(first_line[0]) + 3 + len(self._language_tokens)
+            self._vocab_size = int(first_line[0]) + 4 + len(self._language_tokens)
             self._embedding_size = int(first_line[1])
 
             if self._provided:
-                self._embedding_weights = numpy.empty((self._vocab_size, self._embedding_size), dtype='float')
+                self._embedding_weights = numpy.empty((self._vocab_size, self._embedding_size), dtype=float)
 
             for index, line in enumerate(file):
                 line_as_list = list(line.split(' '))
                 self._word_to_id[line_as_list[0]] = index
                 if self._provided:
-                    self._embedding_weights[index + 1, :] = numpy.array([float(element) for element
-                                                                         in line_as_list[1:]], dtype=float)
+                    self._embedding_weights[index, :] = numpy.array([float(element) for element
+                                                                    in line_as_list[1:]], dtype=float)
 
             for token in self._language_tokens:
                 self._word_to_id[token] = len(self._word_to_id)
@@ -614,11 +620,7 @@ class Vocabulary:
             self._word_to_id['<SOS>'] = len(self._word_to_id)
             self._word_to_id['<EOS>'] = len(self._word_to_id)
             self._word_to_id['<UNK>'] = len(self._word_to_id)
-
-            # self._vocab_size = len(self._word_to_id)
-
-            self._word_to_id['<PAD>'] = self.PAD
-            self._word_to_id['<LNG>'] = self.LNG
+            self._word_to_id['<PAD>'] = len(self._word_to_id)
 
             self._id_to_word = dict(zip(self._word_to_id.values(), self._word_to_id.keys()))
 
@@ -626,8 +628,9 @@ class Vocabulary:
                 self._embedding_weights[-1, :] = numpy.zeros(self._embedding_size)
                 self._embedding_weights[-2, :] = numpy.zeros(self._embedding_size)
                 self._embedding_weights[-3, :] = numpy.zeros(self._embedding_size)
+                self._embedding_weights[-4, :] = numpy.zeros(self._embedding_size)
 
-                for index in range(-4, -4-len(self._language_tokens), -1):
+                for index in range(-5, -5-len(self._language_tokens), -1):
                     self._embedding_weights[index, :] = numpy.random.rand(self._embedding_size)
 
                 self._embedding_weights = torch.from_numpy(self._embedding_weights).float()
@@ -645,22 +648,23 @@ class Vocabulary:
         if isinstance(expression, str):
             return self._word_to_id[expression]
 
-        elif isinstance(expression, int) or isinstance(expression, numpy.int64):
+        elif isinstance(expression, int) or isinstance(expression, numpy.int64) or isinstance(expression, numpy.int32):
             return self._id_to_word[expression]
 
         else:
-            raise ValueError('Expression must either be a string or an int.')
+            raise ValueError(f'Expression must either be a string or an int, got {type(expression)}')
 
     @property
     def tokens(self):
         """
         Property for the tokens of the language.
-        :return: dict, <UNK>, <EOS> and <SOS> tokens with their ids.
+        :return: dict, <UNK>, <EOS>, <PAD> and <SOS> tokens with their ids.
         """
         return {
-            '<UNK>': self._word_to_id['<UNK>'],
+            '<SOS>': self._word_to_id['<SOS>'],
             '<EOS>': self._word_to_id['<EOS>'],
-            '<SOS>': self._word_to_id['<SOS>']
+            '<UNK>': self._word_to_id['<UNK>'],
+            '<PAD>': self._word_to_id['<PAD>']
         }
 
     @property
@@ -689,7 +693,7 @@ class Vocabulary:
         Property for the dimension of the embeddings.
         :return: int, length of the vocabulary (dim 1 of the embedding matrix).
         """
-        return self._vocab_size
+        return self._vocab_size - 1
 
 
 class DataQueue:
@@ -736,7 +740,7 @@ class Padding:  # TODO parallel support
         self._vocabulary = vocabulary[0]
         self._max_segment_size = max_segment_size
 
-    def create_batch(self, ):
+    def create_batch(self, data):
         return NotImplementedError
 
 
@@ -748,8 +752,7 @@ class PostPadding(Padding):
 
     abstract = False
 
-    @staticmethod
-    def create_batch(data):
+    def create_batch(self, data):
         """
         Creates a sorted batch from the data. Each line of the data is padded to the
         length of the longest sequence in the batch.
@@ -760,7 +763,7 @@ class PostPadding(Padding):
         batch_length = sorted_data[0][-1]
         for index in range(len(sorted_data)):
             while len(sorted_data[index]) - 1 < batch_length:
-                sorted_data[index].insert(-1, Vocabulary.PAD)
+                sorted_data[index].insert(-1, self._vocabulary.tokens['<PAD>'])
 
         return numpy.array(sorted_data, dtype='int')
 
@@ -783,7 +786,6 @@ class PostPadding(Padding):
                 ids = ids_from_sentence(self._vocabulary, line)
                 ids.append(len(ids))
                 data_to_ids.append(ids)
-
         return data_to_ids
 
 
@@ -795,8 +797,7 @@ class PrePadding(Padding):
 
     abstract = False
 
-    @staticmethod
-    def create_batch(data):
+    def create_batch(self, data):
         """
         Creates the batch, by sorting the elements in descending order with respect to the
         lengths of the sequences.
@@ -827,7 +828,7 @@ class PrePadding(Padding):
                 ids = ids_from_sentence(self._vocabulary, line)
                 ids_len = len(ids)
                 while len(ids) < segment_length:
-                    ids.append(Vocabulary.PAD)
+                    ids.append(self._vocabulary.tokens['<PAD>'])
                 data_line = numpy.zeros((segment_length + 1), dtype='int')
                 data_line[:-1] = ids
                 data_line[-1] = ids_len

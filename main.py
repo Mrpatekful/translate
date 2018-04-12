@@ -23,9 +23,7 @@ def main():
 
     arguments = parser.parse_args(['-t'])
 
-    task, log_dir = Config(arguments.config).assemble()
-
-    session = Session(task, log_dir)
+    session = Session(*Config(arguments.config).assemble())
 
     if arguments.train:
         session.train()

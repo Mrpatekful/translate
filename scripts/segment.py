@@ -1,7 +1,7 @@
 import re
 
-FILE_INPUT = '../data/fra/fra_org'
-FILE_OUTPUT = '../data/fra/fra_seg'
+FILE_INPUT = '../data/eng/eng_org'
+FILE_OUTPUT = '../data/eng/eng_seg'
 
 MIN_LENGTH = 5
 MAX_LENGTH = 10
@@ -17,7 +17,6 @@ def main():
                 if not (MIN_LENGTH < len(line_as_list) < MAX_LENGTH):
                     continue
                 line_as_list.insert(-1, '<EOS>')
-                line_as_list.insert(0, '<L>')
                 line_as_list.insert(0, '<SOS>')
 
                 new_line = str(line_as_list[0])

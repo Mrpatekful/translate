@@ -1,15 +1,19 @@
 {
     "type": "UnsupervisedTranslation",
     "params": {
-        "use_cuda": true,
+        "policy": "configs/components/utils/policies/unmt.json",
         "tokens": [
-            "<ENG>"
+            "<ENG>",
+            "<FRA>"
         ],
         "input_pipelines": [
-            "configs/components/utils/input_pipelines/eng.json"
+            "configs/components/utils/input_pipelines/eng.json",
+            "configs/components/utils/input_pipelines/fra.json"
         ],
-        "model": "configs/components/models/sts.json"
+        "model": "configs/components/models/sts.json",
+        "translation_model": "configs/components/utils/translators/mono.json",
+        "reguralization": "configs/components/utils/reguralization/rnn.json"
     },
     "checkpoints": "logs/checkpoints/unmt_0",
-    "analysis": "logs/analysis/unmt_0"
+    "outputs": "logs/outputs/unmt_0"
 }

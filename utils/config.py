@@ -3,13 +3,17 @@ import json
 from modules.encoder import Encoder
 from modules.decoder import Decoder
 from modules.utils.utils import Discriminator
+from modules.utils.utils import Translator
 
 from utils.reader import InputPipeline
 from utils.reader import Corpora
 from models.models import Model
 from tasks.tasks import Task
 
-from utils import utils
+from utils.utils import subclasses
+from utils.utils import copy_dict_hierarchy
+from utils.utils import merge_dicts
+from utils.utils import Policy
 
 import re
 import sys
@@ -24,11 +28,11 @@ class Config:
     Each node of the JSON file, that has a 'type' and 'params' key are Component type
     objects.
     """
-    _base_nodes = [Encoder, Decoder, Discriminator, InputPipeline, Corpora, Model]
+    _base_nodes = [Encoder, Decoder, Discriminator, InputPipeline, Corpora, Model, Policy, Translator]
 
-    _tasks = utils.subclasses(Task)
+    _tasks = subclasses(Task)
 
-    _modules = utils.merge_dicts(utils.subclasses, _base_nodes)
+    _modules = merge_dicts(subclasses, _base_nodes)
 
     @staticmethod
     def _apply_operator(args, op):
@@ -48,7 +52,7 @@ class Config:
         elif op == '/':
             return args[0] / args[1]
         else:
-            raise ValueError('Undefined operand: %s.' % op)
+            raise ValueError(f'Undefined operand: {op}.')
 
     def __init__(self, config):
         """
@@ -67,15 +71,16 @@ class Config:
         """
         try:
 
-            log_dir = self._config['checkpoints']
+            chk_dir = self._config['checkpoints']
+            anal_dir = self._config['outputs']
             task_type = self._tasks[self._config['type']]
             task = self._create_node(task_type, self._config['params'], 'Task')
 
         except ValueError as error:
-            print('Error: %s' % error)
+            print(f'Error: {error}')
             sys.exit()
 
-        return task, log_dir
+        return task, chk_dir, anal_dir
 
     def _build_params(self, param_dict, interface_dict, config, lookup_id):
         """
@@ -111,8 +116,7 @@ class Config:
                     module_type = self._modules[module_dict['type']]
                     param_dict[key].append(self._create_node(module_type,
                                                              module_dict['params'],
-                                                             lookup_id + ':%s%s' % (interface_dict[key].__name__,
-                                                                                    index)))
+                                                             lookup_id + f':{interface_dict[key].__name__}{index}'))
 
             elif interface_dict[key] in self._base_nodes:
                 if config.get(key, None) is not None:
@@ -123,15 +127,15 @@ class Config:
                     module_type = self._modules[module_dict['type']]
                     param_dict[key] = self._create_node(module_type,
                                                         module_dict['params'],
-                                                        lookup_id + ':%s' % interface_dict[key].__name__)
+                                                        lookup_id + f':{interface_dict[key].__name__}')
 
             elif key in config.keys():
                 param_dict[key] = config[key]
-                self._registered_params[lookup_id + ':%s' % key] = param_dict[key]
+                self._registered_params[lookup_id + f':{key}'] = param_dict[key]
 
             else:
                 param_dict[key] = self._resolve_aggregation(interface_dict[key])
-                self._registered_params[lookup_id + ':%s' % key] = param_dict[key]
+                self._registered_params[lookup_id + f':{key}'] = param_dict[key]
 
         return param_dict
 
@@ -147,14 +151,14 @@ class Config:
         :return: Component, an instance of the passed entity.
         """
         interface = entity.interface
-        param_dict = utils.copy_dict_hierarchy(interface)
+        param_dict = copy_dict_hierarchy(interface)
 
-        instance = entity(**utils.create_leaf_dict(self._build_params(param_dict, interface, config, lookup_id)))
+        instance = entity(**self._build_params(param_dict, interface, config, lookup_id))
         instance_properties = instance.properties()
 
         self._registered_params = {
             **self._registered_params,
-            **{'%s:%s' % (lookup_id, name): instance_properties[name] for name in instance_properties}
+            **{f'{lookup_id}:{name}': instance_properties[name] for name in instance_properties}
         }
 
         return instance
@@ -168,12 +172,12 @@ class Config:
         """
         keys = [key for key in list(self._registered_params.keys()) if re.search(pattern, key) is not None]
         if len(keys) > 1:
-            logging.warning('Ambiguous look up expression \' %s \', the first matching '
-                            'key has been chosen as default \' %s \'' % (pattern, keys[0]))
+            logging.warning(f'Ambiguous look up expression \' {pattern} \', the first matching '
+                            f'key has been chosen as default \' {keys[0]} \'')
             return keys[0]
 
         if len(keys) == 0:
-            raise ValueError('No currently registered keys match the given look up expression \' %s \'' % pattern)
+            raise ValueError(f'No currently registered keys match the given look up expression \' {pattern} \'')
 
         return keys[0]
 
@@ -210,7 +214,7 @@ class Config:
                 return self._registered_params[self._get_key(expressions[0])]
 
             else:
-                raise ValueError('Invalid description \' %s \'' % description)
+                raise ValueError(f'Invalid description \' {description} \'')
 
         else:
-            raise ValueError('Description must be str.')
+            raise ValueError(f'Invalid description \' {description} \'')

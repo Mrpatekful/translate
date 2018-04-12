@@ -1,72 +1,39 @@
-<SOS> <FRA> est - il décédé ? <EOS>
-<SOS> <FRA> est - il mort ? <EOS>
-<SOS> <FRA> est - il occupé ? <EOS>
-<SOS> <FRA> c'est moi qui paie . <EOS>
-<SOS> <FRA> je me sens seule . <EOS>
-<SOS> <FRA> je me sens seul . <EOS>
-<SOS> <FRA> je suis au lit . <EOS>
-<SOS> <FRA> je suis plus rapide . <EOS>
-<SOS> <FRA> c'est moi qui paie . <EOS>
-<SOS> <FRA> je suis un menteur . <EOS>
-<SOS> <FRA> je suis un héros . <EOS>
-<SOS> <FRA> je vais le faire . <EOS>
-<SOS> <FRA> je fais de l'exercice . <EOS>
-<SOS> <FRA> j'ai été en retard . <EOS>
-<SOS> <FRA> je n'étais pas là . <EOS>
-<SOS> <FRA> j'ai envie de toi . <EOS>
-<SOS> <FRA> je les ai vus . <EOS>
-<SOS> <FRA> je les ai vues . <EOS>
-<SOS> <FRA> je me le rappelle . <EOS>
-<SOS> <FRA> je me suis enfuit . <EOS>
-<SOS> <FRA> j'ai besoin de vous . <EOS>
-<SOS> <FRA> j'ai besoin de toi . <EOS>
-<SOS> <FRA> j'ai besoin de glace . <EOS>
-<SOS> <FRA> il me faut courir . <EOS>
-<SOS> <FRA> je les ai rencontrées . <EOS>
-<SOS> <FRA> je les ai rencontrés . <EOS>
-<SOS> <FRA> j'en ai confectionné deux . <EOS>
-<SOS> <FRA> j'en ai fait deux . <EOS>
-<SOS> <FRA> j'ai préparé du thé . <EOS>
-<SOS> <FRA> je connais la rcp . <EOS>
-<SOS> <FRA> j'ai reçu de l'aide . <EOS>
-<SOS> <FRA> je suis devenue malade . <EOS>
-<SOS> <FRA> je suis devenu malade . <EOS>
-<SOS> <FRA> je me suis perdu . <EOS>
-<SOS> <FRA> je suis devenu occupée . <EOS>
-<SOS> <FRA> je suis devenu occupé . <EOS>
-<SOS> <FRA> je me sentis malade . <EOS>
-<SOS> <FRA> laisse - moi payer . <EOS>
-<SOS> <FRA> laissez - moi sortir ! <EOS>
-<SOS> <FRA> laisse - moi sortir ! <EOS>
-<SOS> <FRA> laisse - moi mourir . <EOS>
-<SOS> <FRA> laissez - moi mourir . <EOS>
-<SOS> <FRA> faites - le entrer . <EOS>
-<SOS> <FRA> laissez - le entrer . <EOS>
-<SOS> <FRA> laisse - le entrer . <EOS>
-<SOS> <FRA> fais - le entrer . <EOS>
-<SOS> <FRA> laissez - le partir ! <EOS>
-<SOS> <FRA> laisse - le partir ! <EOS>
-<SOS> <FRA> laissez - le partir ! <EOS>
-<SOS> <FRA> laisse - le partir ! <EOS>
-<SOS> <FRA> ça s'est bien passé . <EOS>
-<SOS> <FRA> est - ce cela ? <EOS>
-<SOS> <FRA> est - ce inoffensif ? <EOS>
-<SOS> <FRA> est - ce sûr ? <EOS>
-<SOS> <FRA> est - ce chouette ? <EOS>
-<SOS> <FRA> est - ce difficile ? <EOS>
-<SOS> <FRA> est - ce fait ? <EOS>
-<SOS> <FRA> est - il grand ? <EOS>
-<SOS> <FRA> nous vous avons vue . <EOS>
-<SOS> <FRA> nous vous avons vu . <EOS>
-<SOS> <FRA> nous en avons besoin . <EOS>
-<SOS> <FRA> nous devons y aller . <EOS>
-<SOS> <FRA> nous achetons des cd . <EOS>
-<SOS> <FRA> nous sommes des hommes . <EOS>
-<SOS> <FRA> tom est chez lui . <EOS>
-<SOS> <FRA> tom hocha la tête . <EOS>
-<SOS> <FRA> le temps est écoulé . <EOS>
-<SOS> <FRA> ce sont les siens . <EOS>
-<SOS> <FRA> t'es un bon garçon ! <EOS>
-<SOS> <FRA> fais un petit somme ! <EOS>
-<SOS> <FRA> n'y prête pas attention . <EOS>
-<SOS> <FRA> laissez - nous sortir ! <EOS>
+<SOS> nous sortons manger vendredi . <EOS> 
+<SOS> tom n'approuverait certainement pas . <EOS> 
+<SOS> c'est un point crucial . <EOS> 
+<SOS> ils réduiront leurs dépenses . <EOS> 
+<SOS> répétition est mère d'apprentissage . <EOS> 
+<SOS> rien d'extraordinaire n'est arrivé . <EOS> 
+<SOS> rien d'extraordinaire n'est survenu . <EOS> 
+<SOS> c'est dommage qu'ils divorcent . <EOS> 
+<SOS> on pourra commencer bientôt . <EOS> 
+<SOS> c'est hors de question . <EOS> 
+<SOS> je vous cherche partout . <EOS> 
+<SOS> je te cherche partout . <EOS> 
+<SOS> j'étudie l'économie à l'université . <EOS> 
+<SOS> j'ajouterai la touche finale . <EOS> 
+<SOS> j'ai quelque chose dans l'hotel <EOS> 
+<SOS> son roman m'est incompréhensible . <EOS> 
+<SOS> son comportement m'énerve vraiment . <EOS> 
+<SOS> il tremble de froid . <EOS> 
+<SOS> il sauta sur l'occasion . <EOS> 
+<SOS> il étudie l'informatique linguistique . <EOS> 
+<SOS> tout fonctionnera selon l'horaire . <EOS> 
+<SOS> soyez attentif aux pickpockets . <EOS> 
+<SOS> que cherchait - il ? <EOS> 
+<SOS> nous devrions discuter calmement ! <EOS> 
+<SOS> tom semble attendre quelqu'un . <EOS> 
+<SOS> tom s'intéresse à l'alpinisme . <EOS> 
+<SOS> tom parle couramment japonais . <EOS> 
+<SOS> elles craignirent d'être écoutées . <EOS> 
+<SOS> ils craignirent d'être écoutés . <EOS> 
+<SOS> ils ont été défavorisés . <EOS> 
+<SOS> ce problème est insoluble . <EOS> 
+<SOS> l'idée même m'est détestable . <EOS> 
+<SOS> la conférence est annuelle . <EOS> 
+<SOS> l'actrice était élégamment habillée . <EOS> 
+<SOS> merci beaucoup de m'inviter . <EOS> 
+<SOS> mon frère est lycéen . <EOS> 
+<SOS> ma chambre grouille d'araignées . <EOS> 
+<SOS> ne nous précipitons pas . <EOS> 
+<SOS> allons prendre l'air dehors . <EOS> 

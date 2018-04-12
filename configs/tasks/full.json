@@ -1,0 +1,104 @@
+{
+    "type": "UnsupervisedTranslation",
+    "params": {
+        "policy": {
+              "type": "UNMTPolicy",
+              "params":{
+                "use_cuda": true,
+                "train": {
+                  "tf_ratio": 1,
+                  "noise": true
+                },
+                "validation": {
+                  "tf_ratio": 0,
+                  "noise": true
+                },
+                "test": {
+                  "tf_ratio": 0,
+                  "noise": false
+                }
+              }
+            },
+
+        "tokens": [
+            "<ENG>",
+            "<FRA>"
+        ],
+        "input_pipelines": [
+            {
+                "type": "FastInput",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 32,
+                    "padding_type": "PostPadding",
+                    "corpora": {
+                        "type": "Monolingual",
+                        "params": {
+                            "train": "data/fra/fra_train",
+                            "dev": "data/fra/fra_dev",
+                            "test": "data/fra/fra_test",
+                            "vocab": "data/fra/fra_voc",
+                            "provided": true,
+                            "fixed": false
+                        }
+                    }
+                }
+            },
+            {
+                "type": "FastInput",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 32,
+                    "padding_type": "PostPadding",
+                    "corpora": {
+                        "type": "Monolingual",
+                        "params": {
+                            "train": "data/fra/fra_train",
+                            "dev": "data/fra/fra_dev",
+                            "test": "data/fra/fra_test",
+                            "vocab": "data/fra/fra_voc",
+                            "provided": true,
+                            "fixed": false
+                        }
+                    }
+                }
+            }
+        ],
+        "model": {
+            "type": "SeqToSeq",
+            "params": {
+                "encoder":  {
+                    "type": "BidirectionalRNNEncoder",
+                    "params": {
+                        "hidden_size": 50,
+                        "recurrent_type": "LSTM",
+                        "num_layers": 2,
+                        "optimizer_type": "Adam",
+                        "learning_rate": 0.01
+                    }
+                },
+                "decoder": {
+                    "type": "DotAttentionRNNDecoder",
+                    "params": {
+                        "hidden_size": 50,
+                        "recurrent_type": "LSTM",
+                        "num_layers": 2,
+                        "optimizer_type": "Adam",
+                        "learning_rate": 0.01,
+                        "max_length": 15
+                    }
+                }
+            }
+        },
+        "reguralization": {
+            "type": "RNNDiscriminator",
+            "params": {
+                "hidden_size": 50,
+                "optimizer_type": "Adam",
+                "learning_rate": 0.01
+            }
+        }
+    },
+    "checkpoints": "logs/checkpoints/unmt_0",
+    "outputs": "logs/outputs/unmt_0"
+}

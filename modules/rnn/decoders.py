@@ -8,6 +8,9 @@ import torch.nn.functional as functional
 from modules.utils.utils import Optimizer
 from modules.decoder import Decoder
 
+from analysis.analysis import Data
+from analysis.analysis import AttentionData
+
 from utils.utils import ParameterSetter
 from utils.utils import subtract_dict
 
@@ -26,7 +29,7 @@ class RNNDecoder(Decoder):
         'optimizer_type':   None,
         'learning_rate':    None,
         'max_length':       None,
-        'use_cuda':        'Task:use_cuda$',
+        'use_cuda':        'Task:Policy:use_cuda$',
         'embedding_size':  'embedding_size$',
         'input_size':      'embedding_size$'
     })
@@ -55,13 +58,14 @@ class RNNDecoder(Decoder):
         self._tokens = None
 
         self._outputs = {
-            'alignment_weights': None,
-            'symbols':           None,
-            'outputs':           None
+            'symbols':    None,
+            'outputs':    None
         }
 
         self.embedding = None
         self.output_layer = None
+
+        self._recurrent_parameters = None
 
     def init_parameters(self):
         """
@@ -89,13 +93,15 @@ class RNNDecoder(Decoder):
         if self._use_cuda:
             self._recurrent_layer = self._recurrent_layer.cuda()
 
+        self._recurrent_parameters = list(self.named_parameters())
+
         return self
 
     def init_optimizer(self):
         """
         Initializes the optimizer for the decoder.
         """
-        self._optimizer = Optimizer(parameters=self.parameters(),
+        self._optimizer = Optimizer(parameters=[param for name, param in self._recurrent_parameters],
                                     optimizer_type=self._optimizer_type,
                                     scheduler_type='ReduceLROnPlateau',
                                     learning_rate=self._learning_rate)
@@ -186,7 +192,6 @@ class RNNDecoder(Decoder):
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param input_sequence_length:This parameter is required only by the attentional version of this method.
         """
-        self.embedding.unfreeze()
         output_sequence_length = targets.size(1) - 1
 
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype=numpy.int32)
@@ -221,7 +226,6 @@ class RNNDecoder(Decoder):
         :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
         :param input_sequence_length: This parameter is required only by the attentional version of this method.
         """
-        self.embedding.freeze()
         output_sequence_length = max_length if max_length is not None else self._max_length
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
 
@@ -270,7 +274,14 @@ class RNNDecoder(Decoder):
             }
 
         except KeyError as error:
-            raise ValueError('%s was not provided for the decoder.' % error)
+            raise ValueError(f'{error} was not provided for the decoder.')
+
+    @property
+    def output_types(self):
+        return {
+            'symbols':  Data,
+            'outputs':  Data
+        }
 
     @property
     def optimizers(self):
@@ -278,11 +289,7 @@ class RNNDecoder(Decoder):
         Property for the optimizers of the decoder.
         :return: list, optimizers used by the decoder.
         """
-        return [
-            self._optimizer,
-            *self.embedding.optimizer,
-            *self.output_layer.optimizer
-        ]
+        return [self._optimizer]
 
     @property
     def state(self):
@@ -291,8 +298,8 @@ class RNNDecoder(Decoder):
         :return: list, optimizers used by the decoder.
         """
         return {
-            'weights': self.state_dict(),
-            'optimizer': self._optimizer.state
+            'weights':      self.state_dict(),
+            'optimizer':    self._optimizer.state
         }
 
     # noinspection PyMethodOverriding
@@ -319,6 +326,27 @@ class AttentionRNNDecoder(RNNDecoder):
         """
         super().__init__(parameter_setter=parameter_setter)
 
+        self._outputs = {
+            **self._outputs,
+            'alignment_weights':   None,
+        }
+
+        self._attention_parameters = None
+        self._attention_optimizer = None
+
+    def init_optimizer(self):
+        """
+
+        """
+        super().init_optimizer()
+
+        self._attention_optimizer = Optimizer(parameters=self._attention_parameters,
+                                              optimizer_type=self._optimizer_type,
+                                              scheduler_type='ReduceLROnPlateau',
+                                              learning_rate=self._learning_rate)
+
+        return self
+
     def _calculate_context(self,
                            decoder_state,
                            encoder_outputs,
@@ -328,18 +356,34 @@ class AttentionRNNDecoder(RNNDecoder):
         Calculates the context for the decoder, given the encoder outputs and a decoder hidden state.
         The algorithm iterates through the encoder outputs and scores each output based on the similarity
         with the decoder state. The scoring functions are implemented in the child nodes of this class.
-        :param decoder_state: Variable, (batch_size, 1, hidden_size) the state of the decoder.
-        :param encoder_outputs: Variable, (batch_size, sequence_length, hidden_size) the output of
-               each time step of the encoder.
-        :param batch_size: int, size of the input batch.
-        :param sequence_length: int, size of the sequence.
-        :return context: Variable, the weighted sum of the encoder outputs.
-        :return attn_weights: Variable, weights used in the calculation of the context.
+
+        Args:
+            decoder_state:
+                Variable, (batch_size, 1, hidden_size) the state of the decoder.
+
+            encoder_outputs:
+                Variable, (batch_size, sequence_length, hidden_size) the output of
+                each time step of the encoder.
+
+            batch_size:
+                int, size of the input batch.
+
+            sequence_length:
+                int, size of the sequence.
+
+        Returns:
+            context:
+                Variable, the weighted sum of the encoder outputs.
+
+            attn_weights:
+                Variable, weights used in the calculation of the context.
         """
-        attn_energies = autograd.Variable(torch.zeros([batch_size, sequence_length]))
+        attn_energies = torch.zeros([batch_size, sequence_length])
 
         if self._use_cuda:
             attn_energies = attn_energies.cuda()
+
+        attn_energies = autograd.Variable(attn_energies)
 
         squeezed_output = decoder_state.squeeze(1)
         for step in range(sequence_length):
@@ -360,13 +404,24 @@ class AttentionRNNDecoder(RNNDecoder):
         used, so during decoding, the previous output word will be provided at time step t. If targets is None, decoding
         follows the general method, when the input word for the recurrent unit at time step t, is the output word at
         time step t-1.
-        :param targets: Variable, (batch_size, sequence_length) a batch of word ids.
-        :param max_length: int, maximum length for the decoded sequence. If None the max_length parameter's
-                           value will be used.
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
-        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :return outputs: dict, containing three string keys, symbols: Ndarray, the decoded word ids,
-                         alignment_weights:
+
+        Args:
+            targets:
+                Variable, (batch_size, sequence_length) a batch of word ids.
+
+            max_length:
+                int, maximum length for the decoded sequence. If None the max_length parameter's
+                value will be used.
+
+            encoder_outputs:
+                Variable, with size of (batch_size, sequence_length, hidden_size).
+
+            hidden_state:
+                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+
+        Returns:
+            outputs: dict, containing three string keys, symbols: Ndarray, the decoded word ids,
+                     alignment_weights:
         """
         batch_size = encoder_outputs.size(0)
         input_sequence_length = encoder_outputs.size(1)
@@ -403,13 +458,23 @@ class AttentionRNNDecoder(RNNDecoder):
         function. During the decoding iterations the decoder's predictions will only be used as final outputs to
         measure the loss, so the input for the (t)-th time step will be the (t-1)-th element of the provided
         targets.
-        :param targets:  Variable, (batch_size, sequence_length) a batch of word ids.
-        :param batch_size: int, size of the currently processed batch.
-        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
-        :param input_sequence_length: int, length of the input (for the encoder) sequence.
+
+        Args:
+            targets:
+                Variable, (batch_size, sequence_length) a batch of word ids.
+
+            batch_size:
+                int, size of the currently processed batch.
+
+            hidden_state:
+                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+
+            encoder_outputs:
+                Variable, with size of (batch_size, sequence_length, hidden_size).
+
+            input_sequence_length:
+                int, length of the input (for the encoder) sequence.
         """
-        self.embedding.unfreeze()
         output_sequence_length = targets.size(1) - 1
 
         inputs = targets[:, :-1].contiguous()
@@ -442,14 +507,24 @@ class AttentionRNNDecoder(RNNDecoder):
         will go on, until the length of the output reaches the given max_length, or the _max_length attribute.
         During the decoding iteration of the sequence, the input word of the decoder at time step (t) is the
         output word of the decoder from the time step (t-1).
-        :param max_length: int, maximum length for the decoded sequence. If None the max_length parameter's
-                           value will be used.
-        :param batch_size: int, size of the currently processed batch.
-        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
-        :param input_sequence_length: int, length of the input (for the encoder) sequence.
+
+        Args:
+            max_length:
+                int, maximum length for the decoded sequence. If None the max_length parameter's
+                value will be used.
+
+            batch_size:
+                int, size of the currently processed batch.
+
+            hidden_state:
+                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+
+            encoder_outputs:
+                Variable, with size of (batch_size, sequence_length, hidden_size).
+
+            input_sequence_length:
+                int, length of the input (for the encoder) sequence.
         """
-        self.embedding.freeze()
         output_sequence_length = max_length if max_length is not None else self._max_length
 
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
@@ -481,6 +556,20 @@ class AttentionRNNDecoder(RNNDecoder):
 
     def _score(self, encoder_outputs, decoder_state):
         return NotImplementedError
+
+    @property
+    def output_types(self):
+        return {
+            **super().output_types,
+            'alignment_weights':    AttentionData
+        }
+
+    @property
+    def optimizers(self):
+        return [
+            self._optimizer,
+            self._attention_optimizer
+        ]
 
 
 class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
@@ -536,6 +625,9 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
             tr = tr.cuda()
 
         self._transformer = nn.Parameter(tr)
+
+        self._attention_parameters = [param for name, param in self.named_parameters()
+                                      if name not in [name for name, param in self._recurrent_parameters]]
 
         return self
 
@@ -691,6 +783,9 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
         if self._use_cuda:
             self._attention_layer = self._attention_layer.cuda()
 
+        self._attention_parameters = [param for name, param in self.named_parameters()
+                                      if name not in [name for name, param in self._recurrent_parameters]]
+
         return self
 
     def _score(self, encoder_output, decoder_state):
@@ -731,6 +826,9 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
         Initializes the parameters for the decoder.
         """
         super().init_parameters()
+
+        self._attention_parameters = [param for name, param in self.named_parameters()
+                                      if name not in [name for name, param in self._recurrent_parameters]]
 
         return self
 
@@ -785,6 +883,9 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
             tr = tr.cuda()
 
         self._transformer = nn.Parameter(tr)
+
+        self._attention_parameters = [param for name, param in self.named_parameters()
+                                      if name not in [name for name, param in self._recurrent_parameters]]
 
         return self
 
