@@ -1,8 +1,8 @@
 import re
 
 
-FILE_INPUT = '../data/fra/fra_raw'
-FILE_OUTPUT = '../data/fra/fra_tok'
+FILE_INPUT = '/media/patrik/1EDB65B8599DD93E/data/eng/eng_raw'
+FILE_OUTPUT = '/media/patrik/1EDB65B8599DD93E/data/eng/eng_tok'
 
 END_OF_LINE_PUNCTUATIONS = ['.', '!', '?']
 

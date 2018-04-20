@@ -1,0 +1,20 @@
+{
+    "type": "UnsupervisedTranslation",
+    "params": {
+        "policy": "configs/utils/policies/unmt.json",
+        "language_tokens": [
+            "<ENG>",
+            "<FRA>"
+        ],
+        "input_pipelines": [
+            "configs/utils/input_pipelines/eng.json",
+            "configs/utils/input_pipelines/fra.json"
+        ],
+        "model": "configs/models/sts.json",
+        "reguralizer": "configs/components/reguralizers/mlp.json",
+        "translation_model": "configs/utils/translators/mono.json"
+    },
+    "checkpoint_dir": "logs/unmt_0/checkpoints",
+    "output_dir": "logs/unmt_0/outputs",
+    "info_dir": "logs/unmt_0/info.log"
+}

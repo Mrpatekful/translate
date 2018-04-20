@@ -1,0 +1,19 @@
+{
+    "type": "FastInput",
+    "params": {
+        "max_segment_size": 1000,
+        "batch_size": 32,
+        "padding_type": "PostPadding",
+        "corpora": {
+            "type": "Monolingual",
+            "params": {
+                "train": "data/toy/eng/eng_train",
+                "dev": "data/toy/eng/eng_dev",
+                "test": "data/toy/eng/eng_test",
+                "vocab": "data/toy/eng/eng_voc",
+                "provided": true,
+                "fixed": false
+            }
+        }
+    }
+}

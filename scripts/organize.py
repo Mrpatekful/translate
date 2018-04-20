@@ -3,11 +3,11 @@ from itertools import zip_longest
 import copy
 
 
-FILE_INPUT = '../data/fra/fra_tok'
-FILE_OUTPUT = '../data/fra/fra_org'
+FILE_INPUT = '/media/patrik/1EDB65B8599DD93E/data/eng/eng_tok_short'
+FILE_OUTPUT = '/media/patrik/1EDB65B8599DD93E/data/eng/eng_org'
 
 
-BUFFER_MAX_LENGTH = 100000
+BUFFER_MAX_LENGTH = 50000000
 
 
 def insert_to_buffer(line_buffer, line_dict):
