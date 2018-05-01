@@ -1,24 +1,106 @@
+"""
+
+"""
+
 import torch
 import numpy
+import pickle
+
+from src.components.utils.utils import Classifier
+
+from src.utils.utils import Component, ModelWrapper
+
+from collections import OrderedDict
+
+
+class NoiseModel:
+    """
+
+    """
+
+    def __init__(self, use_cuda, p=0.1, k=3):
+        """
+
+
+        Args:
+            p:
+
+            k:
+
+        """
+        self._use_cuda = use_cuda
+        self._p = p
+        self._k = k
+
+    def __call__(self, inputs, padding):
+        """
+
+
+        Args:
+            inputs:
+
+        Returns:
+            noisy_inputs:
+
+        """
+
+        return self._drop_out(inputs, padding)
+
+    def _drop_out(self, inputs, padding_value):
+        """
+
+
+        Args:
+            inputs:
+
+            padding_value:
+
+        Returns:
+            outputs:
+
+            lengths:
+
+        """
+        inputs = inputs.cpu().numpy()
+        noisy_inputs = numpy.zeros((inputs.shape[0], inputs.shape[1] + 1))
+        mask = numpy.array(numpy.random.rand(inputs.shape[0], inputs.shape[1] - 1) > self._p, dtype=numpy.int32)
+        noisy_inputs[:, 1:-1] = mask * inputs[:, 1:]
+        noisy_inputs[:, 0] = inputs[:, 0]
+        for index in range(inputs.shape[0]):
+            remaining = noisy_inputs[index][noisy_inputs[index] != 0]
+            padding = numpy.array([padding_value]*len(noisy_inputs[index][noisy_inputs[index] == 0]))
+            padding[-1] = remaining.shape[0]
+            noisy_inputs[index, :] = numpy.concatenate((remaining, padding))
+
+        noisy_inputs = noisy_inputs[numpy.argsort(-noisy_inputs[:, -1])]
+
+        return torch.from_numpy(noisy_inputs[:, :-1]).long(), numpy.array(noisy_inputs[:, -1], dtype=int)
 
 
 class _STSModule:
+    """
 
-    def __init__(self, **params):
+    """
+
+    def __init__(self,
+                 model:                 ModelWrapper,
+                 vocabularies:          list,
+                 loss_functions:        list,
+                 tokens:                list,
+                 cuda:                  bool,
+                 language_identifiers:  list):
         """
 
+        Args:
+
         """
-        self._cuda = params.get('cuda', False)
-        self._language_tokens = params.get('language_tokens', None)
+        self._model = model
+        self._vocabularies = vocabularies
+        self._loss_functions = loss_functions
+        self._tokens = tokens
 
-        try:
-            self._model = params['model']
-            self._tokens = params['tokens']
-            self._loss_functions = params['loss_functions']
-            self._input_pipelines = params['input_pipelines']
-
-        except KeyError as error:
-            raise RuntimeError(f'Value {error} has not been defined for the {self.__class__}.')
+        self._cuda = cuda
+        self._language_identifiers = language_identifiers
 
     def _iterate_model(self, inputs, targets=None, forced_targets=False):
         """
@@ -125,15 +207,48 @@ class AutoEncoder(_STSModule):
     """
 
     """
-    def __init__(self, noise_model=None, **params):
+
+    def __init__(self,
+                 model:                 ModelWrapper,
+                 vocabularies:          list,
+                 loss_functions:        list,
+                 tokens:                list,
+                 cuda:                  bool = False,
+                 language_identifiers:  list = None,
+                 noise_model:           NoiseModel = None):
         """
 
+
+        Args:
+            model:
+
+            vocabularies:
+
+            loss_functions:
+
+            tokens:
+
+            cuda:
+
+            language_identifiers:
+
+            noise_model:
+
         """
-        super().__init__(**params)
+        super().__init__(model=model,
+                         vocabularies=vocabularies,
+                         loss_functions=loss_functions,
+                         tokens=tokens,
+                         cuda=cuda,
+                         language_identifiers=language_identifiers)
 
         self._noise_model = noise_model
 
-    def __call__(self, batch, lang_index, denoising=False, forced_targets=True):
+    def __call__(self,
+                 batch:             dict,
+                 lang_index:        int,
+                 denoising:         bool = False,
+                 forced_targets:    bool = True):
         """
         Implementation of a step of auto-encoding. The look up tables of the model are fitted to the
         provided inputs, and the <LNG> are substituted with the appropriate token. In this case the token
@@ -171,11 +286,15 @@ class AutoEncoder(_STSModule):
         else:
             inputs, lengths = batch['inputs'], batch['input_lengths']
 
-        if self._language_tokens is not None:
+        if self._language_identifiers is not None:
             inputs = self._add_language_token(
                 batch=inputs,
-                token=self._input_pipelines[lang_index].vocabulary[0](self._language_tokens[lang_index])
+                token=self._vocabularies[lang_index](self._language_identifiers[lang_index])
             )
+        else:
+            if self._cuda:
+                inputs = inputs.cuda()
+            inputs = torch.autograd.Variable(inputs)
 
         loss, outputs = self._iterate_model(
             inputs={'data': inputs, 'lengths': lengths},
@@ -187,6 +306,8 @@ class AutoEncoder(_STSModule):
             forced_targets=forced_targets
         )
 
+        inputs = inputs.cpu().data.squeeze(0).numpy()
+
         return loss, outputs, inputs
 
 
@@ -194,9 +315,11 @@ class Translator(_STSModule):
     """
 
     """
+
     @staticmethod
     def _substitute_eos_for_padding(symbols, eos_value, padding_value):
         """
+
 
         Args:
             symbols:
@@ -211,44 +334,51 @@ class Translator(_STSModule):
             new_lengths:
 
         """
-        new_lengths = numpy.empty(symbols.shape[0], 1)
+        new_lengths = numpy.empty((symbols.shape[0]))
         for index in range(symbols.shape[0]):
-            eos = numpy.argwhere(symbols[index] == int(eos_value))
-            if eos.shape[0] > 0:
-                size = int(symbols.shape[1] - eos[0])
-                if size == 1:
-                    symbols[index, -1] = padding_value
-                else:
-                    symbols[index, eos[0]:] = [padding_value] * size
+            eos = numpy.argwhere(symbols[index] == int(eos_value)).reshape(-1)
+            new_lengths[index] = symbols.shape[1]
+            if len(eos) > 0:
+                size = int(symbols.shape[1] - eos[0]) - 1
+                symbols[index, eos[0] + 1:] = [padding_value] * size
+                new_lengths[index] = new_lengths[index] - (new_lengths[index] - eos[0] - 1)
 
-        return symbols, new_lengths
+        symbols = symbols[:, :int(new_lengths.max(0))]
+        symbols = symbols[new_lengths[::-1].argsort()]
+        new_lengths[::-1].sort()
 
-    @staticmethod
-    def _create_targets(batch, target_lang_index):
+        return symbols, new_lengths.astype(numpy.int32)
+
+    def __init__(self,
+                 model:                 ModelWrapper,
+                 vocabularies:          list,
+                 loss_functions:        list,
+                 tokens:                list,
+                 cuda:                  bool = False,
+                 language_identifiers:  list = None):
         """
+
 
         Args:
-            batch:
+            model:
 
-            target_lang_index:
+            vocabularies:
 
-        Returns:
-            targets:
+            loss_functions:
+
+            tokens:
+
+            cuda:
+
+            language_identifiers:
 
         """
-        if batch.get('targets', None) is None or batch.get('target_lengths', None) is None:
-            targets = None
-        else:
-            targets = {
-                'data': batch['targets'],
-                'lengths': batch['target_lengths'],
-                'language_index': target_lang_index
-            }
-
-        return targets
-
-    def __init__(self, **params):
-        super().__init__(**params)
+        super().__init__(model=model,
+                         vocabularies=vocabularies,
+                         loss_functions=loss_functions,
+                         tokens=tokens,
+                         cuda=cuda,
+                         language_identifiers=language_identifiers)
 
     def __call__(self, batch, input_lang_index, target_lang_index, forced_targets=True):
         """
@@ -271,7 +401,6 @@ class Translator(_STSModule):
 
             forced_targets:
 
-
         Returns:
             loss:
                 A scalar loss value, indicating the average loss of the auto encoder.
@@ -280,14 +409,19 @@ class Translator(_STSModule):
                 A dictionary, that contains the outputs of the model. The types (keys) contained
                 by this dictionary depends on the model specifications.
         """
-
         self._model.set_lookup({'source': input_lang_index, 'target': target_lang_index})
 
         inputs = batch['inputs']
 
-        if self._language_tokens is not None:
-            inputs = self._add_language_token(batch=inputs, token=self._input_pipelines[input_lang_index]
-                                              .vocabulary[0](self._language_tokens[target_lang_index]))
+        if self._language_identifiers is not None:
+            inputs = self._add_language_token(
+                batch=inputs,
+                token=self._vocabularies[input_lang_index](self._language_identifiers[target_lang_index])
+            )
+        else:
+            if self._cuda:
+                inputs = inputs.cuda()
+            inputs = torch.autograd.Variable(inputs)
 
         targets = self._create_targets(batch, target_lang_index)
 
@@ -295,28 +429,68 @@ class Translator(_STSModule):
                                             targets=targets,
                                             forced_targets=forced_targets)
 
-        outputs, lengths = self._substitute_eos_for_padding(outputs['symbols'],
-                                                            self._tokens[target_lang_index]['<EOS>'],
-                                                            self._tokens[target_lang_index]['<PAD>'])
+        # noinspection PyTypeChecker
+        translated_symbols, translated_lengths = self._substitute_eos_for_padding(
+            outputs['symbols'],
+            self._tokens[target_lang_index]['<EOS>'],
+            self._tokens[target_lang_index]['<PAD>'])
 
-        return loss, outputs, inputs, lengths
+        translated_symbols = torch.from_numpy(translated_symbols)
+
+        return loss, translated_symbols, outputs, inputs, translated_lengths
+
+    def _create_targets(self, batch, target_lang_index):
+        """
+
+        Args:
+            batch:
+
+            target_lang_index:
+
+        Returns:
+            targets:
+
+        """
+        if batch.get('targets', None) is None or batch.get('target_lengths', None) is None:
+            targets = None
+        else:
+            tgts = batch['targets']
+
+            if self._cuda:
+                tgts = tgts.cuda()
+
+            targets = {
+                'data': torch.autograd.Variable(tgts),
+                'lengths': batch['target_lengths'],
+                'language_index': target_lang_index
+            }
+
+        return targets
 
 
 class Discriminator:
+    """
 
-    def __init__(self, **params):
+    """
+
+    def __init__(self,
+                 model:            Classifier,
+                 loss_function:    torch.nn.CrossEntropyLoss,
+                 cuda:             bool = False):
         """
 
+
+        Args:
+            model:
+
+            loss_function:
+
+            cuda:
+
         """
-        self._cuda = params.get('cuda', False)
-
-        try:
-            self._model = params['model']
-            self._num_languages = params['num_languages']
-            self._loss_function = params['loss_function']
-
-        except KeyError as error:
-            raise RuntimeError(f'Value {error} has not been defined for the {self.__class__}.')
+        self._model = model
+        self._loss_function = loss_function
+        self._cuda = cuda
 
     def __call__(self, *args, inputs, targets, **kwargs):
         """
@@ -340,20 +514,7 @@ class Discriminator:
                 A scalar loss value, indicating the average loss of the discriminator for either the
                 inverse or normal target vector.
         """
-        shaped_inputs = numpy.zeros((inputs.shape[0], inputs[0].shape[0]))
-        for index in range(shaped_inputs.shape[0]):
-            shaped_inputs[index, :] = inputs[index]
-
-        inputs = torch.from_numpy(shaped_inputs).float()
-
-        if self._cuda:
-            inputs = inputs.cuda()
-
-        inputs = torch.autograd.Variable(inputs)
-
-        loss = self._iterate_model(inputs, targets)
-
-        return loss
+        return self._iterate_model(inputs, targets)
 
     def _iterate_model(self, inputs, targets):
         """
@@ -378,7 +539,6 @@ class Discriminator:
                 input-target pairs.
         """
         batch_size = inputs.shape[0]
-
         token_indexes = torch.from_numpy(numpy.array(targets, dtype=numpy.int32)).long()
 
         if self._cuda:
@@ -394,62 +554,84 @@ class Discriminator:
         return loss
 
 
-class RNNDiscriminator:  # TODO
+class WordTranslator(Component):
+    """
 
-    def __init__(self, **params):
-        """
+    """
 
-        """
-        self._cuda = params.get('cuda', False)
+    abstract = False
 
-        try:
-            self._model = params['model']
-            self._num_languages = params['num_languages']
-            self._loss_function = params['loss_function']
+    interface = OrderedDict({
+        'dictionaries':   None
+    })
 
-        except KeyError as error:
-            raise RuntimeError(f'Value {error} has not been defined for the {self.__class__}.')
+    @staticmethod
+    def _load_dict(paths):
+        dictionaries = []
+        for path in paths:
+            dictionaries.append(pickle.load(open(path, 'rb')))
+        return dictionaries
 
-    def classify(self, inputs, targets, lengths):
+    def __init__(self, dictionaries):
+        self._dictionaries = self._load_dict(dictionaries)
+        self._vocabs = None
+        self._cuda = None
+        self._language_tokens_required = True
+        self._id_dictionaries = []
 
-        shaped_inputs = numpy.zeros((inputs.shape[0], inputs[0].shape[0], inputs[0].shape[1]))
-        for index in range(shaped_inputs.shape[0]):
-            shaped_inputs[index, :lengths[index], :] = inputs[index][:lengths[index], :]
+    def __call__(self, batch, input_lang_index, target_lang_index, forced_targets=True):
 
-        inputs = torch.from_numpy(shaped_inputs).float()
+        if self._language_tokens_required:
+            starting_index = 1
+        else:
+            starting_index = 0
 
-        if self._cuda:
-            inputs = inputs.cuda()
+        translated_symbols = numpy.empty((batch['inputs'].size(0), batch['inputs'].size(1) - starting_index))
 
-        inputs = torch.autograd.Variable(inputs)
+        for index, line in enumerate(batch['inputs']):
+            translated_symbols[index, :] = numpy.array(
+                list(map(lambda x: self._id_dictionaries[input_lang_index][x],
+                     line[starting_index:]))
+            )
 
-        loss = self._iterate_model(inputs, targets, lengths)
+        translated_symbols = torch.from_numpy(translated_symbols.astype(numpy.int64))
 
-        return loss
+        return None, translated_symbols, None, batch['inputs'], batch['input_lengths'] - starting_index
 
-    def reguralize(self, inputs, lang_index):
+    def _convert_dictionaries_to_id(self):
+        self._id_dictionaries.append({self._vocabs[0](word): self._vocabs[1](self._dictionaries[0][word])
+                                      for word in self._dictionaries[0]})
 
-        loss = 0
+        self._id_dictionaries.append({self._vocabs[1](word): self._vocabs[0](self._dictionaries[1][word])
+                                      for word in self._dictionaries[1]})
 
-        for target_lang_index in [index for index in range(self._num_languages) if index != lang_index]:
-            loss += self._iterate_model(inputs, numpy.array([target_lang_index]*inputs.size(0)))
+        for token in self._vocabs[0].tokens:
+            self._id_dictionaries[0][self._vocabs[0].tokens[token]] = self._vocabs[1].tokens[token]
+            self._id_dictionaries[1][self._vocabs[1].tokens[token]] = self._vocabs[0].tokens[token]
 
-        return loss
+        del self._dictionaries
 
-    def _iterate_model(self, inputs, targets, lengths):
+    @property
+    def vocabs(self):
+        return self._vocabs
 
-        batch_size = inputs.shape[0]
+    @vocabs.setter
+    def vocabs(self, value):
+        self._vocabs = value
+        self._convert_dictionaries_to_id()
 
-        token_indexes = torch.from_numpy(numpy.array(targets, dtype=numpy.int32)).long()
+    @property
+    def language_tokens_required(self):
+        return self._language_tokens_required
 
-        if self._cuda:
-            token_indexes = token_indexes.cuda()
+    @language_tokens_required.setter
+    def language_tokens_required(self, value):
+        self._language_tokens_required = value
 
-        token_indexes = torch.autograd.Variable(token_indexes)
-        outputs, softmax = self._model(inputs=inputs, lengths=lengths)
+    @property
+    def cuda(self):
+        return self._cuda
 
-        loss = self._loss_function(outputs, token_indexes)
-
-        loss = loss.sum() / batch_size
-
-        return loss
+    @cuda.setter
+    def cuda(self, value):
+        self._cuda = value

@@ -4,9 +4,9 @@
         "encoder":  {
             "type": "UnidirectionalRNNEncoder",
             "params": {
-                "hidden_size": 50,
+                "hidden_size": 100,
                 "recurrent_type": "LSTM",
-                "num_layers": 2,
+                "num_layers": 3,
                 "optimizer_type": "Adam",
                 "learning_rate": 0.01
             }
@@ -14,9 +14,9 @@
         "decoder": {
             "type": "DotAttentionRNNDecoder",
             "params": {
-                "hidden_size": 50,
+                "hidden_size": 100,
                 "recurrent_type": "LSTM",
-                "num_layers": 2,
+                "num_layers": 3,
                 "optimizer_type": "Adam",
                 "learning_rate": 0.01,
                 "max_length": 15

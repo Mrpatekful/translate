@@ -8,10 +8,10 @@ import torch.nn.functional as functional
 
 from src.components.base import Decoder
 from src.components.utils.utils import Optimizer
+
 from src.utils.analysis import AttentionData
-from src.utils.analysis import Data
-from src.utils.utils import ParameterSetter
-from src.utils.utils import subtract_dict
+
+from src.utils.utils import ParameterSetter, subtract_dict
 
 
 class RNNDecoder(Decoder):
@@ -26,7 +26,7 @@ class RNNDecoder(Decoder):
         'optimizer_type':   None,
         'learning_rate':    None,
         'max_length':       None,
-        'use_cuda':        'Experiment:Policy:use_cuda$',
+        'cuda':            'Experiment:Policy:cuda$',
         'embedding_size':  'embedding_size$',
         'input_size':      'embedding_size$'
     })
@@ -87,10 +87,10 @@ class RNNDecoder(Decoder):
                                           bidirectional=False,
                                           batch_first=True)
 
-        if self._use_cuda:
+        if self._cuda:
             self._recurrent_layer = self._recurrent_layer.cuda()
 
-        self._recurrent_parameters = list(self.named_parameters())
+        self._recurrent_parameters = [name for name, _ in self.named_parameters()]
 
         return self
 
@@ -98,7 +98,8 @@ class RNNDecoder(Decoder):
         """
         Initializes the optimizer for the decoder.
         """
-        self._optimizer = Optimizer(parameters=[param for name, param in self._recurrent_parameters],
+        parameters = [param for name, param in self.named_parameters() if name in self._recurrent_parameters]
+        self._optimizer = Optimizer(parameters=parameters,
                                     optimizer_type=self._optimizer_type,
                                     scheduler_type='ReduceLROnPlateau',
                                     learning_rate=self._learning_rate)
@@ -227,7 +228,7 @@ class RNNDecoder(Decoder):
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
 
         sos_tokens = torch.from_numpy(numpy.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
-        if self._use_cuda:
+        if self._cuda:
             sos_tokens = sos_tokens.cuda()
 
         step_input = autograd.Variable(sos_tokens)
@@ -275,10 +276,7 @@ class RNNDecoder(Decoder):
 
     @property
     def output_types(self):
-        return {
-            'symbols':  Data,
-            'outputs':  Data
-        }
+        return {}
 
     @property
     def optimizers(self):
@@ -295,18 +293,18 @@ class RNNDecoder(Decoder):
         :return: list, optimizers used by the decoder.
         """
         return {
-            'weights':      self.state_dict(),
+            'weights':      {k: v for k, v in self.state_dict().items() if k in self._recurrent_parameters},
             'optimizer':    self._optimizer.state
         }
 
-    # noinspection PyMethodOverriding
     @state.setter
     def state(self, state):
         """
         Property for the state of the decoder.
         :return: dict, containing the state of the weights, and the optimizer.
         """
-        self.load_state_dict({k: v for k, v in state['weights'].items() if k in self.state_dict()})
+        parameters = {k: v for k, v in state['weights'].items() if k in self._recurrent_parameters}
+        self.load_state_dict(parameters, strict=False)
         self._optimizer.state = state['optimizer']
 
 
@@ -337,7 +335,8 @@ class AttentionRNNDecoder(RNNDecoder):
         """
         super().init_optimizer()
 
-        self._attention_optimizer = Optimizer(parameters=self._attention_parameters,
+        parameters = [param for name, param in self.named_parameters() if name in self._attention_parameters]
+        self._attention_optimizer = Optimizer(parameters=parameters,
                                               optimizer_type=self._optimizer_type,
                                               scheduler_type='ReduceLROnPlateau',
                                               learning_rate=self._learning_rate)
@@ -377,7 +376,7 @@ class AttentionRNNDecoder(RNNDecoder):
         """
         attn_energies = torch.zeros([batch_size, sequence_length])
 
-        if self._use_cuda:
+        if self._cuda:
             attn_energies = attn_energies.cuda()
 
         attn_energies = autograd.Variable(attn_energies)
@@ -529,7 +528,7 @@ class AttentionRNNDecoder(RNNDecoder):
 
         sos_tokens = torch.from_numpy(numpy.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
 
-        if self._use_cuda:
+        if self._cuda:
             sos_tokens = sos_tokens.cuda()
 
         step_input = autograd.Variable(sos_tokens)
@@ -552,13 +551,12 @@ class AttentionRNNDecoder(RNNDecoder):
             step_input = symbol_output
 
     def _score(self, encoder_outputs, decoder_state):
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def output_types(self):
         return {
-            **super().output_types,
-            'alignment_weights':    AttentionData
+            'attention': AttentionData
         }
 
     @property
@@ -567,6 +565,30 @@ class AttentionRNNDecoder(RNNDecoder):
             self._optimizer,
             self._attention_optimizer
         ]
+
+    @property
+    def state(self):
+        """
+        Property for the optimizers of the decoder.
+        :return: list, optimizers used by the decoder.
+        """
+        return {
+            'weights':              {k: v for k, v in self.state_dict().items()
+                                     if k in self._recurrent_parameters or k in self._attention_parameters},
+            'optimizer':            self._optimizer.state,
+            'attention_optimizer':  self._attention_optimizer.state
+        }
+
+    @state.setter
+    def state(self, state):
+        """
+        Property for the state of the decoder.
+        """
+        parameters = {k: v for k, v in state['weights'].items()
+                      if k in self._recurrent_parameters or k in self._attention_parameters}
+        self.load_state_dict(parameters, strict=False)
+        self._optimizer.state = state['optimizer']
+        self._attention_optimizer.state = state['attention_optimizer']
 
 
 class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
@@ -616,15 +638,15 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
         tr = torch.rand(self._hidden_size, 1)
 
-        if self._use_cuda:
+        if self._cuda:
             self._attention_layer = self._attention_layer.cuda()
             self._projection_layer = self._projection_layer.cuda()
             tr = tr.cuda()
 
         self._transformer = nn.Parameter(tr)
 
-        self._attention_parameters = [param for name, param in self.named_parameters()
-                                      if name not in [name for name, param in self._recurrent_parameters]]
+        self._attention_parameters = [name for name, _ in self.named_parameters()
+                                      if name not in self._recurrent_parameters]
 
         return self
 
@@ -710,8 +732,8 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
 
         self._projection_layer = nn.Linear(self._hidden_size * 2, self._hidden_size)
 
-        if self._use_cuda:
-            self._projection_layer.cuda()
+        if self._cuda:
+            self._projection_layer = self._projection_layer.cuda()
 
         return self
 
@@ -734,6 +756,8 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
         :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
+        self._recurrent_layer.flatten_parameters()
+
         output, hidden_state = self._recurrent_layer(inputs, hidden_state)
 
         previous_state = hidden_state[0][-1] if isinstance(hidden_state, tuple) else hidden_state[-1]
@@ -749,6 +773,9 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
                                         dim=1).view(batch_size, -1, self.output_layer.size)
 
         return output, hidden_state, attn_weights
+
+    def _score(self, encoder_outputs, decoder_state):
+        raise NotImplementedError
 
 
 class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
@@ -777,11 +804,11 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         self._attention_layer = nn.Linear(self._hidden_size, self._hidden_size)
 
-        if self._use_cuda:
+        if self._cuda:
             self._attention_layer = self._attention_layer.cuda()
 
-        self._attention_parameters = [param for name, param in self.named_parameters()
-                                      if name not in [name for name, param in self._recurrent_parameters]]
+        self._attention_parameters = [name for name, _ in self.named_parameters()
+                                      if name not in self._recurrent_parameters]
 
         return self
 
@@ -824,8 +851,8 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
         """
         super().init_parameters()
 
-        self._attention_parameters = [param for name, param in self.named_parameters()
-                                      if name not in [name for name, param in self._recurrent_parameters]]
+        self._attention_parameters = [name for name, _ in self.named_parameters()
+                                      if name not in self._recurrent_parameters]
 
         return self
 
@@ -874,15 +901,15 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         tr = torch.rand(self._hidden_size, 1)
 
-        if self._use_cuda:
+        if self._cuda:
             self._attention_layer = self._attention_layer.cuda()
 
             tr = tr.cuda()
 
         self._transformer = nn.Parameter(tr)
 
-        self._attention_parameters = [param for name, param in self.named_parameters()
-                                      if name not in [name for name, param in self._recurrent_parameters]]
+        self._attention_parameters = [name for name, _ in self.named_parameters()
+                                      if name not in self._recurrent_parameters]
 
         return self
 

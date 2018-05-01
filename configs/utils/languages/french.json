@@ -1,0 +1,106 @@
+{
+    "type": "Language",
+    "params": {
+        "identifier": "<FRA>",
+        "vocabulary": {
+            "type": "Vocabulary",
+            "params": {
+                "vocab_path": "data/toy/fra/fra_voc",
+                "provided_embeddings": true,
+                "fixed_embeddings": false
+            }
+        },
+        "input_pipelines": {
+            "train": {
+                "type": "FileInput",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 100,
+                    "shuffle": true,
+                    "padding_type": "PostPadding",
+                    "corpora": {
+                        "type": "Monolingual",
+                        "params": {
+                            "data_path": "data/toy/fra/fra_train"
+                        }
+                    }
+                }
+            },
+            "dev": {
+                "type": "FileInput",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 1,
+                    "shuffle": false,
+                    "padding_type": "PostPadding",
+                    "corpora": {
+                        "type": "Monolingual",
+                        "params": {
+                            "data_path": "data/toy/fra/fra_dev"
+                        }
+                    }
+                }
+            },
+            "test": {
+                "type": "FileInput",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 1,
+                    "shuffle": false,
+                    "padding_type": "PostPadding",
+                    "corpora": {
+                        "type": "Monolingual",
+                        "params": {
+                            "data_path": "data/toy/fra/fra_test"
+                        }
+                    }
+                }
+            },
+            "translated_train": {
+                "type": "FileInput",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 32,
+                    "shuffle": false,
+                    "padding_type": "PostPadding",
+                    "corpora": {
+                        "type": "Monolingual",
+                        "params": {
+                            "data_path": "data/toy/fra/fra_train"
+                        }
+                    }
+                }
+            },
+            "translated_dev": {
+                "type": "FileInput",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 32,
+                    "shuffle": false,
+                    "padding_type": "PostPadding",
+                    "corpora": {
+                        "type": "Monolingual",
+                        "params": {
+                            "data_path": "data/toy/eng/eng_train"
+                        }
+                    }
+                }
+            },
+            "translated_test": {
+                "type": "FileInput",
+                "params": {
+                    "max_segment_size": 1000,
+                    "batch_size": 32,
+                    "shuffle": false,
+                    "padding_type": "PostPadding",
+                    "corpora": {
+                        "type": "Monolingual",
+                        "params": {
+                            "data_path": "data/toy/eng/eng_train"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -2,6 +2,7 @@
     "type": "FFClassifier",
     "params": {
         "hidden_size": 2048,
+        "output_size": 2,
         "optimizer_type": "Adam",
         "learning_rate": 0.001
     }

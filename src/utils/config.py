@@ -1,25 +1,29 @@
+"""
+
+"""
+
 import json
 import logging
 import re
 import sys
 
 from src.components.encoders.rnn import Encoder
+
 from src.components.decoders.rnn import Decoder
 
 from src.components.utils.utils import Classifier
-from src.components.utils.utils import WordTranslator
+
+from src.modules.modules import WordTranslator
 
 from src.experiments.experiments import Experiment
 
 from src.models.models import Model
 
-from src.utils.reader import Corpora
-from src.utils.reader import InputPipeline
+from src.utils.reader import Corpora, InputPipeline, Language, Vocabulary
 
-from src.utils.utils import Policy
-from src.utils.utils import copy_dict_hierarchy
-from src.utils.utils import merge_dicts
-from src.utils.utils import subclasses
+from src.utils.utils import Policy, copy_dict_hierarchy, merge_dicts, subclasses
+
+from collections import OrderedDict
 
 
 class Config:
@@ -30,11 +34,13 @@ class Config:
     Each node of the JSON file, that has a 'type' and 'params' key are Component type
     objects.
     """
-    _base_nodes = [Encoder, Decoder, Classifier, InputPipeline, Corpora, Model, Policy, WordTranslator]
+    _base_nodes = [Encoder, Decoder, Classifier, InputPipeline,
+                   Corpora, Model, Policy, WordTranslator, Language, Vocabulary]
 
     _experiments = subclasses(Experiment)
 
-    _modules = merge_dicts(subclasses, _base_nodes)
+    _modules = {**merge_dicts(subclasses, _base_nodes), 'WordTranslator': WordTranslator,
+                'Language': Language, 'Vocabulary': Vocabulary}
 
     @staticmethod
     def _apply_operator(args, op):
@@ -56,20 +62,24 @@ class Config:
         else:
             raise ValueError(f'Undefined operand: {op}.')
 
-    def __init__(self, config):
+    def __init__(self,
+                 config_path:   str,
+                 logging_level: int):
         """
         An instance of a configuration parser. The provided file is
         parsed and stored as a dictionary object.
-        :param config: str, path of the task configuration file.
+        :param config_path: str, path of the task configuration file.
         """
-        self._config = json.load(open(config, 'r'))
-        self._registered_params = {}
+        self._config = json.load(open(config_path, 'r'))
+        self._registered_params = OrderedDict()
+        self._logging_level = logging_level
 
-    def assemble(self):
+    def assemble(self) -> tuple:
         """
         Assembles the components, described by the interface of the task from the configuration file.
-        :except ValueError: Invalid JSON configuration file.
-        :return task: Task, instance of the task, that was described in the configuration file.
+
+        Return:
+
         """
         try:
 
@@ -77,7 +87,7 @@ class Config:
             output_dir = self._config['output_dir']
             info_dir = self._config['info_dir']
 
-            logging.basicConfig(level=logging.DEBUG,
+            logging.basicConfig(level=self._logging_level,
                                 format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                                 datefmt='%m-%d %H:%M',
                                 filename=info_dir,
@@ -86,7 +96,7 @@ class Config:
             task_type = self._experiments[self._config['type']]
             task = self._create_node(task_type, self._config['params'], 'Experiment')
 
-        except ValueError as error:
+        except RuntimeError as error:
             logging.error(f'{error}')
             sys.exit()
 
@@ -101,51 +111,92 @@ class Config:
         none of the previous, but the key is present in the configuration file, the parameter is simply initialized
         with the value of the key from the config file. Finally, if the parameter is not in the config file, then it
         is an aggregated value, that must either be calculated, or derived from a previously created node instance.
-        :param param_dict: dict, an dictionary with the same structure of the entity's interface dictionary.
-        :param interface_dict: dict, the dictionary, that defines the interface of a component. Every component/module
-                               that is a node in the JSON file, must have a class scope method, that
-                               defines it's interface.
-        :param config: dict, the currently visited node of the JSON configuration file.
-        :param lookup_id: str, an identifier, that creates the keys for the shared parameter values.
-        :return: dict, a fully initialized dictionary, with the same structure of the interface.
+
+        Args:
+            param_dict:
+                dict, an dictionary with the same structure of the entity's interface dictionary.
+
+            interface_dict:
+                dict, the dictionary, that defines the interface of a component. Every component/module
+                that is a node in the JSON file, must have a class scope method, that
+                defines it's interface.
+
+            config:
+                dict, the currently visited node of the JSON configuration file.
+
+            lookup_id:
+                str, an identifier, that creates the keys for the shared parameter values.
+
+        Return:
+            dict, a fully initialized dictionary, with the same structure of the interface.
         """
+        def resolve_link(link) -> dict:
+            try:
+                if isinstance(link, str):
+                    resolved_link = json.load(open(link, 'r'))
+                else:
+                    return link
+            except FileNotFoundError:
+                logging.error(f'File not found {link}')
+                return link
+
+            return resolved_link
+
         for key in interface_dict:
-            if isinstance(interface_dict[key], dict):
-                param_dict[key] = self._build_params(param_dict[key],
-                                                     interface_dict[key],
-                                                     config[key],
-                                                     lookup_id)
+            try:
+                if isinstance(interface_dict[key], dict):
+                    param_dict[key] = self._build_params(param_dict[key], interface_dict[key],
+                                                         config[key], lookup_id)
 
-            elif interface_dict[key] in self._base_nodes and isinstance(config.get(key, None), list):
-                param_dict[key] = []
-                for index, element in enumerate(config[key]):
-                    module_dict = element
-                    if isinstance(module_dict, str):
-                        module_dict = json.load(open(module_dict, 'r'))
+                elif interface_dict[key] in self._base_nodes:
+                    config[key] = resolve_link(config.get(key, None))
 
-                    module_type = self._modules[module_dict['type']]
-                    param_dict[key].append(self._create_node(module_type,
-                                                             module_dict['params'],
-                                                             lookup_id + f':{interface_dict[key].__name__}{index}'))
+                    if isinstance(config.get(key, None), list):
+                        param_dict[key] = []
+                        for index, element in enumerate(config[key]):
+                            module_dict = resolve_link(element)
 
-            elif interface_dict[key] in self._base_nodes:
-                if config.get(key, None) is not None:
-                    module_dict = config[key]
-                    if isinstance(module_dict, str):
-                        module_dict = json.load(open(module_dict, 'r'))
+                            module_type = self._modules[module_dict['type']]
+                            param_dict[key].append(self._create_node(module_type, module_dict['params'],
+                                                                     f'{lookup_id}:{interface_dict[key].__name__}'
+                                                                     f'/{index}'))
 
-                    module_type = self._modules[module_dict['type']]
-                    param_dict[key] = self._create_node(module_type,
-                                                        module_dict['params'],
-                                                        lookup_id + f':{interface_dict[key].__name__}')
+                        logging.debug(f'Created list of {interface_dict[key].__name__} for {lookup_id}:{key}')
 
-            elif key in config.keys():
-                param_dict[key] = config[key]
-                self._registered_params[lookup_id + f':{key}'] = param_dict[key]
+                    elif isinstance(config.get(key, None), dict) and 'type' not in config[key]:
+                        param_dict[key] = {}
 
-            else:
-                param_dict[key] = self._resolve_aggregation(interface_dict[key])
-                self._registered_params[lookup_id + f':{key}'] = param_dict[key]
+                        for index, element in enumerate(config[key]):
+                            module_dict = resolve_link(config[key][element])
+
+                            module_type = self._modules[module_dict['type']]
+                            param_dict[key][element] = self._create_node(module_type, module_dict['params'],
+                                                                         f'{lookup_id}:{interface_dict[key].__name__}'
+                                                                         f'/{element}')
+
+                        logging.debug(f'Created dict of {interface_dict[key].__name__} for {lookup_id}:{key} with %s'
+                                      % ', '.join(list(param_dict[key].keys())))
+
+                    else:
+                        if config.get(key, None) is not None:
+                            module_dict = config[key]
+
+                            module_type = self._modules[module_dict['type']]
+                            param_dict[key] = self._create_node(module_type, module_dict['params'],
+                                                                f'{lookup_id}:{interface_dict[key].__name__}')
+
+                            logging.debug(f'Created node of {interface_dict[key].__name__} for {lookup_id}:{key}')
+
+                elif key in config.keys():
+                    param_dict[key] = config[key]
+                    self._registered_params[lookup_id + f':{key}'] = param_dict[key]
+
+                else:
+                    param_dict[key] = self._resolve_aggregation(interface_dict[key])
+                    self._registered_params[lookup_id + f':{key}'] = param_dict[key]
+
+            except ValueError as error:
+                raise RuntimeError(f'Error occurred during construction of {lookup_id}:{key} ({error})')
 
         return param_dict
 
@@ -155,19 +206,35 @@ class Config:
         that recursively creates the required parameters for the entity. _registered_parameters
         dictionary is updated with the created entity's property values, so entities, that will
         be created later in the instantiation tree can reference these values.
-        :param entity: Component, type class, that must have an interface() method.
-        :param config: dict, configuration file of the entity.
-        :param lookup_id: str, an identifier, that creates the keys for the shared parameter values.
-        :return: Component, an instance of the passed entity.
+
+        Args:
+            entity:
+                Component, type class, that must have an interface() method.
+
+            config:
+                dict, configuration file of the entity.
+
+            lookup_id:
+                str, an identifier, that creates the keys for the shared parameter values.
+
+        Return:
+             Component, an instance of the passed entity.
         """
         interface = entity.interface
         param_dict = copy_dict_hierarchy(interface)
 
-        instance = entity(**self._build_params(param_dict, interface, config, lookup_id))
+        try:
+
+            instance = entity(**self._build_params(param_dict, interface, config, lookup_id))
+
+        except TypeError as error:
+            raise RuntimeError(f'Error occurred during construction of {lookup_id}:{entity.__name__} ({error})')
+
         instance_properties = instance.properties()
 
         self._registered_params = {
             **self._registered_params,
+            f'{lookup_id}': instance,
             **{f'{lookup_id}:{name}': instance_properties[name] for name in instance_properties}
         }
 
@@ -183,13 +250,13 @@ class Config:
         keys = [key for key in list(self._registered_params.keys()) if re.search(pattern, key) is not None]
         if len(keys) > 1:
             logging.warning(f'Ambiguous look up expression \' {pattern} \', the first matching '
-                            f'key has been chosen as default \' {keys[0]} \'')
-            return keys[0]
+                            f'key has been chosen as default \' {keys[-1]} \'')
+            return keys[-1]
 
         if len(keys) == 0:
             raise ValueError(f'No currently registered keys match the given look up expression \' {pattern} \'')
 
-        return keys[0]
+        return keys[-1]
 
     def _resolve_aggregation(self, description):
         """

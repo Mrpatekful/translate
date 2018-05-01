@@ -17,15 +17,19 @@ class Model(Module, Component):
         super().__init__()
 
     def forward(self, *args, **kwargs):
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def optimizers(self):
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def state(self):
-        return NotImplementedError
+        raise NotImplementedError
+
+    @state.setter
+    def state(self, value):
+        raise NotImplementedError
 
 
 class SeqToSeq(Model):
@@ -142,6 +146,9 @@ class SeqToSeq(Model):
 
     @property
     def output_types(self):
+        """
+
+        """
         return {
             **self.encoder.output_types,
             **self.decoder.output_types
@@ -152,9 +159,11 @@ class SeqToSeq(Model):
         """
 
         """
-        return {'encoder': self.encoder.state, 'decoder': self.decoder.state}
+        return {
+            'encoder': self.encoder.state,
+            'decoder': self.decoder.state
+        }
 
-    # noinspection PyMethodOverriding
     @state.setter
     def state(self, state):
         """

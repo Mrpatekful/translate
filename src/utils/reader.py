@@ -1,20 +1,178 @@
+"""
+
+"""
+
 import copy
-import inspect
+import os
+import sys
+
 from collections import OrderedDict
 
 import numpy
 import sklearn.utils
 import torch
 import torch.nn
-from torch.autograd import Variable
+
+import logging
 
 from src.components.utils.utils import Embedding
+
 from src.utils.utils import Component
 from src.utils.utils import ParameterSetter
 from src.utils.utils import ids_from_sentence
 from src.utils.utils import sentence_from_ids
 from src.utils.utils import subclasses
 from src.utils.utils import subtract_dict
+
+
+class Vocabulary(Component):
+    """
+    Wrapper class for the lookup tables of the languages.
+    """
+    abstract = False
+
+    interface = OrderedDict(**{
+        'vocab_path':            None,
+        'provided_embeddings':   None,
+        'fixed_embeddings':      None,
+        'cuda':                 'Experiment:Policy:cuda',
+        'language_identifiers': 'Experiment:language_identifiers'
+    })
+
+    def __init__(self,
+                 vocab_path:            str,
+                 language_identifiers:  list,
+                 provided_embeddings:   bool,
+                 fixed_embeddings:      bool,
+                 cuda:                  bool):
+        """
+
+        Args:
+
+        """
+        self._word_to_id = {}
+        self._id_to_word = {}
+        self._word_to_count = {}
+
+        self._language_identifiers = language_identifiers
+        self._cuda = cuda
+        self._provided = provided_embeddings
+
+        self.requires_grad = not fixed_embeddings
+
+        self._vocab_size = None
+        self._embedding_size = None
+        self._embedding_weights = None
+
+        self._load_data(path=vocab_path)
+
+        # noinspection PyTypeChecker
+        self._embedding = Embedding(embedding_size=self._embedding_size,
+                                    vocab_size=self._vocab_size,
+                                    cuda=self._cuda,
+                                    weights=self._embedding_weights,
+                                    requires_grad=self.requires_grad)
+
+    def _load_data(self, path: str):
+        """
+        Loads the vocabulary from a file. Path is assumed to be a text file, where each line contains
+        a word and its corresponding embedding weights, separated by spaces.
+        :param path: string, the absolute path of the vocab.
+        """
+        with open(path, 'r') as file:
+            first_line = file.readline().split(' ')
+            self._vocab_size = int(first_line[0]) + 4 + len(self._language_identifiers)
+            self._embedding_size = int(first_line[1])
+
+            if self._provided:
+                self._embedding_weights = numpy.empty((self._vocab_size, self._embedding_size), dtype=float)
+
+            for index, line in enumerate(file):
+                line_as_list = list(line.split(' '))
+                self._word_to_id[line_as_list[0]] = index
+                if self._provided:
+                    self._embedding_weights[index, :] = numpy.array([float(element) for element
+                                                                    in line_as_list[1:]], dtype=float)
+
+            for token in self._language_identifiers:
+                self._word_to_id[token] = len(self._word_to_id)
+
+            self._word_to_id['<SOS>'] = len(self._word_to_id)
+            self._word_to_id['<EOS>'] = len(self._word_to_id)
+            self._word_to_id['<UNK>'] = len(self._word_to_id)
+            self._word_to_id['<PAD>'] = len(self._word_to_id)
+
+            self._id_to_word = dict(zip(self._word_to_id.values(), self._word_to_id.keys()))
+
+            if self._provided:
+                self._embedding_weights[-1, :] = numpy.zeros(self._embedding_size)
+                self._embedding_weights[-2, :] = numpy.zeros(self._embedding_size)
+                self._embedding_weights[-3, :] = numpy.zeros(self._embedding_size)
+                self._embedding_weights[-4, :] = numpy.zeros(self._embedding_size)
+
+                for index in range(-5, -5-len(self._language_identifiers), -1):
+                    self._embedding_weights[index, :] = numpy.random.rand(self._embedding_size)
+
+                self._embedding_weights = torch.from_numpy(self._embedding_weights).float()
+
+                if self._cuda:
+                    self._embedding_weights = self._embedding_weights.cuda()
+
+    def __call__(self, expression):
+        """
+        Translates the given expression to it's corresponding word or id.
+        :param expression: str or int, if str (word) is provided, then the id will be returned, and
+                           the behaviour is the same for the other case.
+        :return: int or str, (id or word) of the provided expression.
+        """
+        _accepted_id_types = (int, numpy.int32, numpy.int64)
+
+        if isinstance(expression, str):
+            return self._word_to_id[expression]
+
+        elif type(expression) in _accepted_id_types:
+            return self._id_to_word[expression]
+
+        else:
+            raise ValueError(f'Expression must either be a string or an int, got {type(expression)}')
+
+    @property
+    def tokens(self):
+        """
+        Property for the tokens of the language.
+        :return: dict, <UNK>, <EOS>, <PAD> and <SOS> tokens with their ids.
+        """
+        return {
+            '<SOS>': self._word_to_id['<SOS>'],
+            '<EOS>': self._word_to_id['<EOS>'],
+            '<UNK>': self._word_to_id['<UNK>'],
+            '<PAD>': self._word_to_id['<PAD>']
+        }
+
+    @property
+    def embedding(self):
+        """
+        Property for the embedding layer.
+        """
+        if self._embedding is None:
+            raise ValueError('The vocabulary has not been initialized for the language.')
+        return self._embedding
+
+    @property
+    def embedding_size(self):
+        """
+        Property for the dimension of the embeddings.
+        """
+        if self._embedding is None:
+            raise ValueError('The vocabulary has not been initialized for the language.')
+        return self._embedding_size
+
+    @property
+    def vocab_size(self):
+        """
+        Property for the dimension of the embeddings.
+        """
+        return self._vocab_size - 1
 
 
 class Corpora(Component):
@@ -24,88 +182,80 @@ class Corpora(Component):
     """
 
     interface = OrderedDict(**{
-        'train':     None,
-        'dev':       None,
-        'test':      None,
-        'use_cuda': 'Experiment:Policy:use_cuda$'
+        'data_path':      None,
+        'vocabulary':    ':Vocabulary$',
+        'cuda':          'Experiment:Policy:cuda$'
     })
 
     abstract = True
 
-    @ParameterSetter.pack(interface)
-    def __init__(self, parameter_setter):
+    def __init__(self,
+                 data_path:  str,
+                 vocabulary: Vocabulary,
+                 cuda:       bool):
         """
-        An instance of a corpora.
-        :param parameter_setter: ParameterSetter object, that requires the following parameters.
-            -:parameter train: str, path of the train data.
-            -:parameter dev: str, path of the development data.
-            -:parameter test: str, path of the test data.
-        """
-        parameter_setter.initialize(self)
 
-        self._vocabulary = []
+
+        Args:
+
+        """
+        assert os.path.isfile(data_path), f'{data_path} is not a file'
+
+        self._vocabulary = vocabulary
+        self._data_path = data_path
+        self._cuda = cuda
+
+        self._data = None
+
+    def initialize_corpus(self):
+        raise NotImplementedError
 
     def _load_data(self, data_path):
-        return NotImplementedError
+        raise NotImplementedError
 
     # The following 'size' properties are required for the parameter value resolver mechanism.
 
     @property
-    def embedding_size(self):
+    def data_path(self) -> str:
         """
-        Property for the embedding size of the source language.
-        :return: int, size of the source language's word embedding.
+
         """
-        if self._vocabulary is None:
-            raise ValueError('Vocabulary has not been set.')
-        if self._vocabulary[0].embedding_size != self._vocabulary[-1].embedding_size:
-            raise ValueError('Embedding dimensions must be the same for the source and target language.')
-        return self._vocabulary[0].embedding_size
+        return self._data_path
 
     @property
-    def vocabulary(self):
+    def data(self) -> list:
+        """
+
+        """
+        return self._data
+
+    @property
+    def embedding_size(self) -> int:
+        """
+        Property for the embedding size of the source language.
+        """
+        return self._vocabulary.embedding_size
+
+    @property
+    def vocabulary(self) -> Vocabulary:
         """
         Property for the vocabularies of the corpora.
-        :return: list, containing vocabulary objects for the corpora.
         """
         return self._vocabulary
 
-    def properties(self):
-        return {
-            name: getattr(self, name) for (name, _) in
-            inspect.getmembers(type(self), lambda x: isinstance(x, property))
-            if name not in ['train', 'dev', 'test']
-        }
+    @vocabulary.setter
+    def vocabulary(self, value: Vocabulary):
+        """
+        Property for the vocabularies of the corpora.
+        """
+        self._vocabulary = value
 
     @property
-    def train(self):
+    def vocab_size(self) -> int:
         """
-        Property for the train data segment of the corpora.
-        :return: str, the whole train data.
+        Property for the vocab size of the language.
         """
-        if self._train is None:
-            raise ValueError('Train data path has not been set.')
-        return self._train
-
-    @property
-    def dev(self):
-        """
-        Property for the development data segment of the corpora.
-        :return: str, the whole development data.
-        """
-        if self._dev is None:
-            raise ValueError('Development data path has not been set.')
-        return self._dev
-
-    @property
-    def test(self):
-        """
-        Property for the test data segment of the corpora.
-        :return: str, the whole test data.
-        """
-        if self._test is None:
-            raise ValueError('Test data path has not been set.')
-        return self._test
+        return self._vocabulary.vocab_size
 
 
 class Monolingual(Corpora):
@@ -113,41 +263,29 @@ class Monolingual(Corpora):
     Special case of Corpora class, where the data read from the files only have a single language.
     """
 
-    interface = OrderedDict(**{
-            **Corpora.interface,
-            'vocab':    None,
-            'provided': None,
-            'fixed':    None,
-            'tokens':  'Experiment:language_token'
-        })
+    interface = Corpora.interface
 
     abstract = False
 
-    @ParameterSetter.pack(interface)
-    def __init__(self, parameter_setter):
+    def __init__(self,
+                 data_path:  str,
+                 vocabulary: Vocabulary,
+                 cuda:       bool):
         """
-        Instance of a wrapper for Monolingual text corpora.
-        :param parameter_setter:ParameterSetter object, that requires the following parameters.
-            -:parameter train: str, path of the train data.
-            -:parameter dev: str, path of the development data.
-            -:parameter test: str, path of the test data.
-            -:parameter vocab: str, path of the vocabulary, containing the embeddings.
-            -:parameter trained: bool, indicates, whether the embeddings, used by the language have been pre-trained.
-            -:parameter provided bool, indicates, whether the embeddings are provided to the model.
-            -:parameter token: str, token for the language. E.g: <ESP>, <ENG>, <GER>
-            -:parameter use_cuda: bool, true, if cuda support is enabled.
+
+
+        Args:
+
         """
-        super().__init__(parameter_setter=parameter_setter)
+        super().__init__(data_path=data_path, cuda=cuda, vocabulary=vocabulary)
 
-        self._vocabulary.append(Vocabulary(**parameter_setter.extract(Vocabulary.interface)))
+    def initialize_corpus(self):
+        """
 
-        parameter_setter.initialize(self, subtract_dict(self.interface, Corpora.interface))
+        """
+        self._data = self._load_data(self._data_path)
 
-        self._train = self._load_data(self.train)
-        self._dev = self._load_data(self.dev)
-        self._test = self._load_data(self.test)
-
-    def _load_data(self, data_path):
+    def _load_data(self, data_path: str) -> list:
         """
         Loader function for the monolingual corpora, where there is only a single language.
         :return: list, the data stored as a list of strings.
@@ -160,14 +298,6 @@ class Monolingual(Corpora):
             raise ValueError('The given file is empty.')
         return data
 
-    @property
-    def vocab_size(self):
-        """
-        Property for the vocab size of the language.
-        :return: int, number of words in the language.
-        """
-        return self._vocabulary[0].vocab_size
-
 
 class Parallel(Corpora):  # TODO vocabulary parameter extraction
     """
@@ -176,43 +306,28 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
     """
 
     interface = OrderedDict(**{
-            **Corpora.interface,
-            'source_trained':   None,
-            'source_vocab':     None,
-            'source_token':     None,
-            'target_trained':   None,
-            'target_vocab':     None,
-            'target_token':     None,
-            'separator_token':  None
-        })
+        'data_path':          None,
+        'separator':          None,
+        'vocabulary':        'Vocabulary$',
+        'second_vocabulary': 'Vocabulary$',
+        'cuda':              'Experiment:Policy:cuda$'
+    })
 
     abstract = False
 
-    @ParameterSetter.pack(interface)
-    def __init__(self, parameter_setter):
+    def __init__(self,
+                 data_path:  str,
+                 separator:  str,
+                 vocabulary: Vocabulary,
+
+                 cuda:       bool):
         """
-        An instance of a wrapper for parallel corpora.
-        :param parameter_setter: ParameterSetter object, that requires the following parameters.
-            -:parameter train: str, path of the train data.
-            -:parameter dev: str, path of the development data.
-            -:parameter test: str, path of the test data.
-            -:parameter source_trained: bool, true, if the embeddings of the source language have been pre-trained.
-            -:parameter source_vocab: str, path of the vocabulary, containing the embeddings for the source language.
-            -:parameter source_token: str, token for the source language. E.g: <ESP>, <ENG>, <GER>
-            -:parameter target_trained: bool, true, if the embeddings, if the target language have been pre-trained.
-            -:parameter target_vocab: str, path of the vocabulary, containing the embeddings for the target language.
-            -:parameter target_token: str, token for the target language. E.g: <ESP>, <ENG>, <GER>
-            -:parameter separator_token: str, a special separator token, that divides the paired corpus.
-            -:parameter use_cuda: bool, true, if cuda support is enabled.
+
+        Args:
+
         """
-        super().__init__(parameter_setter=parameter_setter)
+        super().__init__(data_path=data_path, cuda=cuda, vocabulary=vocabulary)
 
-        self._vocabulary = []
-
-        self._vocabulary.append(Vocabulary(**parameter_setter.extract(Vocabulary.interface)))
-        self._vocabulary.append(Vocabulary(**parameter_setter.extract(Vocabulary.interface)))
-
-        parameter_setter.initialize(self, subtract_dict(self.interface, super().interface))
 
     def _load_data(self, data_path):
         """
@@ -227,6 +342,12 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
         if len(data) == 0:
             raise ValueError('The given file is empty.')
         return data
+
+    def initialize_corpus(self):
+        """
+
+        """
+        self._data = self._load_data(self._data_path)
 
     @property
     def source_vocabulary(self):
@@ -275,27 +396,17 @@ class InputPipeline(Component):
     data into segments. The purpose of this behaviour, is to keep the sentences with similar lengths
     in segments, so they can be freely shuffled without mixing them together with larger sentences.
     """
-    def __init__(self):
-        self._train = None
-        self._eval = None
 
     def batch_generator(self):
         """
         The role of this function is to generate batches for the seq2seq model. The batch generation
         should include the logic of shuffling the samples. A full iteration should include
         all of the data samples.
-        :return: PyTorch padded-sequence object.
         """
-        return NotImplementedError
-
-    def train(self, boolean):
-        self._train = boolean
-
-    def eval(self, boolean):
-        self._eval = boolean
+        raise NotImplementedError
 
 
-class FastInput(InputPipeline):
+class MemoryInput(InputPipeline):
     """
     A faster implementation of reader class than FileReader. The source data is fully loaded into
     the memory.
@@ -305,22 +416,24 @@ class FastInput(InputPipeline):
         'max_segment_size':  None,
         'batch_size':        None,
         'padding_type':      None,
-        'use_cuda':         'Experiment:Policy:use_cuda$',
+        'shuffle':           None,
+        'cuda':             'Experiment:Policy:cuda$',
         'corpora':           Corpora
     })
 
     abstract = False
 
     def __init__(self,
-                 batch_size,
-                 use_cuda,
-                 corpora,
-                 padding_type,
-                 max_segment_size):
+                 max_segment_size:  int,
+                 batch_size:        int,
+                 shuffle:           bool,
+                 cuda:              bool,
+                 corpora:           Corpora,
+                 padding_type:      str = 'PostPadding'):
         """
         An instance of a fast reader.
         :param batch_size: int, size of the input batches.
-        :param use_cuda: bool, True if the device has cuda support.
+        :param cuda: bool, True if the device has cuda support.
         :param padding_type: str, type of padding that will be used during training. The sequences in
                              the mini-batches may vary in length, so padding must be applied to convert
                              them to equal lengths.
@@ -328,36 +441,19 @@ class FastInput(InputPipeline):
         """
         super().__init__()
 
+        self._cuda = cuda
+        self._shuffle = shuffle
         self._corpora = corpora
-        self._use_cuda = use_cuda
+        self._batch_size = batch_size
         self._max_segment_size = max_segment_size
-
-        self._batch_format = None
 
         padding_types = subclasses(Padding)
 
         self._padder = padding_types[padding_type](self._corpora.vocabulary, max_segment_size)
 
-        train = self._padder(self._corpora.train)
-        dev = self._padder(self._corpora.dev)
-        test = self._padder(self._corpora.test)
+        self._corpora.initialize_corpus()
 
-        self._modes = {
-            'train': {
-                'batch_size':   batch_size,
-                'data':         train
-            },
-            'dev': {
-                'batch_size':   1,
-                'data':         dev
-            },
-            'test': {
-                'batch_size':   1,
-                'data':         test
-            }
-        }
-
-        self._mode = None
+        self._data = self._padder(self._corpora.data)
 
     def batch_generator(self):
         """
@@ -371,14 +467,13 @@ class FastInput(InputPipeline):
                  of the lengths of the original sequences (without padding).
         """
         for data_segment in self._segment_generator():
-            if self._mode == 'train':
+            if self._shuffle:
                 shuffled_data_segment = sklearn.utils.shuffle(data_segment)
             else:
                 shuffled_data_segment = data_segment
-            for index in range(0, len(shuffled_data_segment)-self._modes[self._mode]['batch_size']+1,
-                               self._modes[self._mode]['batch_size']):
+            for index in range(0, len(shuffled_data_segment)-self._batch_size+1, self._batch_size):
                 batch = self._padder.create_batch(
-                    shuffled_data_segment[index:index + self._modes[self._mode]['batch_size']]
+                    shuffled_data_segment[index:index + self._batch_size]
                 )
                 yield batch
 
@@ -403,47 +498,8 @@ class FastInput(InputPipeline):
         """
         Divides the data to segments of size MAX_SEGMENT_SIZE.
         """
-        t = range(0, len(self._modes[self._mode]['data']), self._max_segment_size)
-        for index in t:
-            yield copy.deepcopy(self._modes[self._mode]['data'][index:index + self._max_segment_size])
-
-    def train(self, boolean=True):
-        super().train(boolean)
-        if self._train:
-            self._mode = 'train'
-        else:
-            self._mode = None
-
-    def eval(self, boolean=True):
-        super().eval(boolean)
-        if self._train and self._eval:
-            self._mode = 'dev'
-        elif self._train and not self._eval:
-            self._mode = 'train'
-        elif not self._train and self._eval:
-            self._mode = 'test'
-        else:
-            self._mode = None
-
-    @property
-    def batch_format(self):
-        """
-        Property for the currently used batch production format for the batch generation.
-        This value must be provided by the task, to define a convenient way of reading the
-        data from segments.
-        :return: function, currently used batch formatter function.
-        """
-        return self._batch_format
-
-    @batch_format.setter
-    def batch_format(self, batch_format):
-        """
-        Setter for the batch format of the reader.
-        :param batch_format: function, that defines the way of creating batches.
-                             The function receives a batch, that has dimensions (batch_size, seq_length),
-                             and a bool, that indicates whether cuda is enabled.
-        """
-        self._batch_format = batch_format
+        for index in range(0, len(self._data), self._max_segment_size):
+            yield copy.deepcopy(self._data[index:index + self._max_segment_size])
 
     @property
     def corpora(self):
@@ -460,24 +516,8 @@ class FastInput(InputPipeline):
         """
         return self._corpora.vocabulary
 
-    @property
-    def source_vocabulary(self):
-        """
-        Property for the reader object's source vocabulary.
-        :return: Language object, the source vocabulary.
-        """
-        return self._corpora.vocabulary[0]
 
-    @property
-    def target_vocabulary(self):
-        """
-        Property for the reader object's target vocabulary.
-        :return: Language object, the source vocabulary.
-        """
-        return self._corpora.vocabulary[-1]
-
-
-class FileInput(InputPipeline):  # TODO
+class FileInput(InputPipeline):
     """
     An implementation of the reader class. Batches are read from the source in file real-time.
     This version of the reader should only be used if the source file is too large to be stored
@@ -488,55 +528,39 @@ class FileInput(InputPipeline):  # TODO
         'max_segment_size':     None,
         'batch_size':           None,
         'padding_type':         None,
-        'use_cuda':            'Experiment:Policy:use_cuda$',
+        'shuffle':              None,
+        'cuda':                'Experiment:Policy:cuda$',
         'corpora':              Corpora
     })
 
     abstract = False
 
     def __init__(self,
-                 batch_size,
-                 use_cuda,
-                 language,
-                 data_path,
-                 max_segment_size):
+                 max_segment_size:  int,
+                 batch_size:        int,
+                 cuda:              bool,
+                 shuffle:           bool,
+                 corpora:           Corpora,
+                 padding_type:      str = 'PostPadding'):
         """
-        An instance of a file reader.
-        :param language: Language, instance of the used language object.
-        :param data_path: str, absolute path of the data location.
-        :param batch_size: int, size of the input batches.
-        :param use_cuda: bool, True if the device has cuda support.
+
+
+        Args:
+.
         """
         super().__init__()
 
-        self._language = language
-        self._use_cuda = use_cuda
+        self._cuda = cuda
+        self._corpora = corpora
         self._batch_size = batch_size
-        self._data_queue = DataQueue(data_path, max_segment_size)
+        self._shuffle = shuffle
         self._max_segment_size = max_segment_size
 
+        self._data_reader = DataQueue(corpora=self._corpora)
+
+        padding_types = subclasses(Padding)
+
         self._padder = padding_types[padding_type](self._corpora.vocabulary, max_segment_size)
-
-        train = self._padder(self._corpora.train)
-        dev = self._padder(self._corpora.dev)
-        test = self._padder(self._corpora.test)
-
-        self._modes = {
-            'train': {
-                'batch_size': batch_size,
-                'data': train
-            },
-            'dev': {
-                'batch_size': 1,
-                'data': dev
-            },
-            'test': {
-                'batch_size': 1,
-                'data': test
-            }
-        }
-
-        self._mode = None
 
     def batch_generator(self):
         """
@@ -550,196 +574,39 @@ class FileInput(InputPipeline):  # TODO
                  of the lengths of the original sequences (without padding).
         """
         for data_segment in self._segment_generator():
-            if self._mode == 'train':
+            if self._shuffle:
                 shuffled_data_segment = sklearn.utils.shuffle(data_segment)
             else:
                 shuffled_data_segment = data_segment
-            for index in range(0, len(shuffled_data_segment)-self._modes[self._mode]['batch_size']+1,
-                               self._modes[self._mode]['batch_size']):
+            for index in range(0, len(shuffled_data_segment)-self._batch_size+1, self._batch_size):
                 batch = self._padder.create_batch(
-                    shuffled_data_segment[index:index + self._modes[self._mode]['batch_size']]
+                    shuffled_data_segment[index:index + self._batch_size]
                 )
                 yield batch
 
+    # noinspection PyTypeChecker
     def _segment_generator(self):
         """
         Divides the data to segments of size MAX_SEGMENT_SIZE.
         """
-        t = range(0, len(self._modes[self._mode]['data']), self._max_segment_size)
-        for index in t:
-            yield copy.deepcopy(self._modes[self._mode]['data'][index:index + self._max_segment_size])
-
-    def train(self, boolean=True):
-        super().train(boolean)
-        if self._train:
-            self._mode = 'train'
-        else:
-            self._mode = None
-
-    def eval(self, boolean=True):
-        super().eval(boolean)
-        if self._train and self._eval:
-            self._mode = 'dev'
-        elif self._train and not self._eval:
-            self._mode = 'train'
-        elif not self._train and self._eval:
-            self._mode = 'test'
-        else:
-            self._mode = None
+        for file_data_segment in self._data_reader.generator():
+            for index in range(0, len(file_data_segment), self._max_segment_size):
+                yield copy.deepcopy(file_data_segment[index:index + self._max_segment_size])
 
     @property
-    def language(self):
+    def corpora(self):
         """
-        Property for the reader object's source language.
-        :return: Language object, the source language.
+        Property for the corpora of the reader.
         """
-        return self._language
-
-
-class Vocabulary:
-    """
-    Wrapper class for the lookup tables of the languages.
-    """
-
-    interface = OrderedDict(**{
-        'vocab':      None,
-        'provided':   None,
-        'fixed':      None,
-        'use_cuda':   None,
-        'tokens':     None,
-    })
-
-    def __init__(self, vocab, tokens, provided, fixed, use_cuda):
-        """
-        A language instance for storing the embedding and vocabulary.
-        :param vocab: str, path of the embedding/vocabulary for the language.
-        :param tokens: list, tokens, that identifies the languages.
-        :param provided: bool, indicates, whether the embeddings are provided to the model.
-        :param fixed: bool, true, if the embeddings are fixed, and do not require updates.
-        """
-        self._word_to_id = {}
-        self._id_to_word = {}
-        self._word_to_count = {}
-
-        self._language_tokens = tokens
-        self._use_cuda = use_cuda
-        self._provided = provided
-
-        self.requires_grad = not fixed
-
-        self._vocab_size = None
-        self._embedding_size = None
-        self._embedding_weights = None
-
-        self._load_data(vocab)
-
-        self._embedding = Embedding(embedding_size=self._embedding_size,
-                                    vocab_size=self._vocab_size,
-                                    use_cuda=self._use_cuda,
-                                    weights=self._embedding_weights,
-                                    requires_grad=self.requires_grad)
-
-    def _load_data(self, path):
-        """
-        Loads the vocabulary from a file. Path is assumed to be a text file, where each line contains
-        a word and its corresponding embedding weights, separated by spaces.
-        :param path: string, the absolute path of the vocab.
-        """
-        with open(path, 'r') as file:
-            first_line = file.readline().split(' ')
-            self._vocab_size = int(first_line[0]) + 4 + len(self._language_tokens)
-            self._embedding_size = int(first_line[1])
-
-            if self._provided:
-                self._embedding_weights = numpy.empty((self._vocab_size, self._embedding_size), dtype=float)
-
-            for index, line in enumerate(file):
-                line_as_list = list(line.split(' '))
-                self._word_to_id[line_as_list[0]] = index
-                if self._provided:
-                    self._embedding_weights[index, :] = numpy.array([float(element) for element
-                                                                    in line_as_list[1:]], dtype=float)
-
-            for token in self._language_tokens:
-                self._word_to_id[token] = len(self._word_to_id)
-
-            self._word_to_id['<SOS>'] = len(self._word_to_id)
-            self._word_to_id['<EOS>'] = len(self._word_to_id)
-            self._word_to_id['<UNK>'] = len(self._word_to_id)
-            self._word_to_id['<PAD>'] = len(self._word_to_id)
-
-            self._id_to_word = dict(zip(self._word_to_id.values(), self._word_to_id.keys()))
-
-            if self._provided:
-                self._embedding_weights[-1, :] = numpy.zeros(self._embedding_size)
-                self._embedding_weights[-2, :] = numpy.zeros(self._embedding_size)
-                self._embedding_weights[-3, :] = numpy.zeros(self._embedding_size)
-                self._embedding_weights[-4, :] = numpy.zeros(self._embedding_size)
-
-                for index in range(-5, -5-len(self._language_tokens), -1):
-                    self._embedding_weights[index, :] = numpy.random.rand(self._embedding_size)
-
-                self._embedding_weights = torch.from_numpy(self._embedding_weights).float()
-
-                if self._use_cuda:
-                    self._embedding_weights = self._embedding_weights.cuda()
-
-    def __call__(self, expression):
-        """
-        Translates the given expression to it's corresponding word or id.
-        :param expression: str or int, if str (word) is provided, then the id will be returned, and
-                           the behaviour is the same for the other case.
-        :return: int or str, (id or word) of the provided expression.
-        """
-        if isinstance(expression, str):
-            return self._word_to_id[expression]
-
-        elif isinstance(expression, int) or isinstance(expression, numpy.int64) or isinstance(expression, numpy.int32):
-            return self._id_to_word[expression]
-
-        else:
-            raise ValueError(f'Expression must either be a string or an int, got {type(expression)}')
+        return self._corpora
 
     @property
-    def tokens(self):
+    def vocabulary(self):
         """
-        Property for the tokens of the language.
-        :return: dict, <UNK>, <EOS>, <PAD> and <SOS> tokens with their ids.
+        Property for the reader object's vocabulary.
+        :return: Language object, the source vocabulary.
         """
-        return {
-            '<SOS>': self._word_to_id['<SOS>'],
-            '<EOS>': self._word_to_id['<EOS>'],
-            '<UNK>': self._word_to_id['<UNK>'],
-            '<PAD>': self._word_to_id['<PAD>']
-        }
-
-    @property
-    def embedding(self):
-        """
-        Property for the embedding layer.
-        :return: A PyTorch Embedding type object.
-        """
-        if self._embedding is None:
-            raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding
-
-    @property
-    def embedding_size(self):
-        """
-        Property for the dimension of the embeddings.
-        :return: int, length of the embedding vectors (dim 1 of the embedding matrix).
-        """
-        if self._embedding is None:
-            raise ValueError('The vocabulary has not been initialized for the language.')
-        return self._embedding_size
-
-    @property
-    def vocab_size(self):
-        """
-        Property for the dimension of the embeddings.
-        :return: int, length of the vocabulary (dim 1 of the embedding matrix).
-        """
-        return self._vocab_size - 1
+        return self._corpora.vocabulary
 
 
 class DataQueue:
@@ -747,26 +614,52 @@ class DataQueue:
     A queue object for the data feed. This can be later configured to load the data to
     memory asynchronously.
     """
-    _MAX_SEGMENT = 200000
+    MAX_SEGMENT = 50000
 
-    def __init__(self, data_path, max_segment_size):
+    @staticmethod
+    def _location_scheme(path):
+        file_name = os.path.splitext(os.path.basename(path))
+        return os.path.join(os.path.dirname(os.path.realpath(path)),
+                            '%s_id%s' % (file_name[0], ''.join(file_name[1:])))
+
+    def __init__(self,
+                 corpora:           Corpora,
+                 max_segment_size:  int = MAX_SEGMENT):
         """
-        :param data_path: str, location of the data.
+
         """
-        self._data_path = data_path
+        self._data_path = corpora.data_path
+        self._id_data_path = self._location_scheme(corpora.data_path)
+
+        self._corpora = corpora
         self._max_segment_size = max_segment_size
         self._data_segment_queue = []
 
-    def data_generator(self):
+        if os.path.isfile(self._id_data_path):
+            logging.info(f'Using {self._id_data_path} as data source')
+        else:
+            logging.info(f'Creating {self._id_data_path} as data source')
+            self._generate_id_file()
+
+    def _generate_id_file(self):
+        """
+
+        """
+        with open(self._data_path, 'r') as text_file:
+            with open(self._id_data_path, 'w') as id_file:
+                for line in text_file:
+                    ids = ids_from_sentence(self._corpora.vocabulary, line)
+                    id_file.write('%s %d\n' % (' '.join(list(map(str, ids))), len(ids)))
+
+    def generator(self):
         """
         Data is retrieved directly from a file, and loaded into data chunks of size MAX_CHUNK_SIZE.
-        :return: list of strings, a data chunk.
         """
-        with open(self._data_path, 'r') as file:
+        with open(self._id_data_path, 'r') as file:
             data_segment = []
             for line in file:
                 if len(data_segment) < self._max_segment_size:
-                    data_segment.append(line[:-1])
+                    data_segment.append(list(map(int, line.strip().split())))
                 else:
                     temp_data_segment = copy.deepcopy(data_segment)
                     del data_segment[:]
@@ -774,19 +667,88 @@ class DataQueue:
             yield data_segment
 
 
-class Padding:  # TODO parallel support
+class ParallelDataQueue:
+    """
+    A queue object for the data feed. This can be later configured to load the data to
+    memory asynchronously.
+    """
+    MAX_SEGMENT = 50000
+
+    @staticmethod
+    def _location_scheme(path):
+        file_name = os.path.splitext(os.path.basename(path))
+        return os.path.join(os.path.dirname(os.path.realpath(path)),
+                            '%s_id%s' % (file_name[0], ''.join(file_name[1:])))
+
+    def __init__(self,
+                 corpora:           Corpora,
+                 max_segment_size:  int = MAX_SEGMENT):
+        """
+
+        """
+        self._data_path = corpora.data_path
+        self._id_data_path = self._location_scheme(corpora.data_path)
+
+        self._corpora = corpora
+        self._max_segment_size = max_segment_size
+        self._data_segment_queue = []
+
+        if os.path.isfile(self._id_data_path):
+            logging.info(f'Using {self._id_data_path} as data source')
+        else:
+            logging.info(f'Creating {self._id_data_path} as data source')
+            self._generate_id_file()
+
+    def _generate_id_file(self):
+        """
+
+        """
+        with open(self._data_path, 'r') as text_file:
+            with open(self._id_data_path, 'w') as id_file:
+                for line in text_file:
+                    ids = ids_from_sentence(self._corpora.vocabulary, line)
+                    id_file.write('%s %d\n' % (' '.join(list(map(str, ids))), len(ids)))
+
+    def generator(self):
+        """
+        Data is retrieved directly from a file, and loaded into data chunks of size MAX_CHUNK_SIZE.
+        """
+        with open(self._id_data_path, 'r') as file:
+            data_segment = []
+            for line in file:
+                if len(data_segment) < self._max_segment_size:
+                    data_segment.append(list(map(int, line.strip().split())))
+                else:
+                    temp_data_segment = copy.deepcopy(data_segment)
+                    del data_segment[:]
+                    yield temp_data_segment
+            yield data_segment
+
+
+class Padding:
     """
     Base class for the padding types.
     """
 
     abstract = True
 
-    def __init__(self, vocabulary, max_segment_size):
-        self._vocabulary = vocabulary[0]
+    def __init__(self,
+                 vocabulary,
+                 max_segment_size):
+        """
+
+
+        Args:
+            vocabulary:
+
+            max_segment_size:
+
+        """
+        self._vocabulary = vocabulary
         self._max_segment_size = max_segment_size
 
     def create_batch(self, data):
-        return NotImplementedError
+        raise NotImplementedError
 
 
 class PostPadding(Padding):
@@ -880,3 +842,64 @@ class PrePadding(Padding):
                 data_to_ids.append(data_line)
 
         return data_to_ids
+
+
+class Language(Component):
+    """
+
+    """
+
+    abstract = False
+
+    interface = OrderedDict(**{
+        'identifier':           None,
+        'vocabulary':           Vocabulary,
+        'input_pipelines':      InputPipeline,
+    })
+
+    def __init__(self,
+                 identifier:        str,
+                 input_pipelines:   dict,
+                 vocabulary:        Vocabulary):
+        """
+
+
+        Args:
+            identifier:
+
+            input_pipelines:
+
+            vocabulary:
+        """
+
+        self._identifier = identifier
+
+        try:
+            assert isinstance(input_pipelines, dict), 'train, dev, test'
+
+            assert 'train' in input_pipelines, 'train'
+            assert 'dev' in input_pipelines, 'dev'
+            assert 'test' in input_pipelines, 'test'
+
+        except AssertionError as error:
+            logging.error(f'Language configuration file must contain {error} key(s) in the input pipeline dictionary')
+            sys.exit()
+
+        logging.debug('Language object initialized with %d input pipelines (%s)' %
+                      (len(input_pipelines), ', '.join(list(input_pipelines.keys()))))
+
+        self._input_pipelines = input_pipelines
+
+        self._vocabulary = vocabulary
+
+    @property
+    def identifier(self):
+        return self._identifier
+
+    @property
+    def input_pipelines(self):
+        return self._input_pipelines
+
+    @property
+    def vocabulary(self):
+        return self._vocabulary

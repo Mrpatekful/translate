@@ -1,16 +1,21 @@
+"""
+
+"""
+
 from collections import OrderedDict
 
 import torch
 import torch.autograd as autograd
 import torch.nn
 import torch.optim
-from torch.nn.utils.rnn import pack_padded_sequence
-from torch.nn.utils.rnn import pad_packed_sequence
+
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from src.components.base import Encoder
 from src.components.utils.utils import Optimizer
-from src.utils.analysis import Data
+
 from src.utils.analysis import LatentStateData
+
 from src.utils.utils import ParameterSetter
 
 
@@ -25,7 +30,7 @@ class RNNEncoder(Encoder):
         'num_layers':       None,
         'optimizer_type':   None,
         'learning_rate':    None,
-        'use_cuda':        'Experiment:Policy:use_cuda$',
+        'cuda':            'Experiment:Policy:cuda$',
         'embedding_size':  'embedding_size$'
     })
 
@@ -50,11 +55,15 @@ class RNNEncoder(Encoder):
         self._optimizer = None
 
         self._outputs = {
-            'hidden_state':     None,
-            'encoder_outputs':  None
+            'encoder_outputs':   None,
+            'hidden_state':      None,
         }
 
         self.embedding = None
+        self._recurrent_parameters = None
+
+    def forward(self, *args, **kwargs):
+        raise NotImplementedError
 
     def init_optimizer(self):
         """
@@ -68,13 +77,12 @@ class RNNEncoder(Encoder):
         return self
 
     def _init_hidden(self, batch_size):
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def output_types(self):
         return {
-            'encoder_outputs':  Data,
-            'hidden_state':     LatentStateData
+            'latent_state': LatentStateData
         }
 
     @property
@@ -90,7 +98,7 @@ class RNNEncoder(Encoder):
         Property for the state of the encoder.
         """
         return {
-            'weights':      self.state_dict(),
+            'weights':      {k: v for k, v in self.state_dict().items() if k in self._recurrent_parameters},
             'optimizer':    self._optimizer.state
         }
 
@@ -101,11 +109,15 @@ class RNNEncoder(Encoder):
         Setter method for the weights of the encoder, and the optimizer.
         :param state: dict, containing the states.
         """
-        self.load_state_dict({k: v for k, v in state['weights'].items() if k in self.state_dict()})
+        parameters = {k: v for k, v in state['weights'].items() if k in self._recurrent_parameters}
+        self.load_state_dict(parameters, strict=False)
         self._optimizer.state = state['optimizer']
 
 
 class UnidirectionalRNNEncoder(RNNEncoder):
+    """
+
+    """
 
     interface = RNNEncoder.interface
 
@@ -136,8 +148,10 @@ class UnidirectionalRNNEncoder(RNNEncoder):
                                           bidirectional=False,
                                           batch_first=True)
 
-        if self._use_cuda:
+        if self._cuda:
             self._recurrent_layer = self._recurrent_layer.cuda()
+
+        self._recurrent_parameters = [name for name, _ in self.named_parameters()]
 
         return self
 
@@ -167,18 +181,23 @@ class UnidirectionalRNNEncoder(RNNEncoder):
         Initializes the hidden state of the encoder module.
         :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
         """
-        state = autograd.Variable(torch.randn(self._num_layers, batch_size, self._hidden_size))
+        state = torch.randn(self._num_layers, batch_size, self._hidden_size)
 
-        if self._use_cuda:
+        if self._cuda:
             state = state.cuda()
 
+        state = autograd.Variable(state)
+
         if isinstance(self._recurrent_layer, torch.nn.LSTM):
-            return state, state
+            return state.contiguous(), state.contiguous()
         else:
-            return state
+            return state.contiguous()
 
 
 class BidirectionalRNNEncoder(RNNEncoder):
+    """
+
+    """
 
     interface = RNNEncoder.interface
 
@@ -215,13 +234,15 @@ class BidirectionalRNNEncoder(RNNEncoder):
         projection_weights = torch.rand(self._hidden_size*2, self._hidden_size)
         hidden_projection_weights = torch.rand(self._num_layers*2, self._num_layers)
 
-        if self._use_cuda:
+        if self._cuda:
             projection_weights = projection_weights.cuda()
             hidden_projection_weights = hidden_projection_weights.cuda()
             self._recurrent_layer = self._recurrent_layer.cuda()
 
         self._projection_layer = torch.nn.Parameter(projection_weights)
         self._hidden_projection_layer = torch.nn.Parameter(hidden_projection_weights)
+
+        self._recurrent_parameters = [name for name, _ in self.named_parameters()]
 
         return self
 
@@ -254,15 +275,17 @@ class BidirectionalRNNEncoder(RNNEncoder):
         Initializes the hidden state of the encoder module.
         :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
         """
-        state = autograd.Variable(torch.randn(self._num_layers*2, batch_size, self._hidden_size))
+        state = torch.randn(self._num_layers*2, batch_size, self._hidden_size)
 
-        if self._use_cuda:
+        if self._cuda:
             state = state.cuda()
 
+        state = autograd.Variable(state)
+
         if isinstance(self._recurrent_layer, torch.nn.LSTM):
-            return state, state
+            return state.contiguous(), state.contiguous()
         else:
-            return state
+            return state.contiguous()
 
     def _project_hidden_state(self, hidden_state):
         """
@@ -273,24 +296,18 @@ class BidirectionalRNNEncoder(RNNEncoder):
         if isinstance(hidden_state, tuple):
 
             p_hs = torch.matmul(
-                hidden_state[0].transpose(0, 1).transpose(1, 2),
-                self._hidden_projection_layer)\
-                .transpose(1, 2)\
-                .transpose(0, 1)
+                hidden_state[0].transpose(0, 1).transpose(1, 2), self._hidden_projection_layer)\
+                .transpose(1, 2).transpose(0, 1)
             p_cs = torch.matmul(
-                hidden_state[1].transpose(0, 1).transpose(1, 2),
-                self._hidden_projection_layer)\
-                .transpose(1, 2)\
-                .transpose(0, 1)
+                hidden_state[1].transpose(0, 1).transpose(1, 2), self._hidden_projection_layer)\
+                .transpose(1, 2).transpose(0, 1)
 
             return p_hs.contiguous(), p_cs.contiguous()
 
         else:
 
-            projected_hidden_state = torch.matmul(
-                hidden_state.transpose(0, 1).transpose(1, 2),
-                self._hidden_projection_layer)\
-                .transpose(1, 2)\
-                .transpose(0, 1)
+            p_hs = torch.matmul(
+                hidden_state.transpose(0, 1).transpose(1, 2), self._hidden_projection_layer)\
+                .transpose(1, 2).transpose(0, 1)
 
-            return projected_hidden_state.contiguous()
+            return p_hs.contiguous()

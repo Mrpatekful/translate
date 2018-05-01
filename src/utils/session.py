@@ -67,7 +67,7 @@ class Session:
     def evaluate(self):
         if self._state is None:
             raise RuntimeError('There is no available model for evaluation.')
-        with EvaluationContext(session=self) as ec:
+        with ValidationContext(session=self) as ec:
             ec.evaluate('Test')
 
     def train(self):
@@ -78,7 +78,7 @@ class Session:
 
                 train_log = tc.train()
 
-                with EvaluationContext(session=self) as ec:
+                with ValidationContext(session=self) as ec:
                     ec.evaluate('Validation')
                     ec.save(tc.epoch, train_log)
 
@@ -112,11 +112,10 @@ class TrainingContext:
         self._start_epoch = self.epoch
 
     def __enter__(self):
-        call('train', self._session.task.input_pipelines)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        call('train', self._session.task.input_pipelines, {'boolean': False})
+        pass
 
     def train(self):
         def average_as_list(key):
@@ -128,9 +127,9 @@ class TrainingContext:
 
         logging.info(f'Processing Epoch {self.epoch} ...')
 
-        outputs = self._session.task.train()
+        outputs = self._session.task.train(self.epoch)
 
-        logging.info(f'''Train | Total Loss::          {average_as_list('total_loss')}''')
+        logging.info(f'''Train | Total Model Loss:     {average_as_list('total_loss')}''')
         logging.info(f'''Train | Translation Loss:     {average_as_list('translation_loss')}''')
         logging.info(f'''Train | Auto-Encoding Loss:   {average_as_list('auto_encoding_loss')}''')
         logging.info(f'''Train | Reguralization Loss:  {average_as_list('reguralization_loss')}''')
@@ -143,7 +142,7 @@ class TrainingContext:
         return range(self._start_epoch, self.EPOCHS, 1)
 
 
-class EvaluationContext:
+class ValidationContext:
 
 
     def __init__(self, session):
@@ -153,11 +152,10 @@ class EvaluationContext:
         self._get_last_log()
 
     def __enter__(self):
-        call('eval', self._session.task.input_pipelines)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        call('eval', self._session.task.input_pipelines, {'boolean': False})
+        pass
 
     def evaluate(self, mode):
         def average_as_list(key):
@@ -173,7 +171,7 @@ class EvaluationContext:
 
         self._outputs = self._session.task.evaluate()
 
-        logging.info(f'''{mode} | Total Loss:           {average_as_list('total_loss')}''')
+        logging.info(f'''{mode} | Total Model Loss:     {average_as_list('total_loss')}''')
         logging.info(f'''{mode} | Translation Loss:     {average_as_list('translation_loss')}''')
         logging.info(f'''{mode} | Auto-Encoding Loss:   {average_as_list('auto_encoding_loss')}''')
         logging.info(f'''{mode} | Reguralization Loss:  {average_as_list('reguralization_loss')}''')
@@ -224,3 +222,7 @@ class EvaluationContext:
             self._last_log = 0
         else:
             self._last_log = find_int(analysis_files[-1])
+
+
+class InferenceContext:
+    pass

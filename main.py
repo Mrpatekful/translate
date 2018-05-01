@@ -22,12 +22,13 @@ def main():
     group.add_argument('-t', '--train', action='store_true', dest='train')
     group.add_argument('-i', '--inference', action='store_true', dest='inference')
     parser.add_argument('-c', '--clear', action='store_true', dest='clear')
+    parser.add_argument('-v', '--verbose', action='store', dest='log_level', default=logging.INFO)
 
-    arguments = parser.parse_args(['-c', '-t'])
+    arguments = parser.parse_args(['-t', '-c'])
 
     clear_logs = arguments.clear if arguments.train else False
 
-    session = Session(*Config(arguments.config).assemble(), clear=clear_logs)
+    session = Session(*Config(arguments.config, arguments.log_level).assemble(), clear=clear_logs)
 
     if arguments.train:
         session.train()

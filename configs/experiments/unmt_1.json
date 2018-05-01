@@ -1,18 +1,18 @@
 {
-    "type": "UnsupervisedTranslation",
+    "type": "MergedCurriculumTranslation",
     "params": {
-        "policy": "configs/utils/policies/unmt.json",
-        "language_tokens": [
+        "policy": "configs/utils/policies/policy.json",
+        "language_identifiers": [
             "<ENG>",
             "<FRA>"
         ],
-        "input_pipelines": [
-            "configs/utils/input_pipelines/eng.json",
-            "configs/utils/input_pipelines/fra.json"
+        "languages": [
+            "configs/utils/languages/english.json",
+            "configs/utils/languages/french.json"
         ],
         "model": "configs/models/sts.json",
-        "reguralizer": "configs/components/reguralizers/mlp.json",
-        "translation_model": "configs/utils/translators/mono.json"
+        "initial_translator": "configs/utils/translators/word.json",
+        "reguralizer": "configs/components/reguralizers/mlp.json"
     },
     "checkpoint_dir": "logs/unmt_1/checkpoints",
     "output_dir": "logs/unmt_1/outputs",

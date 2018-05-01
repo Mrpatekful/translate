@@ -7,14 +7,14 @@
             "<FRA>"
         ],
         "input_pipelines": [
-            "configs/utils/input_pipelines/eng.json",
-            "configs/utils/input_pipelines/fra.json"
+            "configs/utils/input_pipelines/engfast.json",
+            "configs/utils/input_pipelines/frafast.json"
         ],
         "model": "configs/models/sts.json",
         "reguralizer": "configs/components/reguralizers/mlp.json",
-        "translation_model": "configs/utils/translators/mono.json"
+        "initial_translator": "configs/utils/translators/mono.json"
     },
-    "checkpoint_dir": "logs/unmt_0/checkpoints",
-    "output_dir": "logs/unmt_0/outputs",
-    "info_dir": "logs/unmt_0/info.log"
+    "experiment_id": null,
+    "experiment_dir": null,
+    "archive_dir": null
 }

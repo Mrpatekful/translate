@@ -14,15 +14,19 @@ class Encoder(Module, Component):
         super().__init__()
 
     def forward(self, *args, **kwargs):
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def optimizers(self):
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def state(self):
-        return NotImplementedError
+        raise NotImplementedError
+
+    @state.setter
+    def state(self, value):
+        raise NotImplementedError
 
 
 class Decoder(Module, Component):
@@ -38,15 +42,19 @@ class Decoder(Module, Component):
         self._output_size = None
 
     def forward(self, *args, **kwargs):
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def optimizers(self):
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def state(self):
-        return NotImplementedError
+        raise NotImplementedError
+
+    @state.setter
+    def state(self, value):
+        raise NotImplementedError
 
     @property
     def output_size(self):

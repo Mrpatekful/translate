@@ -28,18 +28,18 @@ class Classifier(Module, Component):  # TODO states
         'hidden_size':      None,
         'learning_rate':    None,
         'optimizer_type':   None,
-        'tokens':          'Experiment:language_tokens$',
-        'use_cuda':        'Experiment:Policy:use_cuda$',
+        'output_size':      None,
+        'cuda':            'Experiment:Policy:cuda$',
         'input_size':      'Encoder:hidden_size$'
     })
 
     def __init__(self,
-                 hidden_size,
-                 learning_rate,
-                 optimizer_type,
-                 tokens,
-                 use_cuda,
-                 input_size):
+                 hidden_size:       int,
+                 input_size:        int,
+                 output_size:       int,
+                 learning_rate:     float,
+                 optimizer_type:    str,
+                 cuda:              bool):
         """
 
 
@@ -50,27 +50,27 @@ class Classifier(Module, Component):  # TODO states
 
             optimizer_type:
 
-            use_cuda:
+            cuda:
 
             input_size:
 
         """
         super().__init__()
 
-        self._output_size = len(tokens)
-
         self._hidden_size = hidden_size
-        self._optimizer_type = optimizer_type
         self._input_size = input_size
+        self._output_size = output_size
+
+        self._optimizer_type = optimizer_type
         self._learning_rate = learning_rate
-        self._use_cuda = use_cuda
+        self._cuda = cuda
 
     def forward(self, *args, **kwargs):
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
-    def optimizers(self):
-        return NotImplementedError
+    def optimizer(self):
+        raise NotImplementedError
 
     def freeze(self):
         for param in self.parameters():
@@ -89,12 +89,12 @@ class FFClassifier(Classifier):
     abstract = False
 
     def __init__(self,
-                 input_size,
-                 hidden_size,
-                 learning_rate,
-                 optimizer_type,
-                 tokens,
-                 use_cuda):
+                 input_size:        int,
+                 hidden_size:       int,
+                 output_size:       int,
+                 learning_rate:     float,
+                 optimizer_type:    str,
+                 cuda:              bool):
         """
         An instance of a feed-forward discriminator.
 
@@ -109,22 +109,22 @@ class FFClassifier(Classifier):
             learning_rate:
                 float, learning rate of the optimizer.
 
-            use_cuda:
+            cuda:
                 bool, true if cuda support is enabled.
         """
         super().__init__(hidden_size=hidden_size,
-                         optimizer_type=optimizer_type,
+                         output_size=output_size,
                          input_size=input_size,
                          learning_rate=learning_rate,
-                         tokens=tokens,
-                         use_cuda=use_cuda)
+                         optimizer_type=optimizer_type,
+                         cuda=cuda)
 
         self._input_layer = Linear(input_size, hidden_size)
         self._hidden_layer = Linear(hidden_size, hidden_size)
         self._output_layer = Linear(hidden_size, self._output_size)
         self._activation = LeakyReLU()
 
-        if self._use_cuda:
+        if self._cuda:
             self._input_layer = self._input_layer.cuda()
             self._hidden_layer = self._hidden_layer.cuda()
             self._output_layer = self._output_layer.cuda()
@@ -175,13 +175,13 @@ class RNNClassifier(Classifier):
     })
 
     def __init__(self,
-                 input_size,
-                 hidden_size,
-                 learning_rate,
-                 num_layers,
-                 optimizer_type,
-                 tokens,
-                 use_cuda):
+                 input_size:        int,
+                 hidden_size:       int,
+                 output_size:       int,
+                 learning_rate:     float,
+                 num_layers:        int,
+                 optimizer_type:    str,
+                 cuda:              bool):
         """
         An instance of a recurrent discriminator.
 
@@ -195,15 +195,15 @@ class RNNClassifier(Classifier):
             learning_rate:
                 float, learning rate of the optimizer.
 
-            use_cuda:
+            cuda:
                 bool, true if cuda support is enabled.
         """
         super().__init__(hidden_size=hidden_size,
-                         optimizer_type=optimizer_type,
                          input_size=input_size,
+                         output_size=output_size,
                          learning_rate=learning_rate,
-                         tokens=tokens,
-                         use_cuda=use_cuda)
+                         optimizer_type=optimizer_type,
+                         cuda=cuda)
 
         self._num_layers = num_layers
 
@@ -214,7 +214,7 @@ class RNNClassifier(Classifier):
 
         self._output_layer = Linear(self._hidden_size, self._output_size)
 
-        if self._use_cuda:
+        if self._cuda:
             self._recurrent_layer = self._recurrent_layer.cuda()
             self._output_layer = self._output_layer.cuda()
 
@@ -276,11 +276,11 @@ class Embedding(Module):
     """
 
     def __init__(self,
-                 embedding_size,
-                 vocab_size,
-                 use_cuda,
-                 weights=None,
-                 requires_grad=True):
+                 embedding_size:    int,
+                 vocab_size:        int,
+                 cuda:              bool,
+                 weights:           torch.FloatTensor=None,
+                 requires_grad:     bool=True):
         """
         An embedding instance.
 
@@ -291,7 +291,7 @@ class Embedding(Module):
             vocab_size:
                 Int, number of words in the vocab.
 
-            use_cuda:
+            cuda:
                 Bool, true if cuda support is enabled.
 
             weights:
@@ -308,7 +308,7 @@ class Embedding(Module):
         if weights is not None:
             self._layer.weight = torch.nn.Parameter(weights, requires_grad=self._requires_grad)
 
-        if use_cuda:
+        if cuda:
             self._layer = self._layer.cuda()
 
         self._optimizer = None
@@ -530,94 +530,3 @@ class Optimizer:
         Setter method for the state of the optimizer.
         """
         self._algorithm.load_state_dict(state)
-
-
-class Noise:
-    """
-
-    """
-
-    def __init__(self, use_cuda, p=0.1, k=3):
-        """
-
-
-        Args:
-            p:
-
-            k:
-
-        """
-        self._use_cuda = use_cuda
-        self._p = p
-        self._k = k
-
-    def __call__(self, inputs, padding):
-        """
-
-
-        Args:
-            inputs:
-
-        Returns:
-            noisy_inputs:
-
-        """
-
-        return self._drop_out(inputs, padding)
-
-    def _drop_out(self, inputs, padding_value):
-        """
-
-
-        Args:
-            inputs:
-
-            padding_value:
-
-        Returns:
-            outputs:
-
-            lengths:
-
-        """
-        inputs = inputs.cpu().numpy()
-        noisy_inputs = numpy.zeros((inputs.shape[0], inputs.shape[1] + 1))
-        mask = numpy.array(numpy.random.rand(inputs.shape[0], inputs.shape[1] - 1) > self._p, dtype=numpy.int32)
-        noisy_inputs[:, 1:-1] = mask * inputs[:, 1:]
-        noisy_inputs[:, 0] = inputs[:, 0]
-        for index in range(inputs.shape[0]):
-            remaining = noisy_inputs[index][noisy_inputs[index] != 0]
-            padding = numpy.array([padding_value]*len(noisy_inputs[index][noisy_inputs[index] == 0]))
-            padding[-1] = remaining.shape[0]
-            noisy_inputs[index, :] = numpy.concatenate((remaining, padding))
-
-        noisy_inputs = noisy_inputs[numpy.argsort(-noisy_inputs[:, -1])]
-
-        return torch.from_numpy(noisy_inputs[:, :-1]).long(), numpy.array(noisy_inputs[:, -1], dtype=int)
-
-
-class WordTranslator(Component):
-
-    abstract = True
-
-    interface = OrderedDict({
-        'vocabs':   None
-    })
-
-    def __init__(self, vocabs):
-        self._vocabs = vocabs
-
-    def translate(self, inputs,  source_lang_index, target_lang_index):
-        pass
-
-
-class NaiveWordTranslator(WordTranslator):
-
-    abstract = False
-
-    def __init__(self, vocabs):
-        super().__init__(vocabs)
-
-    def translate(self, inputs,  source_lang_index, target_lang_index):
-        pass
-

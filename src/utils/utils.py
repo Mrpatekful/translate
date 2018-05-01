@@ -295,8 +295,8 @@ def call(func, iterable, params=None):
 
 
 def format_outputs(inputs, targets, outputs):
-    input_sentence = sentence_from_ids(inputs[0], inputs[1].cpu().data.squeeze(0).numpy())
-    target_sentence = sentence_from_ids(targets[0], targets[1].cpu().data.squeeze(0)[1:].numpy())
+    input_sentence = sentence_from_ids(inputs[0], inputs[1])
+    target_sentence = sentence_from_ids(targets[0], targets[1].cpu().squeeze(0)[1:].numpy())
     output_sentence = sentence_from_ids(outputs[0], outputs[1])
 
     return '\n> [inputs]: %s\n> [targets]: %s\n> [outputs]: %s\n' % ('\t'.join(input_sentence),
@@ -311,7 +311,7 @@ def ids_from_sentence(vocabulary, sentence):
     :param sentence: string, a tokenized sequence of words.
     :return: list, containing the ids (int) of the sentence in the same order.
     """
-    return [vocabulary(word.rstrip()) for word in sentence.split(' ') if word.rstrip() != '']
+    return [vocabulary(word.rstrip()) for word in sentence.strip().split() if word.rstrip() != '']
 
 
 def sentence_from_ids(vocabulary, ids):
@@ -428,17 +428,17 @@ class Logger:
 class Policy(Component):
 
     interface = OrderedDict({
-        'use_cuda':     None,
+        'cuda':         None,
         'train':        None,
         'validation':   None,
         'test':         None
     })
 
-    def __init__(self, train, validation, test, use_cuda):
+    def __init__(self, train, validation, test, cuda):
         self._train = train
         self._validation = validation
         self._test = test
-        self._use_cuda = use_cuda
+        self._cuda = cuda
 
     @property
     def train(self):
@@ -454,7 +454,7 @@ class Policy(Component):
 
     @property
     def cuda(self):
-        return self._use_cuda
+        return self._cuda
 
 
 class UNMTPolicy(Policy):
@@ -467,7 +467,7 @@ class UNMTPolicy(Policy):
                  train,
                  validation,
                  test,
-                 use_cuda):
+                 cuda):
         """
 
 
@@ -478,86 +478,19 @@ class UNMTPolicy(Policy):
 
             test:
 
-            use_cuda:
+            cuda:
 
         """
-        super().__init__(train, validation, test, use_cuda)
+        super().__init__(train, validation, test, cuda)
 
-
-    @property
-    def train_tf_ratio(self):
-        """
-
-        """
         try:
-            tf = self.train['tf_ratio']
 
-        except KeyError:
-            raise ValueError('')
+            self.train_tf_ratio = self.train['tf_ratio']
+            self.train_noise = self.train['noise']
+            self.validation_tf_ratio = self.validation['tf_ratio']
+            self.validation_noise = self.validation['noise']
+            self.test_tf_ratio = self.test['tf_ratio']
+            self.test_noise = self.test['noise']
 
-        return tf
-
-    @property
-    def train_noise(self):
-        """
-
-        """
-        try:
-            noise = self.train['noise']
-
-        except KeyError:
-            raise ValueError('')
-
-        return noise
-
-    @property
-    def validation_tf_ratio(self):
-        """
-
-        """
-        try:
-            tf = self.validation['tf_ratio']
-
-        except KeyError:
-            raise ValueError('')
-
-        return tf
-
-    @property
-    def validation_noise(self):
-        """
-
-        """
-        try:
-            noise = self.validation['noise']
-
-        except KeyError:
-            raise ValueError('')
-
-        return noise
-
-    @property
-    def test_tf_ratio(self):
-        """
-
-        """
-        try:
-            tf = self.test['tf_ratio']
-
-        except KeyError:
-            raise ValueError('')
-
-        return tf
-
-    @property
-    def test_noise(self):
-        """
-
-        """
-        try:
-            noise = self.test['noise']
-
-        except KeyError:
-            raise ValueError('')
-
-        return noise
+        except KeyError as error:
+            raise RuntimeError(f'UMTPolicy requires {error} to be given')

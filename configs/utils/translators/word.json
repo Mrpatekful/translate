@@ -1,0 +1,9 @@
+{
+    "type": "WordTranslator",
+    "params": {
+        "dictionaries": [
+          "data/toy/eng/alignment",
+          "data/toy/fra/alignment"
+        ]
+    }
+}
