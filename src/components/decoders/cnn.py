@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from src.components.decoders.base import Decoder
+from src.components.base import Decoder
 
 
 class CNNDecoder(Decoder):  # TODO

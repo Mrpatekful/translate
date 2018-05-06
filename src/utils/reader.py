@@ -643,14 +643,12 @@ class FileInput(InputPipeline):
                 yield batch
 
     def _measure_length(self):
-        data_length = 0
-        with tqdm.tqdm() as p_bar:
-            p_bar.set_description('Measuring corpora length')
-            for data_segment in self._segment_generator():
-                p_bar.update()
-                data_length += int((len(data_segment) / self._max_segment_size)) *\
-                                  (self._max_segment_size // self._batch_size)
-        return data_length
+        data_length = self._data_reader.measure_length()
+        num_iterations = int((data_length / self._data_reader.MAX_SEGMENT) *\
+                             (self._data_reader.MAX_SEGMENT / self._max_segment_size) *\
+                             (self._max_segment_size // self._batch_size))
+
+        return num_iterations
 
     # noinspection PyTypeChecker
     def _segment_generator(self):
@@ -719,15 +717,28 @@ class DataQueue:
             logging.info(f'Creating {self._id_data_path} as data source')
             self._generate_id_file()
 
+    def measure_length(self):
+        line = 0
+        with tqdm.tqdm() as p_bar:
+            with open(self._data_path, 'r', encoding='utf-8') as file:
+                for _ in file:
+                    p_bar.update()
+                    line += 1
+
+        return line
+
     def _generate_id_file(self):
         """
         Generates an ID representation of the provided text corpora.
         """
-        with open(self._data_path, 'r', encoding='utf-8') as text_file:
-            with open(self._id_data_path, 'w', encoding='utf-8') as id_file:
-                for line in text_file:
-                    ids = ids_from_sentence(self._corpora.vocabulary, line)
-                    id_file.write('%s %d\n' % (' '.join(list(map(str, ids))), len(ids)))
+        with tqdm.tqdm() as p_bar:
+            p_bar.set_description(f'Creating {self._id_data_path}')
+            with open(self._data_path, 'r', encoding='utf-8') as text_file:
+                with open(self._id_data_path, 'w', encoding='utf-8') as id_file:
+                    for line in text_file:
+                        p_bar.update()
+                        ids = ids_from_sentence(self._corpora.vocabulary, line)
+                        id_file.write('%s %d\n' % (' '.join(list(map(str, ids))), len(ids)))
 
     def generator(self):
         """
