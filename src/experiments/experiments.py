@@ -7,9 +7,10 @@ __copyright__ = "Copyright 2018, Patrik Purgai"
 __date__ = "23 Apr 2018"
 __version__ = "0.1"
 
-from collections import OrderedDict
 
 import numpy
+
+import logging
 
 import torch
 import torch.autograd
@@ -26,9 +27,10 @@ from src.modules.modules import AutoEncoder, Translator, Discriminator, WordTran
 
 from src.utils.analysis import DataLog, TextData, ScalarData
 
-from src.utils.reader import InputPipeline, Language
+from src.utils.reader import Language
 
-from src.utils.utils import Component, ModelWrapper, Policy, call, format_outputs, sentence_from_ids, UNMTPolicy
+from src.utils.utils import Component, ModelWrapper, Policy, call, format_outputs, sentence_from_ids, UNMTPolicy, \
+    Interface
 
 
 class Experiment(Component):
@@ -39,10 +41,13 @@ class Experiment(Component):
     def train(self, epoch):
         raise NotImplementedError
 
-    def evaluate(self):
+    def validate(self):
         raise NotImplementedError
 
-    def inference(self):
+    def test(self):
+        raise NotImplementedError
+
+    def evaluate(self):
         raise NotImplementedError
 
     @property
@@ -68,13 +73,13 @@ class UnsupervisedTranslation(Experiment):
     discriminate the hidden representations of the source and target languages.
     """
 
-    interface = OrderedDict(**{
-        'policy':               Policy,
-        'language_identifiers': None,
-        'languages':            Language,
-        'model':                Model,
-        'initial_translator':   WordTranslator,
-        'reguralizer':          Classifier
+    interface = Interface(**{
+        'policy':               (0, Policy),
+        'language_identifiers': (1, None),
+        'languages':            (2, Language),
+        'model':                (3, Model),
+        'initial_translator':   (4, WordTranslator),
+        'reguralizer':          (5, Classifier)
     })
 
     abstract = False
@@ -240,6 +245,9 @@ class UnsupervisedTranslation(Experiment):
                 validation_pipelines.append(language.input_pipelines['dev'])
                 test_pipelines.append(language.input_pipelines['test'])
 
+            assert all(list(map(lambda x: x.batch_size == train_pipelines[0].batch_size, train_pipelines))), \
+                'Invalid batch size'
+
             return train_pipelines, validation_pipelines, test_pipelines
 
         self._policy = policy
@@ -251,11 +259,13 @@ class UnsupervisedTranslation(Experiment):
         self._noise_model = NoiseModel(use_cuda=self._policy.cuda)
 
         self._language_identifiers = language_identifiers
+        self._add_language_token = self._policy.add_language_token
         self._vocabularies = [l.vocabulary for l in languages]
 
         self._initial_translator = initial_translator
         self._initial_translator.vocabs = self._vocabularies
         self._initial_translator.cuda = self._policy.cuda
+        self._initial_translator.language_tokens_required = self._add_language_token
 
         self._previous_translator = self._initial_translator
 
@@ -291,6 +301,7 @@ class UnsupervisedTranslation(Experiment):
             # --OPTIONAL PARAMS--
             cuda=self._policy.cuda,
             noise_model=self._noise_model,
+            add_language_token=self._add_language_token,
             language_identifiers=self._language_identifiers,
 
             # --REQUIRED PARAMS--
@@ -303,6 +314,7 @@ class UnsupervisedTranslation(Experiment):
         self._translator = Translator(
             # --OPTIONAL PARAMS--
             cuda=self._policy.cuda,
+            add_language_token=self._add_language_token,
             language_identifiers=self._language_identifiers,
 
             # --REQUIRED PARAMS--
@@ -320,6 +332,10 @@ class UnsupervisedTranslation(Experiment):
             model=self._reguralizer,
             loss_function=self._discriminator_loss_function,
         )
+
+        self._iteration = 0
+        self._batch_size = self._train_input[0].batch_size
+        self._total_length = min(list(map(lambda x: x.total_length, self._train_input)))
 
         # Convenience attributes, that will help freezing and unfreezing the parameters of the model
         # or the discriminator during specific phases of the training or evaluation.
@@ -378,8 +394,13 @@ class UnsupervisedTranslation(Experiment):
         formatted_batch = {
             'inputs':           torch.from_numpy(batch[:, 1: -2]),
             'targets':          torch.from_numpy(batch[:, : -1]),
-            'input_lengths':    batch[:, -1] - 1
+            'input_lengths':    batch[:, -1]
         }
+
+        if self._add_language_token:
+            formatted_batch['input_lengths'] = formatted_batch['input_lengths'] - 1
+        else:
+            formatted_batch['input_lengths'] = formatted_batch['input_lengths'] - 2
 
         if self._policy.cuda:
             formatted_batch['targets'] = formatted_batch['targets'].cuda()
@@ -388,13 +409,16 @@ class UnsupervisedTranslation(Experiment):
 
         return formatted_batch
 
-    def train(self, epoch):
+    def train(self, epoch: int):
+        raise NotImplementedError
+
+    def validate(self):
+        raise NotImplementedError
+
+    def test(self):
         raise NotImplementedError
 
     def evaluate(self):
-        raise NotImplementedError
-
-    def inference(self):
         raise NotImplementedError
 
     def _train_discriminator(self, batches, logs):
@@ -490,7 +514,7 @@ class UnsupervisedTranslation(Experiment):
 
         return auto_encoding_loss, reguralization_loss
 
-    def _eval_auto_encoder(self, batches, logs, identifier, forced_targets=True):
+    def _validate_auto_encoder(self, batches, logs, identifier, forced_targets=True):
         """
         Implementation of a step of auto-encoding. The look up tables of the model are fitted to the
         provided inputs, and the <LNG> are substituted with the appropriate token. In this case the token
@@ -529,11 +553,12 @@ class UnsupervisedTranslation(Experiment):
 
             logs[language_index].add(identifier, 'auto_encoding_loss', loss.data)
 
-            logs[language_index].add(identifier, 'auto_encoding_text', format_outputs(
-                (vocabulary, inputs),
-                (vocabulary, batches[language_index]['targets'].data),
-                (vocabulary, outputs['symbols'][0])
-            ))
+            logs[language_index].add(identifier, 'auto_encoding_text', {
+                'input_text': outputs['input_text'],
+                'target_text': sentence_from_ids(vocabulary=vocabulary, ids=batches[language_index]['targets']
+                                                 .data.cpu().squeeze(0)[1:].numpy()),
+                'output_text': outputs['output_text']
+            })
 
             for key in self._auto_encoder_outputs.keys():
                 logs[language_index].add(identifier, key,
@@ -598,7 +623,7 @@ class UnsupervisedTranslation(Experiment):
         """
         self._model_wrapper.set_lookup({'source': lang_index})
 
-        if self._language_identifiers is not None:
+        if self._language_identifiers is not None and self._add_language_token:
             inputs = self._add_random_language_token(batch['inputs'], lang_index)
         else:
             inputs = batch['inputs']
@@ -613,7 +638,6 @@ class UnsupervisedTranslation(Experiment):
             lengths=batch['input_lengths'])['encoder_outputs'].data.cpu().numpy()
 
         return [(outputs[index, -1, :], lang_index) for index in range(len(outputs))]
-
 
     def _add_random_language_token(self, batch, lang_index):
         """
@@ -896,7 +920,7 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
 
         return {**dict(zip(self._language_identifiers, language_logs)), DataLog.MUTUAL_TOKEN_ID: mutual_logs}
 
-    def evaluate(self):
+    def validate(self) -> dict:
         """
         This function evaluates the model. Input data is propagated forward, and then the loss calculated
         based on the same loss function which was used during training. The weights however, are not modified
@@ -965,7 +989,7 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
 
         with tqdm.tqdm() as p_bar:
 
-            p_bar.set_description('Evaluating')
+            p_bar.set_description('Validating')
 
             for identifier, batches in enumerate(zip(*list(
                     map(lambda x: x.batch_generator(), self._dev_input)))):
@@ -986,9 +1010,9 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
                                              batches=batches,
                                              identifier=identifier)
 
-                auto_encoding_loss, reguralization_loss = self._eval_auto_encoder(logs=language_logs,
-                                                                                  batches=batches,
-                                                                                  identifier=identifier)
+                auto_encoding_loss, reguralization_loss = self._validate_auto_encoder(logs=language_logs,
+                                                                                      batches=batches,
+                                                                                      identifier=identifier)
 
                 iteration_loss += auto_encoding_loss
                 iteration_loss += reguralization_loss
@@ -996,9 +1020,9 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
                 if self._reguralizer is not None and self.reguralize:
                     full_reguralization_loss += reguralization_loss.data
 
-                translation_loss, reguralization_loss = self._eval_translator(logs=language_logs,
-                                                                              batches=batches,
-                                                                              identifier=identifier)
+                translation_loss, reguralization_loss = self._validate_translator(logs=language_logs,
+                                                                                  batches=batches,
+                                                                                  identifier=identifier)
 
                 iteration_loss += auto_encoding_loss
                 iteration_loss += reguralization_loss
@@ -1013,7 +1037,10 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
 
         return {**dict(zip(self._language_identifiers, language_logs)), DataLog.MUTUAL_TOKEN_ID: mutual_logs}
 
-    def inference(self):
+    def test(self):
+        pass
+
+    def evaluate(self):
         pass
 
     def _train_translator(self, batches, logs, forced_targets=True):
@@ -1060,7 +1087,7 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
 
         return total_translation_loss, total_reguralization_loss
 
-    def _eval_translator(self,  batches, logs, identifier, forced_targets=False):
+    def _validate_translator(self,  batches, logs, identifier, forced_targets=False):
         """
 
 
@@ -1087,7 +1114,7 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
             logs=logs,
             input_lang_index=0,
             target_lang_index=1,
-            identifier=DataLog.TRAIN_DATA_ID,
+            identifier=identifier,
             forced_targets=forced_targets)
 
         total_translation_loss += translation_loss
@@ -1106,6 +1133,13 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
             )
         )
 
+        logs[0].add(identifier, 'translation_text', {
+            'input_text': outputs['input_text'],
+            'target_text': sentence_from_ids(vocabulary=target_vocabulary, ids=batches[1]['inputs']
+                                             .data.cpu().squeeze(0)[1:].numpy()),
+            'output_text': outputs['output_text']
+        })
+
         for key in self._translator_outputs.keys():
             logs[0].add(identifier, key, {key: outputs[key] for key in logs[0].get_required_keys(key)})
 
@@ -1114,7 +1148,7 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
             logs=logs,
             input_lang_index=1,
             target_lang_index=0,
-            identifier=DataLog.TRAIN_DATA_ID,
+            identifier=identifier,
             forced_targets=forced_targets)
 
         total_translation_loss += translation_loss
@@ -1187,9 +1221,6 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
             logs[input_lang_index].add(identifier, 'translation_loss', translation_loss.data)
 
         return translation_loss, reguralization_loss, outputs, batch['inputs']
-
-    def _back_translate(self, ):
-        pass
 
     @property
     def state(self):
@@ -1320,20 +1351,23 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
             'reguralization_loss':  ScalarData
         })
 
-        self.reguralize = (epoch + 1) % 2 == 0  # TODO temporary
-
-        self._model.train()
         self._previous_model.eval()
-
         self.freeze(self._previous_model_components)
 
-        with tqdm.tqdm() as p_bar:
+        self.reguralize = True
+
+        with tqdm.tqdm(total=self._total_length) as p_bar:
 
             p_bar.set_description(f'Processing epoch {epoch}')
 
-            for batches in zip(*list(map(lambda x: x.batch_generator(), self._train_input))):
+            for iteration, batches in enumerate(zip(*list(map(lambda x: x.batch_generator(), self._train_input)))):
 
                 p_bar.update()
+
+                if iteration*self._batch_size < self._iteration:
+                    continue
+                else:
+                    self._iteration = iteration*self._batch_size
 
                 # Batches are generated from the InputPipeline object. In this experiment each language
                 # has its own pipeline, with its vocabulary. The number of languages, however, may differ.
@@ -1347,7 +1381,10 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
                 # Discriminator training or reguralization is not used by default, only if it has been explicitly
                 # defined for the experiment.
 
-                if self._reguralizer is not None and not self.reguralize:
+                if self._reguralizer is not None:
+
+                    self._model.eval()
+                    self._reguralizer.train()
 
                     self.freeze(self._model_components)
                     self.unfreeze([self._reguralizer])
@@ -1362,6 +1399,7 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
 
                 if self._reguralizer is not None:
                     self.freeze([self._reguralizer])
+                    self._reguralizer.eval()
 
                 self.clear_optimizers(self._model_optimizers)
 
@@ -1369,6 +1407,8 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
                 # forcing is not used), the embeddings of the model must be set to frozen state.
 
                 forced_targets = numpy.random.random() < self._policy.train_tf_ratio
+
+                self._model.train()
 
                 if not forced_targets:
                     self.freeze(self._embeddings)
@@ -1380,8 +1420,12 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
                 iteration_loss += auto_encoding_loss
                 iteration_loss += reguralization_loss
 
+                del auto_encoding_loss
+
                 if self._reguralizer is not None and self.reguralize:
                     total_reguralization_loss += reguralization_loss.data
+
+                del reguralization_loss
 
                 translation_loss, reguralization_loss = self._train_translator(logs=language_logs,
                                                                                batches=batches,
@@ -1390,22 +1434,31 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
                 iteration_loss += translation_loss
                 iteration_loss += reguralization_loss
 
+                del translation_loss
+
                 if self._reguralizer is not None and self.reguralize:
                     total_reguralization_loss += reguralization_loss.data
+
+                del reguralization_loss
 
                 mutual_logs.add(DataLog.TRAIN_DATA_ID, 'total_loss', iteration_loss.data)
                 mutual_logs.add(DataLog.TRAIN_DATA_ID, 'reguralization_loss', total_reguralization_loss)
 
                 iteration_loss.backward()
 
+                del iteration_loss
+                del total_reguralization_loss
+
                 self.step_optimizers(self._model_optimizers)
 
                 if not forced_targets:
                     self.unfreeze(self._embeddings)
 
+        self._iteration = 0
+
         return {**dict(zip(self._language_identifiers, language_logs)), DataLog.MUTUAL_TOKEN_ID: mutual_logs}
 
-    def evaluate(self):
+    def validate(self) -> dict:
         """
         This function evaluates the model. Input data is propagated forward, and then the loss calculated
         based on the same loss function which was used during training. The weights however, are not modified
@@ -1448,26 +1501,6 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
 
                 Additional outputs depend on the chosen model.
         """
-        def freeze(task_components):
-            """
-            Convenience function for the freezing the given components of the task. The frozen
-            components won't receive any updates by the optimizers.
-
-            Args:
-                task_components: A list, containing Modules.
-            """
-            call('freeze', task_components)
-
-        def unfreeze(task_components):
-            """
-            Convenience function for unfreezing the weights of the provided components. The
-            optimizers will be able to modify the weights of these components.
-
-            Args:
-                task_components: A list, containing Modules.
-            """
-            call('unfreeze', task_components)
-
         language_logs = [DataLog({
             'translation_loss':     ScalarData,
             'auto_encoding_loss':   ScalarData,
@@ -1486,9 +1519,14 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         self._model.eval()
         self._previous_model.eval()
 
+        if self._reguralizer is not None:
+            self._reguralizer.eval()
+
+        self.reguralize = True
+
         with tqdm.tqdm() as p_bar:
 
-            p_bar.set_description('Evaluating')
+            p_bar.set_description('Validating')
 
             for identifier, batches in enumerate(zip(*list(map(lambda x: x.batch_generator(), self._dev_input)))):
 
@@ -1499,18 +1537,18 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
                 iteration_loss = 0
                 full_reguralization_loss = 0
 
-                freeze(self._model_components)
+                self.freeze(self._model_components)
 
                 if self._reguralizer is not None:
-                    freeze([self._reguralizer])
+                    self.freeze([self._reguralizer])
 
                     self._eval_discriminator(logs=mutual_logs,
                                              batches=batches,
                                              identifier=identifier)
 
-                auto_encoding_loss, reguralization_loss = self._eval_auto_encoder(logs=language_logs,
-                                                                                  batches=batches,
-                                                                                  identifier=identifier)
+                auto_encoding_loss, reguralization_loss = self._validate_auto_encoder(logs=language_logs,
+                                                                                      batches=batches,
+                                                                                      identifier=identifier)
 
                 iteration_loss += auto_encoding_loss
                 iteration_loss += reguralization_loss
@@ -1518,9 +1556,9 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
                 if self._reguralizer is not None and self.reguralize:
                     full_reguralization_loss += reguralization_loss.data
 
-                translation_loss, reguralization_loss = self._eval_translator(logs=language_logs,
-                                                                              batches=batches,
-                                                                              identifier=identifier)
+                translation_loss, reguralization_loss = self._validate_translator(logs=language_logs,
+                                                                                  batches=batches,
+                                                                                  identifier=identifier)
 
                 iteration_loss += auto_encoding_loss
                 iteration_loss += reguralization_loss
@@ -1528,10 +1566,10 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
                 mutual_logs.add(identifier, 'total_loss', iteration_loss.data)
                 mutual_logs.add(identifier, 'reguralization_loss', full_reguralization_loss)
 
-                unfreeze(self._model_components)
+                self.unfreeze(self._model_components)
 
                 if self._reguralizer is not None and self.reguralize:
-                    unfreeze([self._reguralizer])
+                    self.unfreeze([self._reguralizer])
 
         self._previous_model.state = self._model.state
 
@@ -1549,13 +1587,14 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
             # --REQUIRED PARAMS--
             model=self._previous_model_wrapper,
             tokens=self._tokens,
+            add_language_token=self._add_language_token,
             loss_functions=self._loss_functions,
             vocabularies=self._vocabularies
         )
 
         return {**dict(zip(self._language_identifiers, language_logs)), DataLog.MUTUAL_TOKEN_ID: mutual_logs}
 
-    def inference(self):
+    def test(self) -> dict:
         """
         This function evaluates the model. Input data is propagated forward, and then the loss calculated
         based on the same loss function which was used during training. The weights however, are not modified
@@ -1567,144 +1606,110 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
                 data logs equal to the number of languages, and each data log contains information about the
                 produced output for the whole data set of a language.
 
-                    total_loss:
-                        The total loss of the iteration, which is the same as the model loss during training.
-                        The value contains the loss of translation, auto-encoding and reguralization loss. The
-                        individual error of the discriminator is not included.
-
-                    translation_loss:
-                        The error, that is produced by the model, when translating a sentence.
-
-                    auto_encoding_loss:
-                        The error, that is produced by the model,
-                        when restoring (auto-encoding) a sentence.
-
-                    reguralization_loss:
-                        The reguralization loss, that is produced by the discriminator.
-
-                    discriminator_loss:
-                        The error of the discriminator, which is the loss that is produced, when the
-                        discriminator identifies a given latent vector.
-
-                    translation_text:
-                        The textual representation of the input, target and output symbols at the
-                        translation phase. These texts are produced by the format outputs
-                        utility function.
-
-                    auto_encoding_text:
-                        The textual representation of the input, target and output symbols at the
-                        auto encoding phase. These texts are produced by the format outputs
-                        utility function.
-
                 Additional outputs depend on the chosen model.
         """
-
-        def freeze(task_components):
-            """
-            Convenience function for the freezing the given components of the task. The frozen
-            components won't receive any updates by the optimizers.
-
-            Args:
-                task_components: A list, containing Modules.
-            """
-            call('freeze', task_components)
-
-        def unfreeze(task_components):
-            """
-            Convenience function for unfreezing the weights of the provided components. The
-            optimizers will be able to modify the weights of these components.
-
-            Args:
-                task_components: A list, containing Modules.
-            """
-            call('unfreeze', task_components)
-
         language_logs = [DataLog({
             'translation_loss': ScalarData,
-            'auto_encoding_loss': ScalarData,
             'translation_text': TextData,
-            'auto_encoding_text': TextData,
-            **self._auto_encoder_outputs,
             **self._translator_outputs
         }) for _ in range(self._num_languages)]
 
         mutual_logs = DataLog({
-            'total_loss': ScalarData,
             'discriminator_loss': ScalarData,
-            'reguralization_loss': ScalarData,
         })
 
         self._model.eval()
         self._previous_model.eval()
+        self._reguralizer.eval()
+
+        self.freeze(self._model_components)
+        self.freeze(self._previous_model_components)
+
+        self.reguralize = False
 
         with tqdm.tqdm() as p_bar:
 
-            p_bar.set_description('Evaluating')
+            p_bar.set_description('Testing')
 
-            for identifier, batches in enumerate(zip(*list(map(lambda x: x.batch_generator(), self._dev_input)))):
+            for identifier, batches in enumerate(zip(*list(map(lambda x: x.batch_generator(), self._test_input)))):
 
                 p_bar.update()
 
                 batches = list(map(self._format_auto_encoder_batch, batches))
 
-                iteration_loss = 0
-                full_reguralization_loss = 0
-
-                freeze(self._model_components)
-
                 if self._reguralizer is not None:
-                    freeze([self._reguralizer])
-
+                    self.freeze([self._reguralizer])
                     self._eval_discriminator(logs=mutual_logs,
                                              batches=batches,
                                              identifier=identifier)
 
-                auto_encoding_loss, reguralization_loss = self._eval_auto_encoder(logs=language_logs,
-                                                                                  batches=batches,
-                                                                                  identifier=identifier)
+                self._validate_translator(logs=language_logs,
+                                          batches=batches,
+                                          identifier=identifier)
 
-                iteration_loss += auto_encoding_loss
-                iteration_loss += reguralization_loss
-
-                if self._reguralizer is not None and self.reguralize:
-                    full_reguralization_loss += reguralization_loss.data
-
-                translation_loss, reguralization_loss = self._eval_translator(logs=language_logs,
-                                                                              batches=batches,
-                                                                              identifier=identifier)
-
-                iteration_loss += auto_encoding_loss
-                iteration_loss += reguralization_loss
-
-                mutual_logs.add(identifier, 'total_loss', iteration_loss.data)
-                mutual_logs.add(identifier, 'reguralization_loss', full_reguralization_loss)
-
-                unfreeze(self._model_components)
-
-                if self._reguralizer is not None and self.reguralize:
-                    unfreeze([self._reguralizer])
-
-        self._previous_model.state = self._model.state
-
-        for index, embedding_state in enumerate(self._embeddings):
-            self._previous_embeddings[index].state = embedding_state.state
-
-        for index, layer_state in enumerate(self._output_layers):
-            self._previous_output_layers[index].state = layer_state.state
-
-        self._previous_translator = Translator(
-            # --OPTIONAL PARAMS--
-            cuda=self._policy.cuda,
-            language_identifiers=self._language_identifiers,
-
-            # --REQUIRED PARAMS--
-            model=self._previous_model_wrapper,
-            tokens=self._tokens,
-            loss_functions=self._loss_functions,
-            vocabularies=self._vocabularies
-        )
+        self.reguralize = True
 
         return {**dict(zip(self._language_identifiers, language_logs)), DataLog.MUTUAL_TOKEN_ID: mutual_logs}
+
+    def evaluate(self) -> dict:
+        """
+        This function evaluates the model. Input data is propagated forward, and then the loss calculated
+        based on the same loss function which was used during training. The weights however, are not modified
+        in this function.
+
+        Returns:
+            logs:
+                A list of DataLog type objects, that contain the logging data for the languages. The number of
+                data logs equal to the number of languages, and each data log contains information about the
+                produced output for the whole data set of a language.
+
+                Additional outputs depend on the chosen model.
+        """
+        language_logs = [DataLog({
+            'translation_text': TextData,
+            **self._translator_outputs
+        }) for _ in range(self._num_languages)]
+
+        self._model.eval()
+        self._previous_model.eval()
+
+        self.freeze(self._model_components)
+
+        with tqdm.tqdm() as p_bar:
+
+            p_bar.set_description('Inference')
+
+            outputs = []
+
+            for identifier, batch in enumerate(self._test_input[0].batch_generator()):
+                p_bar.update()
+
+                batch = self._format_auto_encoder_batch(batch)
+
+                input_text, output_text = self._eval_translator(batch=batch,
+                                                                input_lang_index=0,
+                                                                target_lang_index=1,
+                                                                logs=language_logs,
+                                                                identifier=identifier)
+
+                outputs.append((input_text, output_text))
+
+            for identifier, batch in enumerate(self._test_input[1].batch_generator()):
+                p_bar.update()
+
+                batch = self._format_auto_encoder_batch(batch)
+
+                input_text, output_text = self._eval_translator(batch=batch,
+                                                                input_lang_index=1,
+                                                                target_lang_index=0,
+                                                                logs=language_logs,
+                                                                identifier=identifier)
+
+                outputs.append((input_text, output_text))
+
+            logging.info('\n\n'.join(list(map(lambda x: f'Input: {x[0]}\nOutput: {x[1]}', outputs))))
+
+        return dict(zip(self._language_identifiers, language_logs))
 
     def _train_translator(self, batches, logs, forced_targets=True):
         """
@@ -1750,7 +1755,7 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
 
         return total_translation_loss, total_reguralization_loss
 
-    def _eval_translator(self,  batches, logs, identifier, forced_targets=False):
+    def _validate_translator(self,  batches, logs, identifier, forced_targets=False):
         """
 
 
@@ -1777,7 +1782,7 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
             logs=logs,
             input_lang_index=0,
             target_lang_index=1,
-            identifier=DataLog.TRAIN_DATA_ID,
+            identifier=identifier,
             forced_targets=forced_targets)
 
         total_translation_loss += translation_loss
@@ -1786,15 +1791,17 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         source_vocabulary = self._vocabularies[1]
         target_vocabulary = self._vocabularies[0]
 
-        logs[1].add(identifier, 'translation_text', format_outputs(
-                (source_vocabulary, translated_symbols),
-                (target_vocabulary, batches[0]['inputs']),
-                (target_vocabulary, outputs['symbols'][0])
-            )
-        )
-
         outputs['input_text'] = sentence_from_ids(vocabulary=source_vocabulary, ids=translated_symbols)
         outputs['output_text'] = sentence_from_ids(vocabulary=target_vocabulary, ids=outputs['symbols'][0])
+
+        targets = batches[0]['inputs'].cpu().squeeze(0)[1:].numpy()
+        targets = sentence_from_ids(vocabulary=target_vocabulary, ids=targets)
+
+        logs[1].add(identifier, 'translation_text', {
+            'input_text': outputs['input_text'],
+            'target_text': targets,
+            'output_text': outputs['output_text']
+        })
 
         for key in self._translator_outputs.keys():
             logs[1].add(identifier, key, {key: outputs[key] for key in logs[1].get_required_keys(key)})
@@ -1804,7 +1811,7 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
             logs=logs,
             input_lang_index=1,
             target_lang_index=0,
-            identifier=DataLog.TRAIN_DATA_ID,
+            identifier=identifier,
             forced_targets=forced_targets)
 
         total_translation_loss += translation_loss
@@ -1813,20 +1820,62 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         source_vocabulary = self._vocabularies[0]
         target_vocabulary = self._vocabularies[1]
 
-        logs[0].add(identifier, 'translation_text', format_outputs(
-                (source_vocabulary, translated_symbols),
-                (target_vocabulary, batches[1]['inputs']),
-                (target_vocabulary, outputs['symbols'][0])
-            )
-        )
-
         outputs['input_text'] = sentence_from_ids(vocabulary=source_vocabulary, ids=translated_symbols)
         outputs['output_text'] = sentence_from_ids(vocabulary=target_vocabulary, ids=outputs['symbols'][0])
+
+        targets = batches[1]['inputs'].cpu().squeeze(0)[1:].numpy()
+        targets = sentence_from_ids(vocabulary=target_vocabulary, ids=targets)
+
+        logs[0].add(identifier, 'translation_text', {
+            'input_text': outputs['input_text'],
+            'target_text': targets,
+            'output_text': outputs['output_text']
+        })
 
         for key in self._translator_outputs.keys():
             logs[0].add(identifier, key, {key: outputs[key] for key in logs[0].get_required_keys(key)})
 
         return translation_loss, reguralization_loss
+
+    def _eval_translator(self, batch, input_lang_index, target_lang_index, logs, identifier):
+        """
+
+
+        Args:
+            batch:
+
+            logs:
+
+            identifier:
+
+        Returns:
+            translation_loss:
+
+            reguralization_loss:
+
+        """
+        _, translated_symbols, outputs, inputs, _, = self._translator(
+            input_lang_index=input_lang_index,
+            target_lang_index=target_lang_index,
+            batch=batch,
+            forced_targets=False)
+
+        source_vocabulary = self._vocabularies[input_lang_index]
+        target_vocabulary = self._vocabularies[target_lang_index]
+
+        outputs['input_text'] = sentence_from_ids(vocabulary=source_vocabulary, ids=inputs.data.cpu().squeeze(0))
+        outputs['output_text'] = sentence_from_ids(vocabulary=target_vocabulary, ids=translated_symbols.squeeze(0))
+
+        logs[input_lang_index].add(identifier, 'translation_text', {
+            'input_text':  outputs['input_text'],
+            'output_text': outputs['output_text']
+        })
+
+        for key in self._translator_outputs.keys():
+            logs[input_lang_index].add(identifier, key, {key: outputs[key] for key in
+                                                         logs[input_lang_index].get_required_keys(key)})
+
+        return ' '.join(outputs['input_text']), ' '.join(outputs['output_text'])
 
     def _translate(self, batch, logs, input_lang_index, target_lang_index, identifier, forced_targets):
         """
@@ -1901,6 +1950,7 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         """
         return {
             'model':                    self._model.state,
+            'iteration':                self._iteration,
             'previous_model':           self._previous_model.state,
             'previous_translator':      type(self._previous_translator),
             'embeddings':               [embedding.state for embedding in self._embeddings],
@@ -1917,6 +1967,8 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         self._model.state = state['model']
 
         self._previous_model.state = state['previous_model']
+
+        self._iteration = state['iteration']
 
         for index, embedding_state in enumerate(state['embeddings']):
             self._embeddings[index].state = embedding_state
@@ -1941,6 +1993,7 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
                 # --REQUIRED PARAMS--
                 model=self._previous_model_wrapper,
                 tokens=self._tokens,
+                add_language_token=self._add_language_token,
                 loss_functions=self._loss_functions,
                 vocabularies=self._vocabularies
             )

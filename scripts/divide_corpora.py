@@ -6,7 +6,7 @@ import argparse
 import tqdm
 import os
 
-DEFAULT_CORPORA = '/media/patrik/1EDB65B8599DD93E/data/fra/FRA_DATA_SYNC_SEG'
+DEFAULT_CORPORA = '/media/patrik/1EDB65B8599DD93E/data/server/fra/fra_data_seg'
 
 DEFAULT_TRAIN_SPLIT = 0.975
 DEFAULT_DEV_SPLIT = 0.0125
@@ -34,9 +34,9 @@ def main():
     train_split = arguments.train
     dev_split = arguments.dev
 
-    train_file = location_scheme(input_corpora, 'TRAIN')
-    dev_file = location_scheme(input_corpora, 'DEV')
-    test_file = location_scheme(input_corpora, 'TEST')
+    train_file = location_scheme(input_corpora, 'train')
+    dev_file = location_scheme(input_corpora, 'dev')
+    test_file = location_scheme(input_corpora, 'test')
 
     lines = 0
     with open(input_corpora, 'r') as corpora:

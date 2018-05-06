@@ -5,24 +5,17 @@
 import copy
 import os
 import sys
-
-from collections import OrderedDict
-
+import tqdm
+import logging
 import numpy
+
 import sklearn.utils
 import torch
 import torch.nn
 
-import logging
-
 from src.components.utils.utils import Embedding
 
-from src.utils.utils import Component
-from src.utils.utils import ParameterSetter
-from src.utils.utils import ids_from_sentence
-from src.utils.utils import sentence_from_ids
-from src.utils.utils import subclasses
-from src.utils.utils import subtract_dict
+from src.utils.utils import Component, ids_from_sentence, sentence_from_ids, subclasses, Interface
 
 
 class Vocabulary(Component):
@@ -31,12 +24,12 @@ class Vocabulary(Component):
     """
     abstract = False
 
-    interface = OrderedDict(**{
-        'vocab_path':            None,
-        'provided_embeddings':   None,
-        'fixed_embeddings':      None,
-        'cuda':                 'Experiment:Policy:cuda',
-        'language_identifiers': 'Experiment:language_identifiers'
+    interface = Interface(**{
+        'vocab_path':            (0, None),
+        'provided_embeddings':   (1, None),
+        'fixed_embeddings':      (2, None),
+        'cuda':                  (3, 'Experiment:Policy:cuda'),
+        'language_identifiers':  (4, 'Experiment:language_identifiers')
     })
 
     def __init__(self,
@@ -46,9 +39,23 @@ class Vocabulary(Component):
                  fixed_embeddings:      bool,
                  cuda:                  bool):
         """
+        A vocabulary instance that holds the look up table for a given language.
 
-        Args:
+        Arguments:
+            vocab_path:
+                str, containing the path for the vocabulary.
 
+            language_identifiers:
+                list, that contains the identifiers of the language.
+
+            provided_embeddings:
+                bool, signaling whether the vocabulary file contains the weights for the embeddings.
+
+            fixed_embeddings:
+                bool, signaling whether the weights of the embeddings should be updated during training.
+
+            cuda:
+                bool, true if cuda support is available
         """
         self._word_to_id = {}
         self._id_to_word = {}
@@ -77,9 +84,12 @@ class Vocabulary(Component):
         """
         Loads the vocabulary from a file. Path is assumed to be a text file, where each line contains
         a word and its corresponding embedding weights, separated by spaces.
-        :param path: string, the absolute path of the vocab.
+
+        Arguments:
+            path:
+                str, path of the vocabulary file
         """
-        with open(path, 'r') as file:
+        with open(path, 'r', encoding='utf-8') as file:
             first_line = file.readline().split(' ')
             self._vocab_size = int(first_line[0]) + 4 + len(self._language_identifiers)
             self._embedding_size = int(first_line[1])
@@ -121,9 +131,14 @@ class Vocabulary(Component):
     def __call__(self, expression):
         """
         Translates the given expression to it's corresponding word or id.
-        :param expression: str or int, if str (word) is provided, then the id will be returned, and
-                           the behaviour is the same for the other case.
-        :return: int or str, (id or word) of the provided expression.
+
+        Arguments:
+            expression:
+                str or int, if str (word) is provided, then the id will be returned, and
+                the behaviour is the same for the other case.
+
+        Returns:
+            int or str, (id or word) of the provided expression.
         """
         _accepted_id_types = (int, numpy.int32, numpy.int64)
 
@@ -181,10 +196,10 @@ class Corpora(Component):
     stores the location of the train, development and test data.
     """
 
-    interface = OrderedDict(**{
-        'data_path':      None,
-        'vocabulary':    ':Vocabulary$',
-        'cuda':          'Experiment:Policy:cuda$'
+    interface = Interface(**{
+        'data_path':      (0, None),
+        'vocabulary':     (1, ':Vocabulary$'),
+        'cuda':           (2, 'Experiment:Policy:cuda$')
     })
 
     abstract = True
@@ -194,10 +209,17 @@ class Corpora(Component):
                  vocabulary: Vocabulary,
                  cuda:       bool):
         """
+        A corpora instance that stores connects a given text corpora with a vocabulary instance.
 
+        Arguments:
+            data_path:
+                str, path of the file containing the text
 
-        Args:
+            vocabulary:
+                Vocabulary, the corresponding vocabulary instance
 
+            cuda:
+                bool, signaling the availability of cuda
         """
         assert os.path.isfile(data_path), f'{data_path} is not a file'
 
@@ -218,14 +240,14 @@ class Corpora(Component):
     @property
     def data_path(self) -> str:
         """
-
+        Property for the file path.
         """
         return self._data_path
 
     @property
     def data(self) -> list:
         """
-
+        The read data.
         """
         return self._data
 
@@ -272,9 +294,17 @@ class Monolingual(Corpora):
                  vocabulary: Vocabulary,
                  cuda:       bool):
         """
+        A monolingual corpora type instance, that holds a single language copora.
 
+        Arguments:
+            data_path:
+                str, path of the file containing the text
 
-        Args:
+            vocabulary:
+                Vocabulary, the corresponding vocabulary instance
+
+            cuda:
+                bool, signaling the availability of cuda:
 
         """
         super().__init__(data_path=data_path, cuda=cuda, vocabulary=vocabulary)
@@ -291,7 +321,7 @@ class Monolingual(Corpora):
         :return: list, the data stored as a list of strings.
         """
         data = []
-        with open(data_path, 'r') as file:
+        with open(data_path, 'r', encoding='utf-8') as file:
             for line in file:
                 data.append(line)
         if len(data) == 0:
@@ -299,28 +329,26 @@ class Monolingual(Corpora):
         return data
 
 
-class Parallel(Corpora):  # TODO vocabulary parameter extraction
+class Bilingual(Corpora):  # TODO vocabulary parameter extraction
     """
     Wrapper class for the corpora, that yields two languages. The languages are paired, and
     are separated by a special separator token.
     """
 
-    interface = OrderedDict(**{
-        'data_path':          None,
-        'separator':          None,
-        'vocabulary':        'Vocabulary$',
-        'second_vocabulary': 'Vocabulary$',
-        'cuda':              'Experiment:Policy:cuda$'
+    interface = Interface(**{
+        'data_path':          (0, None),
+        'separator':          (1, None),
+        'vocabulary':         (2, 'Vocabulary$'),
+        'cuda':               (3, 'Experiment:Policy:cuda$')
     })
 
     abstract = False
 
     def __init__(self,
                  data_path:  str,
-                 separator:  str,
                  vocabulary: Vocabulary,
-
-                 cuda:       bool):
+                 cuda:       bool,
+                 separator:  str = '\t'):
         """
 
         Args:
@@ -328,6 +356,7 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
         """
         super().__init__(data_path=data_path, cuda=cuda, vocabulary=vocabulary)
 
+        self._separator_token = separator
 
     def _load_data(self, data_path):
         """
@@ -336,7 +365,7 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
         :return: list, the data stored as a list of strings.
         """
         data = []
-        with open(data_path, 'r') as file:
+        with open(data_path, 'r', encoding='utf-8') as file:
             for line in file:
                 data.append(line[:-1].split(self._separator_token))
         if len(data) == 0:
@@ -357,7 +386,7 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
         """
         if self._vocabulary is None:
             raise ValueError('Source vocabulary has not been set.')
-        return self._vocabulary[0]
+        return self._vocabulary
 
     @property
     def target_vocabulary(self):
@@ -367,7 +396,7 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
         """
         if self._vocabulary is None:
             raise ValueError('Target vocabulary has not been set.')
-        return self._vocabulary[-1]
+        return self._vocabulary
 
     @property
     def source_vocab_size(self):
@@ -377,7 +406,7 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
         """
         if self._vocabulary is None:
             raise ValueError('Source vocabulary has not been set.')
-        return self._vocabulary[0].vocab_size
+        return self._vocabulary.vocab_size
 
     @property
     def target_vocab_size(self):
@@ -387,7 +416,7 @@ class Parallel(Corpora):  # TODO vocabulary parameter extraction
         """
         if self._vocabulary is None:
             raise ValueError('Target vocabulary has not been set.')
-        return self._vocabulary[-1].vocab_size
+        return self._vocabulary.vocab_size
 
 
 class InputPipeline(Component):
@@ -412,13 +441,13 @@ class MemoryInput(InputPipeline):
     the memory.
     """
 
-    interface = OrderedDict(**{
-        'max_segment_size':  None,
-        'batch_size':        None,
-        'padding_type':      None,
-        'shuffle':           None,
-        'cuda':             'Experiment:Policy:cuda$',
-        'corpora':           Corpora
+    interface = Interface(**{
+        'max_segment_size':  (0, None),
+        'batch_size':        (1, None),
+        'padding_type':      (2, None),
+        'shuffle':           (3, None),
+        'cuda':              (4, 'Experiment:Policy:cuda$'),
+        'corpora':           (5, Corpora)
     })
 
     abstract = False
@@ -432,15 +461,22 @@ class MemoryInput(InputPipeline):
                  padding_type:      str = 'PostPadding'):
         """
         An instance of a fast reader.
-        :param batch_size: int, size of the input batches.
-        :param cuda: bool, True if the device has cuda support.
-        :param padding_type: str, type of padding that will be used during training. The sequences in
-                             the mini-batches may vary in length, so padding must be applied to convert
-                             them to equal lengths.
-        :param max_segment_size: int, the size of each segment, that will contain the similar length data.
-        """
-        super().__init__()
 
+        Arguments:
+            batch_size:
+                int, size of the input batches.
+
+            cuda:
+                bool, True if the device has cuda support.
+
+            padding_type:
+                str, type of padding that will be used during training. The sequences in
+                the mini-batches may vary in length, so padding must be applied to convert
+                them to equal lengths.
+
+            max_segment_size:
+                int, the size of each segment, that will contain the similar length data.
+        """
         self._cuda = cuda
         self._shuffle = shuffle
         self._corpora = corpora
@@ -460,11 +496,13 @@ class MemoryInput(InputPipeline):
         Generator for mini-batches. Data is read from memory. The _format_batch function comes from the
         definition of the task. It is a wrapper function that transform the generated batch of data into a form,
         that is convenient for the current task.
-        :return: tuple, a PyTorch Variable of dimension (Batch_size, Sequence_length), containing
-                 the ids of words, sorted by their length in descending order. Each sample is
-                 padded to the length of the longest sequence in the batch/segment.
-                 The latter behaviour may vary. Second element of the tuple is a numpy array
-                 of the lengths of the original sequences (without padding).
+
+        Returns:
+            tuple, a PyTorch Variable of dimension (Batch_size, Sequence_length), containing
+            the ids of words, sorted by their length in descending order. Each sample is
+            padded to the length of the longest sequence in the batch/segment.
+            The latter behaviour may vary. Second element of the tuple is a numpy array
+            of the lengths of the original sequences (without padding).
         """
         for data_segment in self._segment_generator():
             if self._shuffle:
@@ -512,9 +550,12 @@ class MemoryInput(InputPipeline):
     def vocabulary(self):
         """
         Property for the reader object's vocabulary.
-        :return: Language object, the source vocabulary.
         """
         return self._corpora.vocabulary
+
+    @property
+    def batch_size(self):
+        return self._batch_size
 
 
 class FileInput(InputPipeline):
@@ -524,13 +565,13 @@ class FileInput(InputPipeline):
     in memory.
     """
 
-    interface = OrderedDict(**{
-        'max_segment_size':     None,
-        'batch_size':           None,
-        'padding_type':         None,
-        'shuffle':              None,
-        'cuda':                'Experiment:Policy:cuda$',
-        'corpora':              Corpora
+    interface = Interface(**{
+        'max_segment_size':     (0, None),
+        'batch_size':           (1, None),
+        'padding_type':         (2, None),
+        'shuffle':              (3, None),
+        'cuda':                 (4, 'Experiment:Policy:cuda$'),
+        'corpora':              (5, Corpora)
     })
 
     abstract = False
@@ -543,13 +584,26 @@ class FileInput(InputPipeline):
                  corpora:           Corpora,
                  padding_type:      str = 'PostPadding'):
         """
+        An instance of a file reader.
 
+        Arguments:
+            batch_size:
+                int, size of the input batches.
 
-        Args:
-.
+            cuda:
+                bool, True if the device has cuda support.
+
+            shuffle:
+                bool, True if shuffling of data is required
+
+            padding_type:
+                str, type of padding that will be used during training. The sequences in
+                the mini-batches may vary in length, so padding must be applied to convert
+                them to equal lengths.
+
+            max_segment_size:
+                int, the size of each segment, that will contain the similar length data.
         """
-        super().__init__()
-
         self._cuda = cuda
         self._corpora = corpora
         self._batch_size = batch_size
@@ -560,6 +614,8 @@ class FileInput(InputPipeline):
 
         padding_types = subclasses(Padding)
 
+        self.total_length = self._measure_length()
+
         self._padder = padding_types[padding_type](self._corpora.vocabulary, max_segment_size)
 
     def batch_generator(self):
@@ -567,11 +623,13 @@ class FileInput(InputPipeline):
         Generator for mini-batches. Data is read from memory. The _format_batch function comes from the
         definition of the task. It is a wrapper function that transform the generated batch of data into a form,
         that is convenient for the current task.
-        :return: tuple, a PyTorch Variable of dimension (Batch_size, Sequence_length), containing
-                 the ids of words, sorted by their length in descending order. Each sample is
-                 padded to the length of the longest sequence in the batch/segment.
-                 The latter behaviour may vary. Second element of the tuple is a numpy array
-                 of the lengths of the original sequences (without padding).
+
+        Returns:
+            tuple, a PyTorch Variable of dimension (Batch_size, Sequence_length), containing
+            the ids of words, sorted by their length in descending order. Each sample is
+            padded to the length of the longest sequence in the batch/segment.
+            The latter behaviour may vary. Second element of the tuple is a numpy array
+            of the lengths of the original sequences (without padding).
         """
         for data_segment in self._segment_generator():
             if self._shuffle:
@@ -583,6 +641,16 @@ class FileInput(InputPipeline):
                     shuffled_data_segment[index:index + self._batch_size]
                 )
                 yield batch
+
+    def _measure_length(self):
+        data_length = 0
+        with tqdm.tqdm() as p_bar:
+            p_bar.set_description('Measuring corpora length')
+            for data_segment in self._segment_generator():
+                p_bar.update()
+                data_length += int((len(data_segment) / self._max_segment_size)) *\
+                                  (self._max_segment_size // self._batch_size)
+        return data_length
 
     # noinspection PyTypeChecker
     def _segment_generator(self):
@@ -604,9 +672,12 @@ class FileInput(InputPipeline):
     def vocabulary(self):
         """
         Property for the reader object's vocabulary.
-        :return: Language object, the source vocabulary.
         """
         return self._corpora.vocabulary
+
+    @property
+    def batch_size(self):
+        return self._batch_size
 
 
 class DataQueue:
@@ -614,7 +685,7 @@ class DataQueue:
     A queue object for the data feed. This can be later configured to load the data to
     memory asynchronously.
     """
-    MAX_SEGMENT = 50000
+    MAX_SEGMENT = 500000
 
     @staticmethod
     def _location_scheme(path):
@@ -626,7 +697,14 @@ class DataQueue:
                  corpora:           Corpora,
                  max_segment_size:  int = MAX_SEGMENT):
         """
+        A data queue instance.
 
+        Arguments:
+            corpora:
+                Corpora, the instance that will be provided with data.
+
+            max_segment_size:
+                int, size of a data segment.
         """
         self._data_path = corpora.data_path
         self._id_data_path = self._location_scheme(corpora.data_path)
@@ -643,10 +721,10 @@ class DataQueue:
 
     def _generate_id_file(self):
         """
-
+        Generates an ID representation of the provided text corpora.
         """
-        with open(self._data_path, 'r') as text_file:
-            with open(self._id_data_path, 'w') as id_file:
+        with open(self._data_path, 'r', encoding='utf-8') as text_file:
+            with open(self._id_data_path, 'w', encoding='utf-8') as id_file:
                 for line in text_file:
                     ids = ids_from_sentence(self._corpora.vocabulary, line)
                     id_file.write('%s %d\n' % (' '.join(list(map(str, ids))), len(ids)))
@@ -667,7 +745,7 @@ class DataQueue:
             yield data_segment
 
 
-class ParallelDataQueue:
+class ParallelDataQueue:  # TODO
     """
     A queue object for the data feed. This can be later configured to load the data to
     memory asynchronously.
@@ -703,8 +781,8 @@ class ParallelDataQueue:
         """
 
         """
-        with open(self._data_path, 'r') as text_file:
-            with open(self._id_data_path, 'w') as id_file:
+        with open(self._data_path, 'r', encoding='utf-8') as text_file:
+            with open(self._id_data_path, 'w', encoding='utf-8') as id_file:
                 for line in text_file:
                     ids = ids_from_sentence(self._corpora.vocabulary, line)
                     id_file.write('%s %d\n' % (' '.join(list(map(str, ids))), len(ids)))
@@ -736,7 +814,7 @@ class Padding:
                  vocabulary,
                  max_segment_size):
         """
-
+        A padding type object
 
         Args:
             vocabulary:
@@ -851,10 +929,10 @@ class Language(Component):
 
     abstract = False
 
-    interface = OrderedDict(**{
-        'identifier':           None,
-        'vocabulary':           Vocabulary,
-        'input_pipelines':      InputPipeline,
+    interface = Interface(**{
+        'identifier':           (0, None),
+        'vocabulary':           (1, Vocabulary),
+        'input_pipelines':      (2, InputPipeline),
     })
 
     def __init__(self,

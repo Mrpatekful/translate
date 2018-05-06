@@ -6,11 +6,11 @@ import tqdm
 import argparse
 
 
-DEFAULT_CORPORA = '/media/patrik/1EDB65B8599DD93E/data/fra/FRA_DATA'
-DEFAULT_VOCAB = '/media/patrik/1EDB65B8599DD93E/data/fra/wiki.fr.vec'
+DEFAULT_CORPORA = '/media/patrik/1EDB65B8599DD93E/data/eng/ENG_DATA'
+DEFAULT_VOCAB = '/media/patrik/1EDB65B8599DD93E/data/mapping/vectors-en.txt'
 
-DEFAULT_OUTPUT_CORPORA = '/media/patrik/1EDB65B8599DD93E/data/fra/FRA_DATA_SYNC'
-DEFAULT_OUTPUT_VOCAB = '/media/patrik/1EDB65B8599DD93E/data/fra/vectors-fr_SYNC'
+DEFAULT_OUTPUT_CORPORA = '/media/patrik/1EDB65B8599DD93E/data/mapping/engdata'
+DEFAULT_OUTPUT_VOCAB = '/media/patrik/1EDB65B8599DD93E/data/mapping/vectors-en-sync.txt'
 
 
 # The maximum number of out of vocab words in a sentence

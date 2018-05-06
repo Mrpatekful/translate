@@ -1,18 +1,19 @@
 {
-  "type": "UNMTPolicy",
-  "params":{
-    "cuda": true,
-    "train": {
-      "tf_ratio": 0.5,
-      "noise": false
-    },
-    "validation": {
-      "tf_ratio": 0,
-      "noise": false
-    },
-    "test": {
-      "tf_ratio": 0,
-      "noise": false
+    "type": "UNMTPolicy",
+    "params":{
+        "cuda": true,
+        "add_language_token": true,
+        "train": {
+            "tf_ratio": 0.5,
+            "noise": false
+        },
+        "validation": {
+            "tf_ratio": 0,
+            "noise": false
+        },
+        "test": {
+            "tf_ratio": 0,
+            "noise": false
+        }
     }
-  }
 }

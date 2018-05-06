@@ -8,9 +8,7 @@ import pickle
 
 from src.components.utils.utils import Classifier
 
-from src.utils.utils import Component, ModelWrapper
-
-from collections import OrderedDict
+from src.utils.utils import Component, ModelWrapper, Interface
 
 
 class NoiseModel:
@@ -87,6 +85,7 @@ class _STSModule:
                  vocabularies:          list,
                  loss_functions:        list,
                  tokens:                list,
+                 add_language_token:    bool,
                  cuda:                  bool,
                  language_identifiers:  list):
         """
@@ -98,6 +97,7 @@ class _STSModule:
         self._vocabularies = vocabularies
         self._loss_functions = loss_functions
         self._tokens = tokens
+        self._language_token_required = add_language_token
 
         self._cuda = cuda
         self._language_identifiers = language_identifiers
@@ -140,21 +140,23 @@ class _STSModule:
             max_length = None
 
         if forced_targets:
-            outputs = self._model(inputs=inputs['data'],
-                                  lengths=inputs['lengths'],
-                                  targets=targets['data'],
-                                  max_length=max_length)
+            outputs, predictions = self._model(inputs=inputs['data'],
+                                               lengths=inputs['lengths'],
+                                               targets=targets['data'],
+                                               max_length=max_length)
         else:
-            outputs = self._model(inputs=inputs['data'],
-                                  lengths=inputs['lengths'],
-                                  targets=None,
-                                  max_length=max_length)
+            outputs, predictions = self._model(inputs=inputs['data'],
+                                               lengths=inputs['lengths'],
+                                               targets=None,
+                                               max_length=max_length)
 
         loss = 0
 
         if targets is not None:
-            for step, step_output in enumerate(outputs['outputs']):
+            for step, step_output in enumerate(predictions):
                 loss += self._loss_functions[targets['language_index']](step_output, targets['data'][:, step + 1])
+
+            del predictions
 
             lengths = torch.from_numpy(targets['lengths']).float()
 
@@ -214,6 +216,7 @@ class AutoEncoder(_STSModule):
                  loss_functions:        list,
                  tokens:                list,
                  cuda:                  bool = False,
+                 add_language_token:    bool = False,
                  language_identifiers:  list = None,
                  noise_model:           NoiseModel = None):
         """
@@ -240,6 +243,7 @@ class AutoEncoder(_STSModule):
                          loss_functions=loss_functions,
                          tokens=tokens,
                          cuda=cuda,
+                         add_language_token=add_language_token,
                          language_identifiers=language_identifiers)
 
         self._noise_model = noise_model
@@ -286,7 +290,7 @@ class AutoEncoder(_STSModule):
         else:
             inputs, lengths = batch['inputs'], batch['input_lengths']
 
-        if self._language_identifiers is not None:
+        if self._language_identifiers is not None and self._language_token_required:
             inputs = self._add_language_token(
                 batch=inputs,
                 token=self._vocabularies[lang_index](self._language_identifiers[lang_index])
@@ -354,6 +358,7 @@ class Translator(_STSModule):
                  vocabularies:          list,
                  loss_functions:        list,
                  tokens:                list,
+                 add_language_token:    bool = False,
                  cuda:                  bool = False,
                  language_identifiers:  list = None):
         """
@@ -378,6 +383,7 @@ class Translator(_STSModule):
                          loss_functions=loss_functions,
                          tokens=tokens,
                          cuda=cuda,
+                         add_language_token=add_language_token,
                          language_identifiers=language_identifiers)
 
     def __call__(self, batch, input_lang_index, target_lang_index, forced_targets=True):
@@ -413,7 +419,7 @@ class Translator(_STSModule):
 
         inputs = batch['inputs']
 
-        if self._language_identifiers is not None:
+        if self._language_identifiers is not None and self._language_token_required:
             inputs = self._add_language_token(
                 batch=inputs,
                 token=self._vocabularies[input_lang_index](self._language_identifiers[target_lang_index])
@@ -561,8 +567,8 @@ class WordTranslator(Component):
 
     abstract = False
 
-    interface = OrderedDict({
-        'dictionaries':   None
+    interface = Interface(**{
+        'dictionaries':   (0, None)
     })
 
     @staticmethod

@@ -1,3 +1,7 @@
+"""
+
+"""
+
 import logging
 import os
 import re
@@ -6,34 +10,51 @@ from os.path import join
 import numpy
 import torch
 import pickle
+import sys
 
-from src.utils.analysis import DataLog
-
-from src.utils.utils import call
+from src.utils.analysis import DataLog, ScalarData
 
 
 class Session:
 
+    CHECKPOINT_DIR = 'checkpoints'
+    OUTPUT_DIR = 'outputs'
+    LOG_DIR = 'info.log'
 
-    def __init__(self, task, checkpoint_dir, output_dir, info_dir, clear=False):
+    INTERRUPT = 'interrupt'
+
+    def __init__(self, experiment, model_dir, clear=False):
         numpy.set_printoptions(precision=4)
-        self._task = task
-        self._checkpoint_dir = checkpoint_dir
-        self._output_dir = output_dir
-        self._info_dir = info_dir
+        self.experiment = experiment
+        self._model_dir = model_dir
+        self._checkpoint_dir = os.path.join(model_dir, Session.CHECKPOINT_DIR)
+        self._output_dir = os.path.join(model_dir, Session.OUTPUT_DIR)
+        self._info_dir = os.path.join(model_dir, Session.LOG_DIR)
+        self.interrupted = False
+
+        if not os.path.exists(self._checkpoint_dir):
+            os.mkdir(self._checkpoint_dir)
+        if not os.path.exists(self._output_dir):
+            os.mkdir(self._output_dir)
+        if not os.path.exists(self._info_dir):
+            os.mkdir(self._output_dir)
 
         if clear:
             self._clear_logs()
 
         self._state = self._load()
         if self._state is not None:
-            self._task.state = self._state['task']
+            self.experiment.state = self._state['task']
 
     def _clear_logs(self):
-        for file in os.listdir(self._checkpoint_dir):
-            os.remove(join(self._checkpoint_dir, file))
-        for file in os.listdir(self._output_dir):
-            os.remove(join(self._output_dir, file))
+        try:
+            for file in os.listdir(self._checkpoint_dir):
+                os.remove(join(self._checkpoint_dir, file))
+            for file in os.listdir(self._output_dir):
+                os.remove(join(self._output_dir, file))
+        except FileNotFoundError as error:
+            logging.error(f'Directory does not exists {error}')
+            sys.exit()
 
     def _load(self):
         def find_int(x):
@@ -54,21 +75,39 @@ class Session:
         if len(checkpoints) == 0:
             self._last_log = 0
             return None
-
         else:
             self._last_log = find_int(checkpoints[-1])
-            return torch.load(join(self._checkpoint_dir, checkpoints[-1]))
+            candidates = [file for file in checkpoints if int(find_int(file)) == self._last_log]
+            if len(candidates) == 2:
+                checkpoint = sorted(candidates)[-1]
+            else:
+                checkpoint = checkpoints[-1]
+            if checkpoint.split('_')[0] == Session.INTERRUPT:
+                self.interrupted = True
+                logging.info(f'Found an interrupted experiment. Loading the latest state.')
+            else:
+                self.interrupted = False
+            return torch.load(join(self._checkpoint_dir, checkpoint))
 
-    def _save_state(self, state):
-        checkpoint = join(self._checkpoint_dir, f'checkpoint_{self._last_log + 1}.pt')
-        self._last_log += 1
+    def save_state(self, state, name='checkpoint'):
+        if name == 'checkpoint':
+            self._last_log += 1
+        checkpoint = join(self._checkpoint_dir, f'{name}_{self._last_log}.pt')
         torch.save(state, checkpoint)
+
+    def test(self):
+        if self._state is None:
+            raise RuntimeError('There is no available model for testing.')
+        with TestContext(session=self) as tc:
+            tc.test()
+            tc.save()
 
     def evaluate(self):
         if self._state is None:
             raise RuntimeError('There is no available model for evaluation.')
-        with ValidationContext(session=self) as ec:
-            ec.evaluate('Test')
+        with EvaluationContext(session=self) as ec:
+            ec.evaluate()
+            ec.save()
 
     def train(self):
         with TrainingContext(session=self) as tc:
@@ -78,22 +117,27 @@ class Session:
 
                 train_log = tc.train()
 
-                with ValidationContext(session=self) as ec:
-                    ec.evaluate('Validation')
-                    ec.save(tc.epoch, train_log)
+                with ValidationContext(session=self) as vc:
+                    vc.validate()
+                    vc.save(tc.epoch, train_log)
 
-                self._save_state({
-                    'task':     self._task.state,
+                self.save_state({
+                    'task':     self.experiment.state,
                     'epoch':    epoch
                 })
+                self.interrupted = False
 
     @property
     def task(self):
-        return self._task
+        return self.experiment
 
     @property
     def output_dir(self):
         return self._output_dir
+
+    @property
+    def model_dir(self):
+        return self._model_dir
 
     @property
     def state(self):
@@ -115,25 +159,25 @@ class TrainingContext:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        self._session.save_state({
+            'task':     self._session.experiment.state,
+            'epoch':    self.epoch - 1
+        }, Session.INTERRUPT)
+        logging.info(f'Training interrupted {exc_type}')
 
     def train(self):
-        def average_as_list(key):
-            if key in outputs[DataLog.MUTUAL_TOKEN_ID].data:
-                return numpy.array([outputs[DataLog.MUTUAL_TOKEN_ID].data[key].average()])
-            else:
-                return numpy.array([float(outputs[data_id].data[key].average()) for data_id in outputs if
-                                    data_id != DataLog.MUTUAL_TOKEN_ID])
-
         logging.info(f'Processing Epoch {self.epoch} ...')
 
         outputs = self._session.task.train(self.epoch)
 
-        logging.info(f'''Train | Total Model Loss:     {average_as_list('total_loss')}''')
-        logging.info(f'''Train | Translation Loss:     {average_as_list('translation_loss')}''')
-        logging.info(f'''Train | Auto-Encoding Loss:   {average_as_list('auto_encoding_loss')}''')
-        logging.info(f'''Train | Reguralization Loss:  {average_as_list('reguralization_loss')}''')
-        logging.info(f'''Train | Discriminator Loss:   {average_as_list('discriminator_loss')}''')
+        keys = []
+        for data_id in outputs:
+            keys = [*keys, *list(outputs[data_id].data.keys())]
+
+        for key in set(keys):
+            data = average_as_list(outputs=outputs, key=key)
+            if data is not None:
+                logging.info(f'''Train | {key}:     {data}''')
 
         return outputs
 
@@ -143,7 +187,6 @@ class TrainingContext:
 
 
 class ValidationContext:
-
 
     def __init__(self, session):
         self._session = session
@@ -157,26 +200,17 @@ class ValidationContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def evaluate(self, mode):
-        def average_as_list(key):
-            if key in self._outputs[DataLog.MUTUAL_TOKEN_ID].data:
-                return numpy.array([self._outputs[DataLog.MUTUAL_TOKEN_ID].data[key].average()])
+    def validate(self):
+        self._outputs = self._session.task.validate()
 
-            else:
-                return numpy.array([float(self._outputs[data_id].data[key].average())
-                                    for data_id in self._outputs if data_id != DataLog.MUTUAL_TOKEN_ID])
+        keys = []
+        for data_id in self._outputs:
+            keys = [*keys, *list(self._outputs[data_id].data.keys())]
 
-        def data_as_list(key):
-            return [self._outputs[index].data[key] for index in range(len(self._outputs))]
-
-        self._outputs = self._session.task.evaluate()
-
-        logging.info(f'''{mode} | Total Model Loss:     {average_as_list('total_loss')}''')
-        logging.info(f'''{mode} | Translation Loss:     {average_as_list('translation_loss')}''')
-        logging.info(f'''{mode} | Auto-Encoding Loss:   {average_as_list('auto_encoding_loss')}''')
-        logging.info(f'''{mode} | Reguralization Loss:  {average_as_list('reguralization_loss')}''')
-        logging.info(f'''{mode} | Discriminator Loss:   {average_as_list('discriminator_loss')}''')
-        # logging.info(f'''Texts:                {data_as_list('auto_encoding_text')}''')
+        for key in set(keys):
+            data = average_as_list(outputs=self._outputs, key=key)
+            if data is not None:
+                logging.info(f'''Validation | {key}:     {data}''')
 
     def save(self, epoch, train_log):
         log = {
@@ -224,5 +258,55 @@ class ValidationContext:
             self._last_log = find_int(analysis_files[-1])
 
 
-class InferenceContext:
-    pass
+class TestContext:
+
+    TEST_FILE = 'test.pt'
+
+    def __init__(self, session):
+        self._session = session
+        self._output_dir = os.path.join(self._session.model_dir, TestContext.TEST_FILE)
+        self._outputs = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def test(self):
+        self._outputs = self._session.task.test()
+
+    def save(self):
+        pickle.dump(self._outputs, open(self._output_dir, 'wb'))
+
+
+class EvaluationContext:
+
+    EVAL_FILE = 'eval.pt'
+
+    def __init__(self, session):
+        self._session = session
+        self._output_dir = os.path.join(self._session.model_dir, EvaluationContext.EVAL_FILE)
+        self._outputs = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def evaluate(self):
+        self._outputs = self._session.task.evaluate()
+
+    def save(self):
+        pickle.dump(self._outputs, open(self._output_dir, 'wb'))
+
+
+def average_as_list(outputs, key):
+    if isinstance(outputs[DataLog.MUTUAL_TOKEN_ID].data.get(key, None), ScalarData):
+        return numpy.array([outputs[DataLog.MUTUAL_TOKEN_ID].data[key].average()])
+
+    elif all([isinstance(outputs[data_id].data.get(key, None), ScalarData) for data_id in outputs
+              if data_id != DataLog.MUTUAL_TOKEN_ID]):
+        return numpy.array([float(outputs[data_id].data[key].average()) for data_id in outputs if
+                            data_id != DataLog.MUTUAL_TOKEN_ID])

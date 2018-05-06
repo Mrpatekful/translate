@@ -12,11 +12,11 @@ import pickle
 from numpy.linalg import inv
 
 
-DEFAULT_VOCAB_SRC = '/media/patrik/1EDB65B8599DD93E/data/eng/VOCAB_ENG_SYNC_CORRECT'
-DEFAULT_VOCAB_TGT = '/media/patrik/1EDB65B8599DD93E/data/fra/VOCAB_FRA_SYNC_CORRECT'
+DEFAULT_VOCAB_SRC = '/media/patrik/1EDB65B8599DD93E/data/mapping/vectors-en-sync.txt'
+DEFAULT_VOCAB_TGT = '/media/patrik/1EDB65B8599DD93E/data/mapping/vectors-fr-sync.txt'
 
-DEFAULT_ALIGNMENT_PATH_SRC = '/media/patrik/1EDB65B8599DD93E/data/eng/ALIGNMENT_EN_to_FR'
-DEFAULT_ALIGNMENT_PATH_TGT = '/media/patrik/1EDB65B8599DD93E/data/fra/ALIGNMENT_FR_to_EN'
+DEFAULT_ALIGNMENT_PATH_SRC = '/media/patrik/1EDB65B8599DD93E/data/eng/ALIGNMENT_EN_to_FR_2'
+DEFAULT_ALIGNMENT_PATH_TGT = '/media/patrik/1EDB65B8599DD93E/data/fra/ALIGNMENT_FR_to_EN_2'
 
 DEFAULT_MAPPING_PATH = '/media/patrik/1EDB65B8599DD93E/data/mapping/best_mapping.pth'
 
@@ -85,21 +85,21 @@ def main():
     parser.add_argument('--size_tgt', action='store', dest='size_tgt', type=int, default=DEFAULT_SIZE_TGT,
                         help='out of vocab limit per line')
 
-    arguments = parser.parse_args(['--mapping'])
+    arguments = parser.parse_args()
 
     vocab_path_src = arguments.source
     vocab_path_tgt = arguments.target
     alignment_path_st = arguments.st_path
     alignment_path_ts = arguments.ts_path
-    mapping_path = arguments.mapping
+    mapping_path = arguments.mapping_path
     mapping_required = arguments.mapping_required
     dim = arguments.dim
 
     size_src = arguments.size_src if arguments.size_src != 0 else measure_length(vocab_path_src)
     size_tgt = arguments.size_tgt if arguments.size_tgt != 0 else measure_length(vocab_path_tgt)
 
-    vocab_src, words_src = load_vocab(path=vocab_path_src, desc='Loading vocab A', shape=(size_src, dim))
-    vocab_tgt, words_tgt = load_vocab(path=vocab_path_tgt, desc='Loading vocab B', shape=(size_tgt, dim))
+    vocab_src, words_src = load_vocab(path=vocab_path_src, desc='Loading source vocab', shape=(size_src, dim))
+    vocab_tgt, words_tgt = load_vocab(path=vocab_path_tgt, desc='Loading target vocab', shape=(size_tgt, dim))
 
     mapping_matrix = torch.load(mapping_path)
 

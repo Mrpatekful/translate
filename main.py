@@ -10,7 +10,7 @@ from src.utils.session import Session
 numpy.random.seed(2)
 torch.manual_seed(2)
 
-EXPERIMENT_CONFIG = 'configs/experiments/unmt_1.json'
+EXPERIMENT_CONFIG = 'configs/experiments/unmt.json'
 
 
 def main():
@@ -20,11 +20,12 @@ def main():
     parser.add_argument('-e', '--experiment', action='store', dest='config', default=EXPERIMENT_CONFIG)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-t', '--train', action='store_true', dest='train')
-    group.add_argument('-i', '--inference', action='store_true', dest='inference')
+    group.add_argument('--test', action='store_true', dest='test')
+    group.add_argument('--evaluate', action='store_true', dest='evaluate')
     parser.add_argument('-c', '--clear', action='store_true', dest='clear')
     parser.add_argument('-v', '--verbose', action='store', dest='log_level', default=logging.INFO)
 
-    arguments = parser.parse_args(['-t', '-c'])
+    arguments = parser.parse_args(['-t'])
 
     clear_logs = arguments.clear if arguments.train else False
 
@@ -32,7 +33,9 @@ def main():
 
     if arguments.train:
         session.train()
-    else:
+    elif arguments.test:
+        session.test()
+    elif arguments.evaluate:
         session.evaluate()
 
 

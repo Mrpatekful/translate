@@ -6,8 +6,8 @@ import argparse
 import tqdm
 import sys
 
-DEFAULT_INPUT_VOCAB = '/media/patrik/1EDB65B8599DD93E/data/eng/vectors-en_SYNC'
-DEFAULT_OUTPUT_VOCAB = '/media/patrik/1EDB65B8599DD93E/data/eng/wiki.en.vec_synced_validated'
+DEFAULT_INPUT_VOCAB = '/media/patrik/1EDB65B8599DD93E/data/mapping/vectors-fr-sync.txt'
+DEFAULT_OUTPUT_VOCAB = '/media/patrik/1EDB65B8599DD93E/data/mapping/vectors-fr-sync-valid.txt'
 
 DEFAULT_DIM = 300
 

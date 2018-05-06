@@ -1,6 +1,7 @@
-from collections import OrderedDict
+"""
 
-import numpy
+"""
+
 import torch
 import torch.autograd
 
@@ -8,13 +9,11 @@ from torch.nn import LeakyReLU
 from torch.nn import Linear
 from torch.nn import Module
 
-from torch.nn.functional import log_softmax
 from torch.nn.functional import softmax
 
-from torch.nn.utils.rnn import pack_padded_sequence
-from torch.nn.utils.rnn import pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from src.utils.utils import Component
+from src.utils.utils import Component, Interface
 
 
 class Classifier(Module, Component):  # TODO states
@@ -24,13 +23,13 @@ class Classifier(Module, Component):  # TODO states
     super class, otherwise it won't be discoverable by the hierarchy builder utility.
     """
 
-    interface = OrderedDict(**{
-        'hidden_size':      None,
-        'learning_rate':    None,
-        'optimizer_type':   None,
-        'output_size':      None,
-        'cuda':            'Experiment:Policy:cuda$',
-        'input_size':      'Encoder:hidden_size$'
+    interface = Interface(**{
+        'hidden_size':      (0, None),
+        'learning_rate':    (1, None),
+        'optimizer_type':   (2, None),
+        'output_size':      (3, None),
+        'cuda':             (4, 'Experiment:Policy:cuda$'),
+        'input_size':       (5, 'Encoder:hidden_size$')
     })
 
     def __init__(self,
@@ -169,9 +168,9 @@ class RNNClassifier(Classifier):
 
     abstract = False
 
-    interface = OrderedDict(**{
-        **Classifier.interface,
-        'num_layers': None
+    interface = Interface(**{
+        **Classifier.interface.dictionary,
+        'num_layers': (Interface.last_key(Classifier.interface.dictionary) + 1, None)
     })
 
     def __init__(self,

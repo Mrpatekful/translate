@@ -2,8 +2,6 @@
 
 """
 
-from collections import OrderedDict
-
 import torch
 import torch.autograd as autograd
 import torch.nn
@@ -16,7 +14,7 @@ from src.components.utils.utils import Optimizer
 
 from src.utils.analysis import LatentStateData
 
-from src.utils.utils import ParameterSetter
+from src.utils.utils import ParameterSetter, Interface
 
 
 class RNNEncoder(Encoder):
@@ -24,14 +22,14 @@ class RNNEncoder(Encoder):
     Recurrent encoder module of the sequence to sequence model.
     """
 
-    interface = OrderedDict(**{
-        'hidden_size':      None,
-        'recurrent_type':   None,
-        'num_layers':       None,
-        'optimizer_type':   None,
-        'learning_rate':    None,
-        'cuda':            'Experiment:Policy:cuda$',
-        'embedding_size':  'embedding_size$'
+    interface = Interface(**{
+        'hidden_size':      (0, None),
+        'recurrent_type':   (1, None),
+        'num_layers':       (2, None),
+        'optimizer_type':   (3, None),
+        'learning_rate':    (4, None),
+        'cuda':             (5, 'Experiment:Policy:cuda$'),
+        'embedding_size':   (6, 'embedding_size$')
     })
 
     abstract = True
@@ -144,6 +142,7 @@ class UnidirectionalRNNEncoder(RNNEncoder):
 
         self._recurrent_layer = unit_type(input_size=self._embedding_size,
                                           hidden_size=self._hidden_size,
+                                          dropout=0.5,
                                           num_layers=self._num_layers,
                                           bidirectional=False,
                                           batch_first=True)
@@ -228,6 +227,7 @@ class BidirectionalRNNEncoder(RNNEncoder):
         self._recurrent_layer = unit_type(input_size=self._embedding_size,
                                           hidden_size=self._hidden_size,
                                           num_layers=self._num_layers,
+                                          dropout=0.5,
                                           bidirectional=True,
                                           batch_first=True)
 

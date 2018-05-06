@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import sys
+import os
 
 from src.components.encoders.rnn import Encoder
 
@@ -22,6 +23,8 @@ from src.models.models import Model
 from src.utils.reader import Corpora, InputPipeline, Language, Vocabulary
 
 from src.utils.utils import Policy, copy_dict_hierarchy, merge_dicts, subclasses
+
+from src.utils.session import Session
 
 from collections import OrderedDict
 
@@ -83,14 +86,14 @@ class Config:
         """
         try:
 
-            checkpoint_dir = self._config['checkpoint_dir']
-            output_dir = self._config['output_dir']
-            info_dir = self._config['info_dir']
+            model_dir = self._config['model_dir']
+
+            assert os.path.exists(model_dir), f'{model_dir} does not exist'
 
             logging.basicConfig(level=self._logging_level,
                                 format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                                 datefmt='%m-%d %H:%M',
-                                filename=info_dir,
+                                filename=os.path.join(model_dir, Session.LOG_DIR),
                                 filemode='w')
 
             task_type = self._experiments[self._config['type']]
@@ -100,7 +103,7 @@ class Config:
             logging.error(f'{error}')
             sys.exit()
 
-        return task, checkpoint_dir, output_dir, info_dir
+        return task, model_dir
 
     def _build_params(self, param_dict, interface_dict, config, lookup_id):
         """
@@ -171,7 +174,8 @@ class Config:
 
                             module_type = self._modules[module_dict['type']]
                             param_dict[key][element] = self._create_node(module_type, module_dict['params'],
-                                                                         f'{lookup_id}:{interface_dict[key].__name__}'
+                                                                         f'{lookup_id}:'
+                                                                         f'{interface_dict[key].__name__}'
                                                                          f'/{element}')
 
                         logging.debug(f'Created dict of {interface_dict[key].__name__} for {lookup_id}:{key} with %s'
@@ -191,9 +195,11 @@ class Config:
                     param_dict[key] = config[key]
                     self._registered_params[lookup_id + f':{key}'] = param_dict[key]
 
-                else:
+                elif interface_dict[key] is not None:
                     param_dict[key] = self._resolve_aggregation(interface_dict[key])
                     self._registered_params[lookup_id + f':{key}'] = param_dict[key]
+                else:
+                    del param_dict[key]
 
             except ValueError as error:
                 raise RuntimeError(f'Error occurred during construction of {lookup_id}:{key} ({error})')
@@ -221,7 +227,7 @@ class Config:
              Component, an instance of the passed entity.
         """
         interface = entity.interface
-        param_dict = copy_dict_hierarchy(interface)
+        param_dict = copy_dict_hierarchy(interface.dictionary)
 
         try:
 

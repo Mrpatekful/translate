@@ -14,7 +14,5 @@
         "initial_translator": "configs/utils/translators/word.json",
         "reguralizer": "configs/components/reguralizers/mlp.json"
     },
-    "checkpoint_dir": "logs/unmt_1/checkpoints",
-    "output_dir": "logs/unmt_1/outputs",
-    "info_dir": "logs/unmt_1/info.log"
+    "model_dir": "/media/patrik/1EDB65B8599DD93E/model_outputs/unmt_3"
 }

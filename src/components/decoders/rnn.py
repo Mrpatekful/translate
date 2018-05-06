@@ -1,4 +1,6 @@
-from collections import OrderedDict
+"""
+
+"""
 
 import numpy
 import torch
@@ -11,7 +13,7 @@ from src.components.utils.utils import Optimizer
 
 from src.utils.analysis import AttentionData
 
-from src.utils.utils import ParameterSetter, subtract_dict
+from src.utils.utils import ParameterSetter, subtract_dict, Interface
 
 
 class RNNDecoder(Decoder):
@@ -19,16 +21,16 @@ class RNNDecoder(Decoder):
     An implementation of recurrent decoder unit for the sequence to sequence model.
     """
 
-    interface = OrderedDict(**{
-        'hidden_size':      None,
-        'recurrent_type':   None,
-        'num_layers':       None,
-        'optimizer_type':   None,
-        'learning_rate':    None,
-        'max_length':       None,
-        'cuda':            'Experiment:Policy:cuda$',
-        'embedding_size':  'embedding_size$',
-        'input_size':      'embedding_size$'
+    interface = Interface(**{
+        'hidden_size':      (0, None),
+        'recurrent_type':   (1, None),
+        'num_layers':       (2, None),
+        'optimizer_type':   (3, None),
+        'learning_rate':    (4, None),
+        'max_length':       (5, None),
+        'cuda':             (6, 'Experiment:Policy:cuda$'),
+        'embedding_size':   (7, 'embedding_size$'),
+        'input_size':       (8, 'embedding_size$')
     })
 
     abstract = False
@@ -56,7 +58,6 @@ class RNNDecoder(Decoder):
 
         self._outputs = {
             'symbols':    None,
-            'outputs':    None
         }
 
         self.embedding = None
@@ -84,6 +85,7 @@ class RNNDecoder(Decoder):
         self._recurrent_layer = unit_type(input_size=self._input_size,
                                           hidden_size=self._hidden_size,
                                           num_layers=self._num_layers,
+                                          dropout=0.5,
                                           bidirectional=False,
                                           batch_first=True)
 
@@ -152,25 +154,24 @@ class RNNDecoder(Decoder):
         :return decoder_outputs: dict, containing two string keys, symbols: Ndarray, the decoded word ids.
         """
         batch_size = encoder_outputs.size(0)
-        self._outputs['outputs'] = []
 
         if targets is not None:
 
-            self._forced_decode(targets=targets,
-                                batch_size=batch_size,
-                                hidden_state=hidden_state,
-                                encoder_outputs=encoder_outputs,
-                                input_sequence_length=None)
+            predictions = self._forced_decode(targets=targets,
+                                              batch_size=batch_size,
+                                              hidden_state=hidden_state,
+                                              encoder_outputs=encoder_outputs,
+                                              input_sequence_length=None)
 
         else:
 
-            self._predictive_decode(max_length=max_length,
-                                    batch_size=batch_size,
-                                    hidden_state=hidden_state,
-                                    encoder_outputs=encoder_outputs,
-                                    input_sequence_length=None)
+            predictions = self._predictive_decode(max_length=max_length,
+                                                  batch_size=batch_size,
+                                                  hidden_state=hidden_state,
+                                                  encoder_outputs=encoder_outputs,
+                                                  input_sequence_length=None)
 
-        return self._outputs
+        return self._outputs, predictions
 
     def _forced_decode(self,
                        targets,
@@ -193,6 +194,9 @@ class RNNDecoder(Decoder):
         output_sequence_length = targets.size(1) - 1
 
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype=numpy.int32)
+
+        predictions = []
+
         inputs = targets[:, :-1].contiguous()
         embedded_inputs = self.embedding(inputs)
 
@@ -204,7 +208,9 @@ class RNNDecoder(Decoder):
 
         for step in range(output_sequence_length):
             self._outputs['symbols'][:, step] = outputs[:, step, :].topk(1)[1].squeeze(-1).data.cpu().numpy()
-            self._outputs['outputs'].append(outputs[:, step, :])
+            predictions.append(outputs[:, step, :])
+
+        return predictions
 
     def _predictive_decode(self,
                            max_length,
@@ -227,6 +233,8 @@ class RNNDecoder(Decoder):
         output_sequence_length = max_length if max_length is not None else self._max_length
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
 
+        predictions = []
+
         sos_tokens = torch.from_numpy(numpy.array([self.tokens['<SOS>']] * batch_size)).unsqueeze(-1)
         if self._cuda:
             sos_tokens = sos_tokens.cuda()
@@ -245,9 +253,11 @@ class RNNDecoder(Decoder):
             symbol_output = step_output.topk(1)[1].data.squeeze(-1)
 
             self._outputs['symbols'][:, step] = symbol_output.squeeze(-1).cpu().numpy()
-            self._outputs['outputs'].append(step_output.squeeze(1))
+            predictions.append(step_output.squeeze(1))
 
             step_input = symbol_output
+
+        return predictions
 
     @property
     def tokens(self):
@@ -422,25 +432,23 @@ class AttentionRNNDecoder(RNNDecoder):
         batch_size = encoder_outputs.size(0)
         input_sequence_length = encoder_outputs.size(1)
 
-        self._outputs['outputs'] = []
-
         if targets is not None:
 
-            self._forced_decode(targets=targets,
-                                batch_size=batch_size,
-                                hidden_state=hidden_state,
-                                encoder_outputs=encoder_outputs,
-                                input_sequence_length=input_sequence_length)
+            predictions = self._forced_decode(targets=targets,
+                                              batch_size=batch_size,
+                                              hidden_state=hidden_state,
+                                              encoder_outputs=encoder_outputs,
+                                              input_sequence_length=input_sequence_length)
 
         else:
 
-            self._predictive_decode(max_length=max_length,
-                                    batch_size=batch_size,
-                                    hidden_state=hidden_state,
-                                    encoder_outputs=encoder_outputs,
-                                    input_sequence_length=input_sequence_length)
+            predictions = self._predictive_decode(max_length=max_length,
+                                                  batch_size=batch_size,
+                                                  hidden_state=hidden_state,
+                                                  encoder_outputs=encoder_outputs,
+                                                  input_sequence_length=input_sequence_length)
 
-        return self._outputs
+        return self._outputs, predictions
 
     def _forced_decode(self,
                        targets,
@@ -476,6 +484,8 @@ class AttentionRNNDecoder(RNNDecoder):
         inputs = targets[:, :-1].contiguous()
         embedded_inputs = self.embedding(inputs)
 
+        predictions = []
+
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
         self._outputs['alignment_weights'] = numpy.zeros((batch_size, output_sequence_length, input_sequence_length))
 
@@ -488,9 +498,11 @@ class AttentionRNNDecoder(RNNDecoder):
                                                                    batch_size=batch_size,
                                                                    sequence_length=input_sequence_length)
 
-            self._outputs['outputs'].append(step_output.squeeze(1))
+            predictions.append(step_output.squeeze(1))
             self._outputs['alignment_weights'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
             self._outputs['symbols'][:, step] = step_output.topk(1)[1].data.squeeze(-1).squeeze(-1).cpu().numpy()
+
+        return predictions
 
     def _predictive_decode(self,
                            max_length,
@@ -523,6 +535,8 @@ class AttentionRNNDecoder(RNNDecoder):
         """
         output_sequence_length = max_length if max_length is not None else self._max_length
 
+        predictions = []
+
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
         self._outputs['alignment_weights'] = numpy.zeros((batch_size, output_sequence_length, input_sequence_length))
 
@@ -544,11 +558,13 @@ class AttentionRNNDecoder(RNNDecoder):
 
             symbol_output = step_output.topk(1)[1].data.squeeze(-1)
 
-            self._outputs['outputs'].append(step_output.squeeze(1))
+            predictions.append(step_output.squeeze(1))
             self._outputs['alignment_weights'][:, step, :] = attn_weights.data.squeeze(1).cpu().numpy()
             self._outputs['symbols'][:, step] = symbol_output.squeeze(-1).cpu().numpy()
 
             step_input = symbol_output
+
+        return predictions
 
     def _score(self, encoder_outputs, decoder_state):
         raise NotImplementedError
@@ -609,9 +625,10 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
     probability distribution over the word ids.
     """
 
-    interface = OrderedDict({
-        **subtract_dict(RNNDecoder.interface, {'input_size': None}),
-        'input_size': 'Decoder:embedding_size$ + Decoder:hidden_size$'
+    interface = Interface(**{
+        **subtract_dict(RNNDecoder.interface.dictionary, {'input_size': None}),
+        'input_size': (Interface.last_key(subtract_dict(RNNDecoder.interface.dictionary, {'input_size': None})) + 1,
+                       'Decoder:embedding_size$ + Decoder:hidden_size$')
     })
 
     abstract = False
@@ -786,7 +803,7 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
     activation from the linear layer.
     """
 
-    interface = {**RNNDecoder.interface}
+    interface = RNNDecoder.interface
 
     abstract = False
 
@@ -837,7 +854,7 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
     encoder and decoder states.
     """
 
-    interface = {**RNNDecoder.interface}
+    interface = RNNDecoder.interface
 
     abstract = False
 
@@ -880,7 +897,7 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
     method, however the computation path follows the Luong style.
     """
 
-    interface = {**RNNDecoder.interface}
+    interface = RNNDecoder.interface
 
     abstract = False
 

@@ -5,8 +5,8 @@
 import argparse
 import tqdm
 
-DEFAULT_FILE_INPUT = '/media/patrik/1EDB65B8599DD93E/data/eng/ENG_DATA_SYNC'
-DEFAULT_FILE_OUTPUT = '/media/patrik/1EDB65B8599DD93E/data/eng/ENG_DATA_SYNC_SEG'
+DEFAULT_FILE_INPUT = '/media/patrik/1EDB65B8599DD93E/data/server/fra/fra_data'
+DEFAULT_FILE_OUTPUT = '/media/patrik/1EDB65B8599DD93E/data/server/fra/fra_data_seg'
 
 
 def main():

@@ -5,16 +5,16 @@
 import numpy
 import tqdm
 
-EMBEDDING_DIM = 300
+EMBEDDING_DIM = 50
 
 ENG = {
-    'vocab':    '/media/patrik/1EDB65B8599DD93E/data/eng/ENG_VOCAB_CREATED',
-    'corpora':  '/media/patrik/1EDB65B8599DD93E/data/eng/ENG_DATA_SYNC'
+    'vocab':    '/media/patrik/1EDB65B8599DD93E/data/server/eng/eng_vocab',
+    'corpora':  '/media/patrik/1EDB65B8599DD93E/data/server/eng/ENG_DATA_SYNC'
 }
 
 FRA = {
-    'vocab':    '/media/patrik/1EDB65B8599DD93E/data/fra/FRA_VOCAB_CREATED',
-    'corpora':  '/media/patrik/1EDB65B8599DD93E/data/fra/FRA_DATA_SYNC'
+    'vocab':    '/media/patrik/1EDB65B8599DD93E/data/server/fra/FRA_VOCAB',
+    'corpora':  '/media/patrik/1EDB65B8599DD93E/data/server/fra/FRA_DATA_SYNC'
 }
 
 

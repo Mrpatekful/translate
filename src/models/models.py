@@ -1,11 +1,13 @@
-from collections import OrderedDict
+"""
+
+"""
 
 from torch.nn import Module
 
 from src.components.base import Encoder
 from src.components.base import Decoder
 
-from src.utils.utils import Component
+from src.utils.utils import Component, Interface
 
 
 class Model(Module, Component):
@@ -45,9 +47,9 @@ class SeqToSeq(Model):
     vector to the desired sequence.
     """
 
-    interface = OrderedDict(**{
-        'encoder':    Encoder,
-        'decoder':    Decoder
+    interface = Interface(**{
+        'encoder':    (0, Encoder),
+        'decoder':    (1, Decoder)
     })
 
     abstract = False
@@ -96,9 +98,9 @@ class SeqToSeq(Model):
                 dict, containing the concatenated outputs of the encoder and decoder.
         """
         encoder_outputs = self.encoder(inputs=inputs, lengths=lengths)
-        decoder_outputs = self.decoder(targets=targets, max_length=max_length, **encoder_outputs)
+        decoder_outputs, predictions = self.decoder(targets=targets, max_length=max_length, **encoder_outputs)
 
-        return {**decoder_outputs, **encoder_outputs}
+        return {**decoder_outputs, **encoder_outputs}, predictions
 
     def freeze(self):
         """

@@ -28,6 +28,39 @@ class Component:
         }
 
 
+class Interface:
+
+    @staticmethod
+    def last_key(dictionary):
+        return dictionary[sorted(dictionary, key=lambda x: int(dictionary[x][0]))[-1]][0]
+
+    def __init__(self, **kwargs):
+        self._dictionary = OrderedDict()
+        for key in sorted(OrderedDict(**kwargs), key=lambda x: kwargs[x][0]):
+            self._dictionary[key] = kwargs[key]
+        self._keys = sorted(self._dictionary.keys(), key=lambda x: self._dictionary[x][0])
+        self._current = 0
+
+    def __getitem__(self, key):
+        return self._dictionary[key][1]
+
+    def __next__(self):
+        if self._current == len(self._keys):
+            self._current = 0
+            raise StopIteration
+        else:
+            self._current += 1
+            return self._keys[self._current-1]
+
+    def __iter__(self):
+        return self
+
+    @property
+    def dictionary(self):
+        return self._dictionary
+
+
+
 class ModelWrapper:
     """
 
@@ -402,7 +435,8 @@ class Logger:
         Serializes the log dictionary.
         """
         pickle.dump(obj=self._log_dict,
-                    file=open(os.path.join(self.log_dir, f'iter_{self._id-self._dump_interval}-{self._id}'), 'wb'))
+                    file=open(os.path.join(self.log_dir, 'iter_{}-{}'.format(self._id-self._dump_interval,
+                                                                             self._id)), 'wb'))
 
         del self._log_dict
         self._log_dict = {}
@@ -427,11 +461,11 @@ class Logger:
 
 class Policy(Component):
 
-    interface = OrderedDict({
-        'cuda':         None,
-        'train':        None,
-        'validation':   None,
-        'test':         None
+    interface = Interface(**{
+        'cuda':         (0, None),
+        'train':        (1, None),
+        'validation':   (2, None),
+        'test':         (3, None)
     })
 
     def __init__(self, train, validation, test, cuda):
@@ -461,12 +495,18 @@ class UNMTPolicy(Policy):
     """
 
     """
+    interface = Interface(**{
+        **Policy.interface.dictionary,
+        'add_language_token': (Interface.last_key(Policy.interface.dictionary) + 1, None),
+    })
+
     abstract = False
 
     def __init__(self,
                  train,
                  validation,
                  test,
+                 add_language_token,
                  cuda):
         """
 
@@ -493,4 +533,6 @@ class UNMTPolicy(Policy):
             self.test_noise = self.test['noise']
 
         except KeyError as error:
-            raise RuntimeError(f'UMTPolicy requires {error} to be given')
+            raise RuntimeError('UMTPolicy requires {} to be given'.format(error))
+
+        self.add_language_token = add_language_token
