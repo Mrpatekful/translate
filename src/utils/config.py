@@ -50,16 +50,17 @@ class Config:
         """
         Applies the operator on the given arguments.
 
-        Arguments:
-            args:
-                tuple, which elements will serve as the operands.
-            op:
-                str, the operator.
-        Raises:
+        :param args:
+            tuple, which elements will serve as the operands.
+
+        :param op:
+            str, the operator.
+
+        :raises:
             ValueError:
                 if the operator is not defined.
 
-        Returns:
+        :return:
             result of the operation.
         """
         if op == '+':
@@ -80,9 +81,8 @@ class Config:
         An instance of a configuration parser. The provided file is
         parsed and stored as a dictionary object.
 
-        Arguments:
-            config_path:
-                str, path of the task configuration file.
+        :param config_path:
+            str, path of the task configuration file.
         """
         self._config = json.load(open(config_path, 'r'))
         self._registered_params = OrderedDict()
@@ -92,12 +92,11 @@ class Config:
         """
         Assembles the components, described by the interface of the task from the configuration file.
 
-        Return:
-            experiment:
-                The initialized experiment object.
+        :return experiment:
+            The initialized experiment object.
 
-            model_dir:
-                The location of the experiment outputs.
+        :return model_dir:
+            The location of the experiment outputs.
         """
         try:
 
@@ -130,22 +129,21 @@ class Config:
         with the value of the key from the config file. Finally, if the parameter is not in the config file, then it
         is an aggregated value, that must either be calculated, or derived from a previously created node instance.
 
-        Args:
-            param_dict:
-                dict, an dictionary with the same structure of the entity's interface dictionary.
+        :param param_dict:
+            dict, an dictionary with the same structure of the entity's interface dictionary.
 
-            interface_dict:
-                dict, the dictionary, that defines the interface of a component. Every component/module
-                that is a node in the JSON file, must have a class scope method, that
-                defines it's interface.
+        :param interface_dict:
+            dict, the dictionary, that defines the interface of a component. Every component/module
+            that is a node in the JSON file, must have a class scope method, that
+            defines it's interface.
 
-            config:
-                dict, the currently visited node of the JSON configuration file.
+        :param config:
+            dict, the currently visited node of the JSON configuration file.
 
-            lookup_id:
-                str, an identifier, that creates the keys for the shared parameter values.
+        :param lookup_id:
+            str, an identifier, that creates the keys for the shared parameter values.
 
-        Return:
+        :return:
             dict, a fully initialized dictionary, with the same structure of the interface.
         """
         def resolve_link(link) -> dict:
@@ -228,17 +226,16 @@ class Config:
         dictionary is updated with the created entity's property values, so entities, that will
         be created later in the instantiation tree can reference these values.
 
-        Args:
-            entity:
-                Component, type class, that must have an interface() method.
+        :param entity:
+            Component, type class, that must have an interface() method.
 
-            config:
-                dict, configuration file of the entity.
+        :param config:
+            dict, configuration file of the entity.
 
-            lookup_id:
-                str, an identifier, that creates the keys for the shared parameter values.
+        :param lookup_id:
+            str, an identifier, that creates the keys for the shared parameter values.
 
-        Return:
+        :return:
              Component, an instance of the passed entity.
         """
         interface = entity.interface
@@ -265,11 +262,10 @@ class Config:
         """
         Returns the key from the dictionary of registered parameters, that matches the given pattern.
 
-        Arguments:
-            pattern:
-                str, regexp that matches a single key from the dictionary.
+        :param pattern:
+            str, regexp that matches a single key from the dictionary.
 
-        Returns:
+        :return:
             str, the matching key
         """
         keys = [key for key in list(self._registered_params.keys()) if re.search(pattern, key) is not None]
@@ -288,17 +284,16 @@ class Config:
         Resolves the parameter references. This method is called, when a parameter is not present
         in the configuration file, so it must be calculated based on the provided description.
 
-        Arguments:
-            description:
-                str, the method of creating the parameter's value. The description may
-                reference parameters, that have already been created, and may also apply
-                operators on them. The operators are defined in the apply_operator function.
+        :param description:
+            str, the method of creating the parameter's value. The description may
+            reference parameters, that have already been created, and may also apply
+            operators on them. The operators are defined in the apply_operator function.
 
-        Raises:
+        :raise:
             ValueError:
                 if the description was incorrect.
 
-        Returns:
+        :return:
             The value of the parameter, that was created by the interpretation of the description.
         """
         def is_number(s):

@@ -10,6 +10,8 @@ Each of these have 3 different methods:
 
 ![component visualization](https://github.com/Mrpatekful/nmt-BMEVIAUAL01/blob/master/data/img/components.png)
 
+***
+
 ### Encoders
 
 #### Recurrent

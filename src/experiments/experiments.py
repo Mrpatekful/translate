@@ -140,35 +140,33 @@ class UnsupervisedTranslation(Experiment):
         are created in this function as well. These modules have to be changeable during training,
         so their references are kept in a list, where each index corresponds to the index of language.
 
-        Args:
-            model:
-                A Model type instance, that will be used during the experiment.
+        :param model:
+            A Model type instance, that will be used during the experiment.
 
-            languages:
+        :param languages:
 
-            policy:
-                An UNMTPolicy object, that contains specific information about this particular task.
-                The information is divided into three segments, the train, validation and test policy.
-                The data contained in the segments are the following.
+        :param policy:
+            An UNMTPolicy object, that contains specific information about this particular task.
+            The information is divided into three segments, the train, validation and test policy.
+            The data contained in the segments are the following.
 
-                    tf_ratio:
-                        A float scalar, that determines the rate of teacher forcing during training phase.
-                        A value of 0 will prevent teacher forcing, so the model will use predictive decoding.
-                        A value of 1 will force the model to use the targets as previous outputs and a value of
-                        0.5 will create a 50% chance of using either techniques. Default value is 1.
+                tf_ratio:
+                    A float scalar, that determines the rate of teacher forcing during training phase.
+                    A value of 0 will prevent teacher forcing, so the model will use predictive decoding.
+                    A value of 1 will force the model to use the targets as previous outputs and a value of
+                    0.5 will create a 50% chance of using either techniques. Default value is 1.
 
-                    noise:
-                        A boolean value signaling the presence of noise in the input data. The characteristics
-                        of the noise function is ...
+                noise:
+                    A boolean value signaling the presence of noise in the input data. The characteristics
+                    of the noise function is ...
 
-            reguralizer:
-                Reguralization, that will be used as an adversarial reguralizer during training. Default
-                value is None, meaning there won't be any reguralization used during training.
+        :param reguralizer:
+            Reguralization, that will be used as an adversarial reguralizer during training. Default
+            value is None, meaning there won't be any reguralization used during training.
 
-        Raises:
-            ValueError:
-                If the corpora was not created with a Monolingual type Corpora object an
-                exception is raised.
+        :raises ValueError:
+            If the corpora was not created with a Monolingual type Corpora object an
+            exception is raised.
         """
         def initialize_embeddings() -> list:
             """
@@ -367,29 +365,27 @@ class UnsupervisedTranslation(Experiment):
         The special batch format, that is required by the task. This function is passed to the input_pipeline,
         and will be used to produce batches and targets, in a way, that is convenient for this particular task.
 
-        Args:
-            batch:
-                An unprocessed batch, that contains an <SOS> at the 0. index, <LNG> at 1. index
-                and an <EOS> token at the -2. index. The element at the last index is the length of
-                the sequence.
+        :param batch:
+            An unprocessed batch, that contains an <SOS> at the 0. index, <LNG> at 1. index
+            and an <EOS> token at the -2. index. The element at the last index is the length of
+            the sequence.
 
-        Returns:
-            Formatted batch:
-                A dictionary, that contains different types of formatted inputs for the model.
-                The batch is created from a monolingual corpora, so the only difference between
-                the inputs and targets, are the shifting, and the tokens.
+        :return Formatted batch:
+            A dictionary, that contains different types of formatted inputs for the model.
+            The batch is created from a monolingual corpora, so the only difference between
+            the inputs and targets, are the shifting, and the tokens.
 
-                    inputs:
-                        A torch Variable, that is the input of the model. The <SOS> and <EOS> tokens are
-                        cut from the original input.
+                inputs:
+                    A torch Variable, that is the input of the model. The <SOS> and <EOS> tokens are
+                    cut from the original input.
 
-                    targets:
-                        A torch Variable, which will be the target of the model. The <LNG> token is removed
-                        from the original batch.
+                targets:
+                    A torch Variable, which will be the target of the model. The <LNG> token is removed
+                    from the original batch.
 
-                    lengths:
-                        A NumPy Array, the lengths of the inputs provided to the encoder. These are required
-                        by the PaddedSequence PyTorch utility.
+                lengths:
+                    A NumPy Array, the lengths of the inputs provided to the encoder. These are required
+                    by the PaddedSequence PyTorch utility.
         """
         formatted_batch = {
             'inputs':           torch.from_numpy(batch[:, 1: -2]),
@@ -425,10 +421,9 @@ class UnsupervisedTranslation(Experiment):
         """
 
 
-        Args:
-            batches:
+        :param batches:
 
-            logs:
+        :param logs:
 
         """
         discriminator_loss = 0
@@ -451,12 +446,11 @@ class UnsupervisedTranslation(Experiment):
         """
 
 
-        Args:
-            batches:
+        :param batches:
 
-            logs:
+        :param logs:
 
-            identifier:
+        :param identifier:
 
         """
         discriminator_loss = 0
@@ -482,17 +476,15 @@ class UnsupervisedTranslation(Experiment):
         of the model, which is used by the discriminator to apply an adversarial reguralization on these
         outputs.
 
-        Args:
-            batches:
-                A list, containing the batches from the input pipelines.
+        :param batches:
+            A list, containing the batches from the input pipelines.
 
-        Returns:
-            loss:
-                A scalar loss value, indicating the average loss of the auto encoder.
+        :return loss:
+            A scalar loss value, indicating the average loss of the auto encoder.
 
-            outputs:
-                A dictionary, that contains the outputs of the model. The types (keys) contained
-                by this dictionary depends on the model specifications.
+        :return outputs:
+            A dictionary, that contains the outputs of the model. The types (keys) contained
+            by this dictionary depends on the model specifications.
         """
         auto_encoding_loss = 0
         reguralization_loss = 0
@@ -523,17 +515,15 @@ class UnsupervisedTranslation(Experiment):
         of the model, which is used by the discriminator to apply an adversarial reguralization on these
         outputs.
 
-        Args:
-            batches:
-                A list, containing the batches from the input pipelines.
+        :param batches:
+            A list, containing the batches from the input pipelines.
 
-        Returns:
-            loss:
-                A scalar loss value, indicating the average loss of the auto encoder.
+        :return loss:
+            A scalar loss value, indicating the average loss of the auto encoder.
 
-            outputs:
-                A dictionary, that contains the outputs of the model. The types (keys) contained
-                by this dictionary depends on the model specifications.
+        :return outputs:
+            A dictionary, that contains the outputs of the model. The types (keys) contained
+            by this dictionary depends on the model specifications.
         """
         auto_encoding_loss = 0
         reguralization_loss = 0
@@ -578,18 +568,16 @@ class UnsupervisedTranslation(Experiment):
         init function. The targets are either one-hot coded vectors, or their inverse. This depends on
         whether the loss is calculated for the discriminator or model loss.
 
-        Args:
-            lang_index:
-                An int value, that represents the index of the target language. This value will serve as
-                the index of the substitution token for the input batch.
+        :param lang_index:
+            An int value, that represents the index of the target language. This value will serve as
+            the index of the substitution token for the input batch.
 
-            encoder_outputs:
-                PyTorch Variable, containing the outputs of the encoder.
+        :param encoder_outputs:
+            PyTorch Variable, containing the outputs of the encoder.
 
-        Returns:
-            loss:
-                A scalar loss value, indicating the average loss of the discriminator for either the
-                inverse or normal target vector.
+        :return loss:
+            A scalar loss value, indicating the average loss of the discriminator for either the
+            inverse or normal target vector.
         """
         targets = numpy.array([lang_index]*encoder_outputs.size(0))
         loss = self._discriminator(inputs=encoder_outputs[:, -1, :], targets=targets)
@@ -697,18 +685,17 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
         """
 
 
-        Args:
-            policy:
+        :param policy:
 
-            model:
+        :param model:
 
-            language_identifiers:
+        :param language_identifiers:
 
-            languages:
+        :param languages:
 
-            initial_translator:
+        :param initial_translator:
 
-            reguralizer:
+        :param reguralizer:
 
         """
         super().__init__(model=model,
@@ -792,29 +779,27 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
         calculated by a negative log likelihood loss, and the reguralization is calculated by a cross
         entropy loss.
 
-        Raises:
-            RuntimeError:
-                In case of an occurrence of NaN values a runtime exception is raised.
+        :raise RuntimeError:
+            In case of an occurrence of NaN values a runtime exception is raised.
 
-        Returns:
-            total_iteration_loss:
-                Loss of the model, including the auto encoding, translation and reguralization loss.
-                The value is normalized, so this value represents the sum of average loss of a word
-                after translation,
+        :return total_iteration_loss:
+            Loss of the model, including the auto encoding, translation and reguralization loss.
+            The value is normalized, so this value represents the sum of average loss of a word
+            after translation,
 
-            tr_loss:
-                Average loss of the translation phase of the model for an iteration. This value is
-                a NumPy Array, with a dimension of (num_languages). A value at a given index
-                corresponds to the average loss of a word prediction for the language of that index.
+        :return tr_loss:
+            Average loss of the translation phase of the model for an iteration. This value is
+            a NumPy Array, with a dimension of (num_languages). A value at a given index
+            corresponds to the average loss of a word prediction for the language of that index.
 
-            ae_loss:
-                Average loss of the auto encoding phase of the model.
+        :return ae_loss:
+            Average loss of the auto encoding phase of the model.
 
-            reg_loss:
-                Average loss, created by the reguralization term, that contributes to the total model loss.
+        :return reg_loss:
+            Average loss, created by the reguralization term, that contributes to the total model loss.
 
-            dsc_loss:
-                Average loss that is created by the discriminator, during its training phase.
+        :return dsc_loss:
+            Average loss that is created by the discriminator, during its training phase.
         """
         language_logs = [DataLog({
             'translation_loss':     ScalarData,
@@ -926,40 +911,39 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
         based on the same loss function which was used during training. The weights however, are not modified
         in this function.
 
-        Returns:
-            logs:
-                A list of DataLog type objects, that contain the logging data for the languages. The number of
-                data logs equal to the number of languages, and each data log contains information about the
-                produced output for the whole data set of a language.
+        :return logs:
+            A list of DataLog type objects, that contain the logging data for the languages. The number of
+            data logs equal to the number of languages, and each data log contains information about the
+            produced output for the whole data set of a language.
 
-                    total_loss:
-                        The total loss of the iteration, which is the same as the model loss during training.
-                        The value contains the loss of translation, auto-encoding and reguralization loss. The
-                        individual error of the discriminator is not included.
+                total_loss:
+                    The total loss of the iteration, which is the same as the model loss during training.
+                    The value contains the loss of translation, auto-encoding and reguralization loss. The
+                    individual error of the discriminator is not included.
 
-                    translation_loss:
-                        The error, that is produced by the model, when translating a sentence.
+                translation_loss:
+                    The error, that is produced by the model, when translating a sentence.
 
-                    auto_encoding_loss:
-                        The error, that is produced by the model,
-                        when restoring (auto-encoding) a sentence.
+                auto_encoding_loss:
+                    The error, that is produced by the model,
+                    when restoring (auto-encoding) a sentence.
 
-                    reguralization_loss:
-                        The reguralization loss, that is produced by the discriminator.
+                reguralization_loss:
+                    The reguralization loss, that is produced by the discriminator.
 
-                    discriminator_loss:
-                        The error of the discriminator, which is the loss that is produced, when the
-                        discriminator identifies a given latent vector.
+                discriminator_loss:
+                    The error of the discriminator, which is the loss that is produced, when the
+                    discriminator identifies a given latent vector.
 
-                    translation_text:
-                        The textual representation of the input, target and output symbols at the
-                        translation phase. These texts are produced by the format outputs
-                        utility function.
+                translation_text:
+                    The textual representation of the input, target and output symbols at the
+                    translation phase. These texts are produced by the format outputs
+                    utility function.
 
-                    auto_encoding_text:
-                        The textual representation of the input, target and output symbols at the
-                        auto encoding phase. These texts are produced by the format outputs
-                        utility function.
+                auto_encoding_text:
+                    The textual representation of the input, target and output symbols at the
+                    auto encoding phase. These texts are produced by the format outputs
+                    utility function.
 
                 Additional outputs depend on the chosen model.
         """
@@ -1047,17 +1031,15 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
         """
 
 
-        Args:
-            batches:
+        :param batches:
 
-            logs:
+        :param logs:
 
-            forced_targets:
+        :param forced_targets:
 
-        Returns:
-            total_translation_loss:
+        :return total_translation_loss:
 
-            total_reguralization_loss:
+        :return total_reguralization_loss:
 
         """
         total_translation_loss = 0
@@ -1091,19 +1073,17 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
         """
 
 
-        Args:
-            batches:
+        :param batches:
 
-            logs:
+        :param logs:
 
-            identifier:
+        :param identifier:
 
-            forced_targets:
+        :param forced_targets:
 
-        Returns:
-            translation_loss:
+        :return translation_loss:
 
-            reguralization_loss:
+        :return reguralization_loss:
 
         """
         total_translation_loss = 0
@@ -1176,28 +1156,25 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
         """
 
 
-        Args:
-            batch:
+        :param batch:
 
-            logs:
+        :param logs:
 
-            input_lang_index:
+        :param input_lang_index:
 
-            target_lang_index:
+        :param target_lang_index:
 
-            identifier:
+        :param identifier:
 
-            forced_targets:
+        :param forced_targets:
 
+        :return translation_loss:
 
-        Returns:
-             translation_loss:
+        :return reguralization_loss:
 
-             reguralization_loss:
+        :return outputs:
 
-             outputs:
-
-             translated_symbols:
+        :return translated_symbols:
 
 
         """
@@ -1267,18 +1244,17 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         """
 
 
-        Args:
-            model:
+        :param model:
 
-            policy:
+        :param policy:
 
-            language_identifiers:
+        :param language_identifiers:
 
-            languages:
+        :param languages:
 
-            initial_translator:
+        :param initial_translator:
 
-            reguralizer:
+        :param reguralizer:
 
         """
         super().__init__(model=model,
@@ -1316,29 +1292,27 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         calculated by a negative log likelihood loss, and the reguralization is calculated by a cross
         entropy loss.
 
-        Raises:
-            RuntimeError:
-                In case of an occurrence of NaN values a runtime exception is raised.
+        :raises RuntimeError:
+            In case of an occurrence of NaN values a runtime exception is raised.
 
-        Returns:
-            total_iteration_loss:
-                Loss of the model, including the auto encoding, translation and reguralization loss.
-                The value is normalized, so this value represents the sum of average loss of a word
-                after translation,
+        :return total_iteration_loss:
+            Loss of the model, including the auto encoding, translation and reguralization loss.
+            The value is normalized, so this value represents the sum of average loss of a word
+            after translation,
 
-            tr_loss:
-                Average loss of the translation phase of the model for an iteration. This value is
-                a NumPy Array, with a dimension of (num_languages). A value at a given index
-                corresponds to the average loss of a word prediction for the language of that index.
+        :return tr_loss:
+            Average loss of the translation phase of the model for an iteration. This value is
+            a NumPy Array, with a dimension of (num_languages). A value at a given index
+            corresponds to the average loss of a word prediction for the language of that index.
 
-            ae_loss:
-                Average loss of the auto encoding phase of the model.
+        :return ae_loss:
+            Average loss of the auto encoding phase of the model.
 
-            reg_loss:
-                Average loss, created by the reguralization term, that contributes to the total model loss.
+        :return reg_loss:
+            Average loss, created by the reguralization term, that contributes to the total model loss.
 
-            dsc_loss:
-                Average loss that is created by the discriminator, during its training phase.
+        :return dsc_loss:
+            Average loss that is created by the discriminator, during its training phase.
         """
         language_logs = [DataLog({
             'translation_loss':     ScalarData,
@@ -1464,42 +1438,41 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         based on the same loss function which was used during training. The weights however, are not modified
         in this function.
 
-        Returns:
-            logs:
-                A list of DataLog type objects, that contain the logging data for the languages. The number of
-                data logs equal to the number of languages, and each data log contains information about the
-                produced output for the whole data set of a language.
+        :return logs:
+            A list of DataLog type objects, that contain the logging data for the languages. The number of
+            data logs equal to the number of languages, and each data log contains information about the
+            produced output for the whole data set of a language.
 
-                    total_loss:
-                        The total loss of the iteration, which is the same as the model loss during training.
-                        The value contains the loss of translation, auto-encoding and reguralization loss. The
-                        individual error of the discriminator is not included.
+                total_loss:
+                    The total loss of the iteration, which is the same as the model loss during training.
+                    The value contains the loss of translation, auto-encoding and reguralization loss. The
+                    individual error of the discriminator is not included.
 
-                    translation_loss:
-                        The error, that is produced by the model, when translating a sentence.
+                translation_loss:
+                    The error, that is produced by the model, when translating a sentence.
 
-                    auto_encoding_loss:
-                        The error, that is produced by the model,
-                        when restoring (auto-encoding) a sentence.
+                auto_encoding_loss:
+                    The error, that is produced by the model,
+                    when restoring (auto-encoding) a sentence.
 
-                    reguralization_loss:
-                        The reguralization loss, that is produced by the discriminator.
+                reguralization_loss:
+                    The reguralization loss, that is produced by the discriminator.
 
-                    discriminator_loss:
-                        The error of the discriminator, which is the loss that is produced, when the
-                        discriminator identifies a given latent vector.
+                discriminator_loss:
+                    The error of the discriminator, which is the loss that is produced, when the
+                    discriminator identifies a given latent vector.
 
-                    translation_text:
-                        The textual representation of the input, target and output symbols at the
-                        translation phase. These texts are produced by the format outputs
-                        utility function.
+                translation_text:
+                    The textual representation of the input, target and output symbols at the
+                    translation phase. These texts are produced by the format outputs
+                    utility function.
 
-                    auto_encoding_text:
-                        The textual representation of the input, target and output symbols at the
-                        auto encoding phase. These texts are produced by the format outputs
-                        utility function.
+                auto_encoding_text:
+                    The textual representation of the input, target and output symbols at the
+                    auto encoding phase. These texts are produced by the format outputs
+                    utility function.
 
-                Additional outputs depend on the chosen model.
+            Additional outputs depend on the chosen model.
         """
         language_logs = [DataLog({
             'translation_loss':     ScalarData,
@@ -1600,13 +1573,12 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         based on the same loss function which was used during training. The weights however, are not modified
         in this function.
 
-        Returns:
-            logs:
-                A list of DataLog type objects, that contain the logging data for the languages. The number of
-                data logs equal to the number of languages, and each data log contains information about the
-                produced output for the whole data set of a language.
+        :return logs:
+            A list of DataLog type objects, that contain the logging data for the languages. The number of
+            data logs equal to the number of languages, and each data log contains information about the
+            produced output for the whole data set of a language.
 
-                Additional outputs depend on the chosen model.
+            Additional outputs depend on the chosen model.
         """
         language_logs = [DataLog({
             'translation_loss': ScalarData,
@@ -1657,13 +1629,12 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         based on the same loss function which was used during training. The weights however, are not modified
         in this function.
 
-        Returns:
-            logs:
-                A list of DataLog type objects, that contain the logging data for the languages. The number of
-                data logs equal to the number of languages, and each data log contains information about the
-                produced output for the whole data set of a language.
+        :return logs:
+            A list of DataLog type objects, that contain the logging data for the languages. The number of
+            data logs equal to the number of languages, and each data log contains information about the
+            produced output for the whole data set of a language.
 
-                Additional outputs depend on the chosen model.
+            Additional outputs depend on the chosen model.
         """
         language_logs = [DataLog({
             'translation_text': TextData,
@@ -1715,17 +1686,15 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         """
 
 
-        Args:
-            batches:
+        :param batches:
 
-            logs:
+        :param logs:
 
-            forced_targets:
+        :param forced_targets:
 
-        Returns:
-            total_translation_loss:
+        :return total_translation_loss:
 
-            total_reguralization_loss:
+        :return total_reguralization_loss:
 
         """
         total_translation_loss = 0
@@ -1759,19 +1728,17 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         """
 
 
-        Args:
-            batches:
+        :param batches:
 
-            logs:
+        :param logs:
 
-            identifier:
+        :param identifier:
 
-            forced_targets:
+        :param forced_targets:
 
-        Returns:
-            translation_loss:
+        :return translation_loss:
 
-            reguralization_loss:
+        :return reguralization_loss:
 
         """
         total_translation_loss = 0
@@ -1841,17 +1808,15 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         """
 
 
-        Args:
-            batch:
+        :param batch:
 
-            logs:
+        :param logs:
 
-            identifier:
+        :param identifier:
 
-        Returns:
-            translation_loss:
+        :return translation_loss:
 
-            reguralization_loss:
+        :return reguralization_loss:
 
         """
         _, translated_symbols, outputs, inputs, _, = self._translator(
@@ -1881,29 +1846,25 @@ class MergedCurriculumTranslation(UnsupervisedTranslation):
         """
 
 
-        Args:
-            batch:
+        :param batch:
 
-            logs:
+        :param logs:
 
-            input_lang_index:
+        :param input_lang_index:
 
-            target_lang_index:
+        :param target_lang_index:
 
-            identifier:
+        :param identifier:
 
-            forced_targets:
+        :param forced_targets:
 
+        :return translation_loss:
 
-        Returns:
-             translation_loss:
+        :return reguralization_loss:
 
-             reguralization_loss:
+        :return outputs:
 
-             outputs:
-
-             translated_symbols:
-
+        :return translated_symbols:
 
         """
         reguralization_loss = 0

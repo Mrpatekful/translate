@@ -41,21 +41,20 @@ class Vocabulary(Component):
         """
         A vocabulary instance that holds the look up table for a given language.
 
-        Arguments:
-            vocab_path:
-                str, containing the path for the vocabulary.
+        :param vocab_path:
+            str, containing the path for the vocabulary.
 
-            language_identifiers:
-                list, that contains the identifiers of the language.
+        :param language_identifiers:
+            list, that contains the identifiers of the language.
 
-            provided_embeddings:
-                bool, signaling whether the vocabulary file contains the weights for the embeddings.
+        :param provided_embeddings:
+            bool, signaling whether the vocabulary file contains the weights for the embeddings.
 
-            fixed_embeddings:
-                bool, signaling whether the weights of the embeddings should be updated during training.
+        :param fixed_embeddings:
+            bool, signaling whether the weights of the embeddings should be updated during training.
 
-            cuda:
-                bool, true if cuda support is available
+        :param cuda:
+            bool, true if cuda support is available
         """
         self._word_to_id = {}
         self._id_to_word = {}
@@ -85,9 +84,8 @@ class Vocabulary(Component):
         Loads the vocabulary from a file. Path is assumed to be a text file, where each line contains
         a word and its corresponding embedding weights, separated by spaces.
 
-        Arguments:
-            path:
-                str, path of the vocabulary file
+        :param path:
+            str, path of the vocabulary file
         """
         with open(path, 'r', encoding='utf-8') as file:
             first_line = file.readline().split(' ')
@@ -132,12 +130,11 @@ class Vocabulary(Component):
         """
         Translates the given expression to it's corresponding word or id.
 
-        Arguments:
-            expression:
-                str or int, if str (word) is provided, then the id will be returned, and
-                the behaviour is the same for the other case.
+        :param expression:
+            str or int, if str (word) is provided, then the id will be returned, and
+            the behaviour is the same for the other case.
 
-        Returns:
+        :return:
             int or str, (id or word) of the provided expression.
         """
         _accepted_id_types = (int, numpy.int32, numpy.int64)
@@ -155,7 +152,9 @@ class Vocabulary(Component):
     def tokens(self):
         """
         Property for the tokens of the language.
-        :return: dict, <UNK>, <EOS>, <PAD> and <SOS> tokens with their ids.
+
+        :return:
+            dict, <UNK>, <EOS>, <PAD> and <SOS> tokens with their ids.
         """
         return {
             '<SOS>': self._word_to_id['<SOS>'],
@@ -211,15 +210,14 @@ class Corpora(Component):
         """
         A corpora instance that stores connects a given text corpora with a vocabulary instance.
 
-        Arguments:
-            data_path:
-                str, path of the file containing the text
+        :param data_path:
+            str, path of the file containing the text
 
-            vocabulary:
-                Vocabulary, the corresponding vocabulary instance
+        :param vocabulary:
+            Vocabulary, the corresponding vocabulary instance
 
-            cuda:
-                bool, signaling the availability of cuda
+        :param cuda:
+            bool, signaling the availability of cuda
         """
         assert os.path.isfile(data_path), f'{data_path} is not a file'
 
@@ -296,15 +294,14 @@ class Monolingual(Corpora):
         """
         A monolingual corpora type instance, that holds a single language copora.
 
-        Arguments:
-            data_path:
-                str, path of the file containing the text
+        :param data_path:
+            str, path of the file containing the text
 
-            vocabulary:
-                Vocabulary, the corresponding vocabulary instance
+        :param vocabulary:
+            Vocabulary, the corresponding vocabulary instance
 
-            cuda:
-                bool, signaling the availability of cuda:
+        :param cuda:
+            bool, signaling the availability of cuda:
 
         """
         super().__init__(data_path=data_path, cuda=cuda, vocabulary=vocabulary)
@@ -318,7 +315,9 @@ class Monolingual(Corpora):
     def _load_data(self, data_path: str) -> list:
         """
         Loader function for the monolingual corpora, where there is only a single language.
-        :return: list, the data stored as a list of strings.
+
+        :return:
+            list, the data stored as a list of strings.
         """
         data = []
         with open(data_path, 'r', encoding='utf-8') as file:
@@ -462,20 +461,19 @@ class MemoryInput(InputPipeline):
         """
         An instance of a fast reader.
 
-        Arguments:
-            batch_size:
-                int, size of the input batches.
+        :param batch_size:
+            int, size of the input batches.
 
-            cuda:
-                bool, True if the device has cuda support.
+        :param cuda:
+            bool, True if the device has cuda support.
 
-            padding_type:
-                str, type of padding that will be used during training. The sequences in
-                the mini-batches may vary in length, so padding must be applied to convert
-                them to equal lengths.
+        :param padding_type:
+            str, type of padding that will be used during training. The sequences in
+            the mini-batches may vary in length, so padding must be applied to convert
+            them to equal lengths.
 
-            max_segment_size:
-                int, the size of each segment, that will contain the similar length data.
+        :param max_segment_size:
+            int, the size of each segment, that will contain the similar length data.
         """
         self._cuda = cuda
         self._shuffle = shuffle
@@ -497,7 +495,7 @@ class MemoryInput(InputPipeline):
         definition of the task. It is a wrapper function that transform the generated batch of data into a form,
         that is convenient for the current task.
 
-        Returns:
+        :return:
             tuple, a PyTorch Variable of dimension (Batch_size, Sequence_length), containing
             the ids of words, sorted by their length in descending order. Each sample is
             padded to the length of the longest sequence in the batch/segment.
@@ -586,23 +584,22 @@ class FileInput(InputPipeline):
         """
         An instance of a file reader.
 
-        Arguments:
-            batch_size:
-                int, size of the input batches.
+        :param batch_size:
+            int, size of the input batches.
 
-            cuda:
-                bool, True if the device has cuda support.
+        :param cuda:
+            bool, True if the device has cuda support.
 
-            shuffle:
-                bool, True if shuffling of data is required
+        :param shuffle:
+            bool, True if shuffling of data is required
 
-            padding_type:
-                str, type of padding that will be used during training. The sequences in
-                the mini-batches may vary in length, so padding must be applied to convert
-                them to equal lengths.
+        :param padding_type:
+            str, type of padding that will be used during training. The sequences in
+            the mini-batches may vary in length, so padding must be applied to convert
+            them to equal lengths.
 
-            max_segment_size:
-                int, the size of each segment, that will contain the similar length data.
+        :param max_segment_size:
+            int, the size of each segment, that will contain the similar length data.
         """
         self._cuda = cuda
         self._corpora = corpora
@@ -624,7 +621,7 @@ class FileInput(InputPipeline):
         definition of the task. It is a wrapper function that transform the generated batch of data into a form,
         that is convenient for the current task.
 
-        Returns:
+        :return:
             tuple, a PyTorch Variable of dimension (Batch_size, Sequence_length), containing
             the ids of words, sorted by their length in descending order. Each sample is
             padded to the length of the longest sequence in the batch/segment.
@@ -699,12 +696,11 @@ class DataQueue:
         """
         A data queue instance.
 
-        Arguments:
-            corpora:
-                Corpora, the instance that will be provided with data.
+        :param corpora:
+            Corpora, the instance that will be provided with data.
 
-            max_segment_size:
-                int, size of a data segment.
+        :param max_segment_size:
+            int, size of a data segment.
         """
         self._data_path = corpora.data_path
         self._id_data_path = self._location_scheme(corpora.data_path)
@@ -780,12 +776,11 @@ class ParallelDataQueue:  # TODO
         """
         A parallel data queue instance.
 
-        Arguments:
-            corpora:
-                Corpora, the instance that will be provided with data.
+        :param corpora:
+            Corpora, the instance that will be provided with data.
 
-            max_segment_size:
-                int, size of a data segment.
+        :param max_segment_size:
+            int, size of a data segment.
 
         """
         self._data_path = corpora.data_path
@@ -838,12 +833,11 @@ class Padding:
         """
         A padding type object.
 
-        Arguments:
-            vocabulary:
-                Vocabulary, that will be used for the ID conversion.
+        :param vocabulary:
+            Vocabulary, that will be used for the ID conversion.
 
-            max_segment_size:
-                int, size of the segment, that will be padded to the same length.
+        :param max_segment_size:
+            int, size of the segment, that will be padded to the same length.
         """
         self._vocabulary = vocabulary
         self._max_segment_size = max_segment_size
@@ -864,12 +858,11 @@ class PostPadding(Padding):
         """
         An instance of a post-padder object.
 
-        Arguments:
-            vocabulary:
-                Vocabulary, instance of the used language object.
+        :param vocabulary:
+            Vocabulary, instance of the used language object.
 
-            max_segment_size:
-                int, size of the segment, that will be padded to the same length.
+        :param max_segment_size:
+            int, size of the segment, that will be padded to the same length.
         """
         super().__init__(vocabulary, max_segment_size)
 
@@ -877,11 +870,10 @@ class PostPadding(Padding):
         """
         Converts the data of (string) sentences to ids of the words.
 
-        Arguments:
-            data:
-                list, strings of the sentences.
+        :param data:
+            list, strings of the sentences.
 
-        Returns:
+        :return:
             list, list of (int) ids of the words in the sentences.
         """
         data_to_ids = []
@@ -897,11 +889,10 @@ class PostPadding(Padding):
         Creates a sorted batch from the data. Each line of the data is padded to the
         length of the longest sequence in the batch.
 
-        Arguments:
-            data:
-                list, of IDs.
+        :param data:
+            list, of IDs.
 
-        Returns:
+        :return:
             ndarray, the padded list of ids.
         """
         sorted_data = sorted(data, key=lambda x: x[-1], reverse=True)
@@ -926,11 +917,10 @@ class PrePadding(Padding):
         Creates a sorted batch from the data. Each line of the data is padded to the
         length of the longest sequence in the batch.
 
-        Arguments:
-            data:
-                list, of IDs.
+        :param data:
+            list, of IDs.
 
-        Returns:
+        :return:
             ndarray, the padded list of ids.
         """
         return numpy.array(sorted(data, key=lambda x: x[-1], reverse=True))
@@ -939,12 +929,11 @@ class PrePadding(Padding):
         """
         An instance of a pre-padder object.
 
-        Arguments:
-            vocabulary:
-                Vocabulary, instance of the used language object.
+        :param vocabulary:
+            Vocabulary, instance of the used language object.
 
-            max_segment_size:
-                int, size of the segment, that will be padded to the same length.
+       :param  max_segment_size:
+            int, size of the segment, that will be padded to the same length.
         """
         super().__init__(vocabulary, max_segment_size)
 
@@ -954,12 +943,10 @@ class PrePadding(Padding):
         Sentences are padded to the length of the longest sentence in the data segment.
         Length of a segment is determined by MAX_SEGMENT_SIZE.
 
-        Arguments:
-            data:
-                list, strings of the sentences.
+        :param data:
+            list, strings of the sentences.
 
-        Returns:
-            data_to_ids:
+        :return data_to_ids:
                 list of (int) ids of the words in the sentences.
         """
         data_to_ids = []
@@ -999,16 +986,15 @@ class Language(Component):
         """
         A language instance.
 
-        Args:
-            identifier:
-                str, <ENG> type identifier, that will mainly be used for visual output for the user.
+        :param identifier:
+            str, <ENG> type identifier, that will mainly be used for visual output for the user.
 
-            input_pipelines:
-                list, that contain the input pipeline objects, which hold monolingual text corpus, in
-                this language.
+        :param input_pipelines:
+            list, that contain the input pipeline objects, which hold monolingual text corpus, in
+            this language.
 
-            vocabulary:
-                Vocabulary, that holds all of the tracked words for this language.
+        :param vocabulary:
+            Vocabulary, that holds all of the tracked words for this language.
         """
 
         self._identifier = identifier

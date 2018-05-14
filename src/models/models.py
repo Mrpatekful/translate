@@ -58,12 +58,11 @@ class SeqToSeq(Model):
         """
         An instance of ta sequence to sequence model.
 
-        Args:
-            encoder:
-                Encoder, an encoder instance.
+        :param encoder:
+            Encoder, an encoder instance.
 
-            decoder:
-                Decoder, a decoder instance.
+        :param decoder:
+            Decoder, a decoder instance.
         """
         super().__init__()
 
@@ -80,22 +79,20 @@ class SeqToSeq(Model):
         """
         Forward step of the sequence to sequence model.
 
-        Args:
-            inputs:
-                Variable, containing the ids of the tokens for the input sequence.
+        :param inputs:
+            Variable, containing the ids of the tokens for the input sequence.
 
-            targets:
-                Variable, containing the ids of the tokens for the target sequence.
+        :param targets:
+            Variable, containing the ids of the tokens for the target sequence.
 
-            max_length:
-                int, the maximum length of the decoded sequence.
+        :param max_length:
+            int, the maximum length of the decoded sequence.
 
-            lengths:
-                Ndarray, containing the lengths of the original sequences.
+        :param lengths:
+            Ndarray, containing the lengths of the original sequences.
 
-        Returns:
-            outputs:
-                dict, containing the concatenated outputs of the encoder and decoder.
+        :return outputs:
+            dict, containing the concatenated outputs of the encoder and decoder.
         """
         encoder_outputs = self.encoder(inputs=inputs, lengths=lengths)
         decoder_outputs, predictions = self.decoder(targets=targets, max_length=max_length, **encoder_outputs)

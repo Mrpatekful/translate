@@ -54,27 +54,26 @@ class _STSModule:
         """
         An instance of an sts module.
 
-        Arguments:
-            model:
-                ModelWrapper, that holds a sequence-to-sequence type model.
+        :param model:
+            ModelWrapper, that holds a sequence-to-sequence type model.
 
-            vocabularies:
-                list, containing the vocabularies for the languages.
+        :param vocabularies:
+            list, containing the vocabularies for the languages.
 
-            loss_functions:
-                list, containing the loss functions for the languages.
+        :param loss_functions:
+            list, containing the loss functions for the languages.
 
-            tokens:
-                list, containing the <EOS>, <PAD> .. token ids for the languages.
+        :param tokens:
+            list, containing the <EOS>, <PAD> .. token ids for the languages.
 
-            add_language_token:
-                bool, determines, whether the language identifier should be added to the inputs sequence.
+        :param add_language_token:
+            bool, determines, whether the language identifier should be added to the inputs sequence.
 
-            cuda:
-                bool, signals the availability of CUDA.
+        :param cuda:
+            bool, signals the availability of CUDA.
 
-            language_identifiers:
-                list, containing the identifiers of the languages.
+        :param language_identifiers:
+            list, containing the identifiers of the languages.
         """
         self._model = model
         self._vocabularies = vocabularies
@@ -91,29 +90,27 @@ class _STSModule:
         losses are produced according to the provided targets, by the defined loss function. This method
         can be used during training phase, but not for inference. Back propagation is not done by this method.
 
-        Args:
-            inputs:
-                A dict object, that contains a batch of ids, which will be processed by the model.
-                The tensor must have a shape of (batch_size, sequence_length). Each input contain a special
-                language token, that indicates the target language of the decoding. In case of different sequence
-                lengths, the inputs to this function must already be padded.
+        :param inputs:
+            A dict object, that contains a batch of ids, which will be processed by the model.
+            The tensor must have a shape of (batch_size, sequence_length). Each input contain a special
+            language token, that indicates the target language of the decoding. In case of different sequence
+            lengths, the inputs to this function must already be padded.
 
-            targets:
-                A dict object, that contains the target values for the corresponding input.
+        :param targets:
+            A dict object, that contains the target values for the corresponding input.
 
-            forced_targets:
-                A boolean value, that represents the chance of using teacher forcing. If
-                this value is not given, then teacher is not used.
+        :param forced_targets:
+            A boolean value, that represents the chance of using teacher forcing. If
+            this value is not given, then teacher is not used.
 
-        Returns:
-            Loss:
-                A scalar float value, which is the normalized loss of the model in this iteration.
-                It is computed by the negative log likelihood loss, which defined in the
-                init function. The value is normalized, meaning it is the average loss of a predicted word.
+        :return Loss:
+            A scalar float value, which is the normalized loss of the model in this iteration.
+            It is computed by the negative log likelihood loss, which defined in the
+            init function. The value is normalized, meaning it is the average loss of a predicted word.
 
-            Outputs:
-                Dictionary containing multiple output metrics of the model. The type of metrics
-                which are present in the dictionary, depend on the model output interface.
+        :return Outputs:
+            Dictionary containing multiple output metrics of the model. The type of metrics
+            which are present in the dictionary, depend on the model output interface.
         """
         batch_size = inputs['data'].size(0)
 
@@ -156,20 +153,18 @@ class _STSModule:
         Adds the provided tokens into the inputs. The inputs yield an <LNG> token, which
         will be replaced by the one that is provided in the parameter.
 
-        Args:
-            batch:
-                A NumPy Array type object, with dimensions of (batch_size, sequence_length + 1). The elements
-                of the matrix are word ids.
+        :param batch:
+            A NumPy Array type object, with dimensions of (batch_size, sequence_length + 1). The elements
+            of the matrix are word ids.
 
-            token:
-                A language token that represents the targets language of the model. In case of auto-encoding
-                this token is the same as the source language, and in case of translation it the token that
-                corresponds to the target language of the translation.
+        :param token:
+            A language token that represents the targets language of the model. In case of auto-encoding
+            this token is the same as the source language, and in case of translation it the token that
+            corresponds to the target language of the translation.
 
-        Returns:
-            inputs:
-                The same NumPy Array that has been provided as parameter, but the <LNG> tokens have been
-                replaced by the correct token.
+        :return inputs:
+            The same NumPy Array that has been provided as parameter, but the <LNG> tokens have been
+            replaced by the correct token.
         """
         tokens = torch.from_numpy(numpy.array([token] * batch.size(0))).view(-1, 1)
         tokenized_batch = torch.cat((tokens, batch), 1)
@@ -205,27 +200,26 @@ class AutoEncoder(_STSModule):
         """
         An instance of an auto encoder module.
 
-        Arguments:
-            model:
-                ModelWrapper, that holds a sequence-to-sequence type model.
+        :param model:
+            ModelWrapper, that holds a sequence-to-sequence type model.
 
-            vocabularies:
-                list, containing the vocabularies for the languages.
+        :param vocabularies:
+            list, containing the vocabularies for the languages.
 
-            loss_functions:
-                list, containing the loss functions for the languages.
+        :param loss_functions:
+            list, containing the loss functions for the languages.
 
-            tokens:
-                list, containing the <EOS>, <PAD> .. token ids for the languages.
+        :param tokens:
+            list, containing the <EOS>, <PAD> .. token ids for the languages.
 
-            add_language_token:
-                bool, determines, whether the language identifier should be added to the inputs sequence.
+        :param add_language_token:
+            bool, determines, whether the language identifier should be added to the inputs sequence.
 
-            cuda:
-                bool, signals the availability of CUDA.
+        :param cuda:
+            bool, signals the availability of CUDA.
 
-            language_identifiers:
-                list, containing the identifiers of the languages.
+        :param language_identifiers:
+            list, containing the identifiers of the languages.
         """
         super().__init__(model=model,
                          vocabularies=vocabularies,
@@ -250,26 +244,23 @@ class AutoEncoder(_STSModule):
         of the model, which is used by the discriminator to apply an adversarial reguralization on these
         outputs.
 
-        Args:
-            lang_index:
-                An int value, that represents the index of the language. This value will serve as
-                the index of the substitution token for the input batch.
+        :param lang_index:
+            An int value, that represents the index of the language. This value will serve as
+            the index of the substitution token for the input batch.
 
-            batch:
-                A dictionary
+        :param batch:
+            A dictionary
 
-            denoising:
+        :param denoising:
 
-            forced_targets:
+        :param forced_targets:
 
+        :return loss:
+            A scalar loss value, indicating the average loss of the auto encoder.
 
-        Returns:
-            loss:
-                A scalar loss value, indicating the average loss of the auto encoder.
-
-            outputs:
-                A dictionary, that contains the outputs of the model. The types (keys) contained
-                by this dictionary depends on the model specifications.
+        :return outputs:
+            A dictionary, that contains the outputs of the model. The types (keys) contained
+            by this dictionary depends on the model specifications.
         """
         self._model.set_lookup({'source': lang_index, 'target': lang_index})
 
@@ -314,17 +305,15 @@ class Translator(_STSModule):
         """
 
 
-        Args:
-            symbols:
+        :param symbols:
 
-            eos_value:
+        :param eos_value:
 
-            padding_value:
+        :param padding_value:
 
-        Returns:
-            symbols:
+        :return symbols:
 
-            new_lengths:
+        :return new_lengths:
 
         """
         new_lengths = numpy.empty((symbols.shape[0]))
@@ -353,18 +342,17 @@ class Translator(_STSModule):
         """
 
 
-        Args:
-            model:
+        :param model:
 
-            vocabularies:
+        :param vocabularies:
 
-            loss_functions:
+        :param loss_functions:
 
-            tokens:
+        :param tokens:
 
-            cuda:
+        :param cuda:
 
-            language_identifiers:
+        :param language_identifiers:
 
         """
         super().__init__(model=model,
@@ -384,25 +372,23 @@ class Translator(_STSModule):
         of the model, which is used by the discriminator to apply an adversarial reguralization on these
         outputs.
 
-        Args:
-            input_lang_index:
-                An int value, that represents the index of the language. This value will serve as
-                the index of the substitution token for the input batch.
+        :param input_lang_index:
+            An int value, that represents the index of the language. This value will serve as
+            the index of the substitution token for the input batch.
 
-            target_lang_index:
+        :param target_lang_index:
 
-            batch:
-                A list, containing the batches from the input pipelines.
+        :param batch:
+            A list, containing the batches from the input pipelines.
 
-            forced_targets:
+        :param forced_targets:
 
-        Returns:
-            loss:
-                A scalar loss value, indicating the average loss of the auto encoder.
+        :return loss:
+            A scalar loss value, indicating the average loss of the auto encoder.
 
-            outputs:
-                A dictionary, that contains the outputs of the model. The types (keys) contained
-                by this dictionary depends on the model specifications.
+        :return outputs:
+            A dictionary, that contains the outputs of the model. The types (keys) contained
+            by this dictionary depends on the model specifications.
         """
         self._model.set_lookup({'source': input_lang_index, 'target': target_lang_index})
 
@@ -437,13 +423,11 @@ class Translator(_STSModule):
     def _create_targets(self, batch, target_lang_index):
         """
 
-        Args:
-            batch:
+        :param batch:
 
-            target_lang_index:
+        :param target_lang_index:
 
-        Returns:
-            targets:
+        :return targets:
 
         """
         if batch.get('targets', None) is None or batch.get('target_lengths', None) is None:
@@ -475,12 +459,11 @@ class Discriminator:
         """
 
 
-        Args:
-            model:
+        :param model:
 
-            loss_function:
+        :param loss_function:
 
-            cuda:
+        :param cuda:
 
         """
         self._model = model
@@ -495,19 +478,17 @@ class Discriminator:
         init function. The targets are either one-hot coded vectors, or their inverse. This depends on
         whether the loss is calculated for the discriminator or model loss.
 
-        Args:
-            inputs:
-                A list, containing the batches from the input pipelines.
+        :param inputs:
+            A list, containing the batches from the input pipelines.
 
-            targets:
-                An int value, that represents the index of the encoder's input language.
+        :param targets:
+            An int value, that represents the index of the encoder's input language.
 
-            lengths:
+        :param lengths:
 
-        Returns:
-            loss:
-                A scalar loss value, indicating the average loss of the discriminator for either the
-                inverse or normal target vector.
+        :return loss:
+            A scalar loss value, indicating the average loss of the discriminator for either the
+            inverse or normal target vector.
         """
         return self._iterate_model(inputs, targets)
 
@@ -517,21 +498,19 @@ class Discriminator:
         the loss is calculated with regards to the targets parameter. The loss returned, is the average
         loss calculate over the batch.
 
-        Args:
-            inputs:
-                A PyTorch Variable type object, that is the encoder outputs. The first dimension of the
-                variable tensor is the batch size, and the second dimension is the hidden size of the
-                recurrent layer of the encoder.
+        :param inputs:
+            A PyTorch Variable type object, that is the encoder outputs. The first dimension of the
+            variable tensor is the batch size, and the second dimension is the hidden size of the
+            recurrent layer of the encoder.
 
-            targets:
-                A NumPy Array type object, that contains a matrix with dimensions of (batch_size,
-                num_languages). The matrix contains one hot coded rows in the case of discriminator
-                training, and the inverse of these rows in the case of model training (reguralization).
+        :param targets:
+            A NumPy Array type object, that contains a matrix with dimensions of (batch_size,
+            num_languages). The matrix contains one hot coded rows in the case of discriminator
+            training, and the inverse of these rows in the case of model training (reguralization).
 
-        Returns:
-            loss:
-                Scalar float value containing the normalized loss of the discriminator on the provided
-                input-target pairs.
+        :return loss:
+            Scalar float value containing the normalized loss of the discriminator on the provided
+            input-target pairs.
         """
         batch_size = inputs.shape[0]
         token_indexes = torch.from_numpy(numpy.array(targets, dtype=numpy.int32)).long()
