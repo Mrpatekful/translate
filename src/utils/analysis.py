@@ -456,7 +456,8 @@ class DataLogContainer:
             epochs=epochs,
             epoch_range=epoch_range,
             identifiers=identifiers,
-            **kwargs)
+            **kwargs
+        )
 
     @property
     def metrics(self):
@@ -489,15 +490,17 @@ class Analyzer:
         self._train_log_container = None
         self._validation_log_container = None
 
-        self._test_data = None
+        self._test_log_container = None
         self._test_metrics = None
         if os.path.isfile(os.path.join(self._directory, self.TEST_FILE)):
-            self._test_data = pickle.load(open(os.path.join(self._directory, self.TEST_FILE), 'rb'))
+            self._test_log_container = DataLogContainer()
+            self._test_log_container.add(pickle.load(open(os.path.join(self._directory, self.TEST_FILE), 'rb')))
 
-        self._evaluation_data = None
+        self._evaluation_log_container = None
         self._evaluation_metrics = None
         if os.path.isfile(os.path.join(self._directory, self.EVAL_FILE)):
-            self._evaluation_data = pickle.load(open(os.path.join(self._directory, self.EVAL_FILE), 'rb'))
+            self._evaluation_log_container = DataLogContainer()
+            self._evaluation_log_container.add(pickle.load(open(os.path.join(self._directory, self.EVAL_FILE), 'rb')))
 
     def _load_train_meta_data(self):
         try:
@@ -517,19 +520,12 @@ class Analyzer:
               ('\n\t\t\t'.join(map(print_format, self._train_meta)),
                '\n\t\t\t'.join(map(print_format, self._validation_meta))))
 
-        if self._test_data is not None:
-            keys = []
-            for data_id in self._test_data:
-                keys = [*keys, *list(self._test_data[data_id].data.keys())]
-            self._test_metrics = set(keys)
-            print('> [Test metrics]:\t%s\n' % '\n\t\t\t'.join(map(print_format, self._test_metrics)))
+        if self._test_log_container is not None:
+            print('> [Test metrics]:\t%s\n' % '\n\t\t\t'.join(map(print_format, self._test_log_container.metrics)))
 
-        if self._evaluation_data is not None:
-            keys = []
-            for data_id in self._test_data:
-                keys = [*keys, *list(self._test_data[data_id].data.keys())]
-            self._evaluation_metrics = set(keys)
-            print('> [Evaluation metrics]:\t%s' % '\n\t\t\t'.join(map(print_format, self._evaluation_metrics)))
+        if self._evaluation_log_container is not None:
+            print('> [Evaluation metrics]:\t%s' % '\n\t\t\t'.join(map(print_format,
+                                                                      self._evaluation_log_container.metrics)))
 
     def show_validation_identifiers(self):
         def find_int(x):
@@ -595,11 +591,11 @@ class Analyzer:
                                                    plot_size=plot_size,
                                                    **kwargs)
         elif mode == self.TEST_MODE:
-            assert metric in self._validation_log_container.metrics, f'{metric} is not a validation metric.'
+            assert metric in self._validation_log_container.metrics, f'{metric} is not a test metric.'
             pass
 
         elif mode == self.EVALUATION_MODE:
-            assert metric in self._validation_log_container.metrics, f'{metric} is not a validation metric.'
+            assert metric in self._validation_log_container.metrics, f'{metric} is not a inference metric.'
             pass
 
         else:

@@ -36,18 +36,20 @@ class RNNDecoder(Decoder):
     abstract = False
 
     @ParameterSetter.pack(interface)
-    def __init__(self, parameter_setter):
+    def __init__(self, parameter_setter: ParameterSetter):
         """
         A recurrent decoder module for the sequence to sequence model.
-        :param parameter_setter: required parameters for the setter object.
-            -:parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
-            -:parameter embedding_size: int, dimension of the word embeddings.
-            -:parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
-            -:parameter num_layers: int, number of stacked RNN layers.
-            -:parameter learning_rate: float, learning rate.
-            -:parameter max_length: int, maximum length of the sequence decoding.
-            -:parameter use_cuda: bool, True if the device has cuda support.
-            -:parameter tf_ratio: float, teacher forcing ratio.
+
+        Arguments:
+            parameter_setter:
+                required parameters for the setter object.
+                hidden_size: int, size of recurrent layer of the LSTM/GRU.
+                embedding_size: int, dimension of the word embeddings.
+                recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
+                num_layers: int, number of stacked RNN layers.
+                learning_rate: float, learning rate.
+                max_length: int, maximum length of the sequence decoding.
+                cuda: bool, True if the device has cuda support.
         """
         super().__init__()
         self._parameter_setter = parameter_setter
@@ -65,7 +67,7 @@ class RNNDecoder(Decoder):
 
         self._recurrent_parameters = None
 
-    def init_parameters(self):
+    def init_parameters(self) -> Decoder:
         """
         Calls the parameter setter, which initializes the Parameter type attributes.
         After initialization, the main components of the decoder, which require the previously
@@ -96,7 +98,7 @@ class RNNDecoder(Decoder):
 
         return self
 
-    def init_optimizer(self):
+    def init_optimizer(self) -> Decoder:
         """
         Initializes the optimizer for the decoder.
         """
@@ -109,22 +111,33 @@ class RNNDecoder(Decoder):
         return self
 
     def _decode(self,
-                inputs,
-                hidden_state,
-                encoder_outputs,
-                batch_size,
-                sequence_length):
+                inputs:             torch.autograd.Variable,
+                hidden_state:       torch.autograd.Variable,
+                batch_size:         int,
+                sequence_length:    int = None,
+                encoder_outputs:    torch.autograd.Variable = None) -> tuple:
         """
         Decoding of a given input. It can be a single time step or a full sequence as well.
-        :param inputs: Variable, with size of (batch_size, X), containing word ids for time step t.
-        :param hidden_state: Variable, with size of (num_layers * directions, batch_size, hidden_size).
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size). This
-                                parameter is redundant for the standard type of decoding.
-        :param batch_size: int, size of the input batches.
-        :param sequence_length: int, length of the sequence of the input batch.
-        :return output: Variable, (batch_size, 1, vocab_size) result of the decoding, which is a vector, that
-                        provides a probability distribution over the words of the vocabulary.
-        :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
+
+        Arguments:
+            inputs:
+                Variable, with size of (batch_size, X), containing word ids for time step t.
+
+            hidden_state:
+                Variable, with size of (num_layers * directions, batch_size, hidden_size).
+
+            encoder_outputs:
+                Variable, with size of (batch_size, sequence_length, hidden_size). This
+                parameter is redundant for the standard type of decoding.
+
+            batch_size:
+                int, size of the input batches.
+
+            sequence_length:
+                int, length of the sequence of the input batch.
+
+        Returns:
+            tuple, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         """
         output, hidden_state = self._recurrent_layer(inputs, hidden_state)
         output = functional.log_softmax(self.output_layer(output.contiguous().view(-1, self._hidden_size)),
@@ -133,25 +146,37 @@ class RNNDecoder(Decoder):
         return output, hidden_state, None
 
     def forward(self,
-                encoder_outputs,
-                hidden_state,
-                targets=None,
-                max_length=None):
+                encoder_outputs:    torch.autograd.Variable,
+                hidden_state:       torch.autograd.Variable,
+                targets:            torch.autograd.Variable = None,
+                max_length:         int = None) -> tuple:
         """
         Forward step of the decoder unit. If the targets parameter is not None, then teacher forcing is used,
         so during decoding, the previous output word will be provided at time step t. If targets is None, decoding
         follows the general method, when the input word for the recurrent unit at time step t, is the output word at
         time step t-1.
-        :param targets: Variable, (batch_size, sequence_length) a batch of word ids. If None, then normal teacher
-                        forcing is not applied.
-        :param max_length: int, maximum length of the decoded sequence. If None, the maximum length parameter from
-                           the configuration file will be used as maximum length. This parameter has no effect, if
-                           targets parameter is provided, because in that case, the length of the target sequence
-                           will be decoding length.
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size). This parameter
-                                is redundant for the standard decoder unit.
-        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :return decoder_outputs: dict, containing two string keys, symbols: Ndarray, the decoded word ids.
+
+        Arguments:
+            targets:
+                Variable, (batch_size, sequence_length) a batch of word ids. If None, then normal teacher
+                forcing is not applied.
+
+            max_length:
+                int, maximum length of the decoded sequence. If None, the maximum length parameter from
+                the configuration file will be used as maximum length. This parameter has no effect, if
+                targets parameter is provided, because in that case, the length of the target sequence
+                will be decoding length.
+
+            encoder_outputs:
+                Variable, with size of (batch_size, sequence_length, hidden_size). This parameter
+                is redundant for the standard decoder unit.
+
+            hidden_state:
+                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+
+        Returns:
+            decoder_outputs:
+                dict, containing two string keys, symbols: Ndarray, the decoded word ids.
         """
         batch_size = encoder_outputs.size(0)
 
@@ -174,22 +199,33 @@ class RNNDecoder(Decoder):
         return self._outputs, predictions
 
     def _forced_decode(self,
-                       targets,
-                       batch_size,
-                       hidden_state,
-                       encoder_outputs,
-                       input_sequence_length):
+                       targets:                 torch.autograd.Variable,
+                       batch_size:              int,
+                       hidden_state:            torch.autograd.Variable,
+                       encoder_outputs:         torch.autograd.Variable,
+                       input_sequence_length:   int = None) -> list:
         """
         This method is primarily used during training, when target outputs are provided to the decoder.
         These target sequences start with an <SOS> token, which will serve as the first input to the _decode
         function. During the decoding iterations the decoder's predictions will only be used as final outputs to
         measure the loss, so the input for the (t)-th time step will be the (t-1)-th element of the provided
         targets.
-        :param targets:  Variable, (batch_size, sequence_length) a batch of word ids.
-        :param batch_size: int, size of the currently processed batch.
-        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
-        :param input_sequence_length:This parameter is required only by the attentional version of this method.
+
+        Arguments:
+            targets:
+                Variable, (batch_size, sequence_length) a batch of word ids.
+
+            batch_size:
+                int, size of the currently processed batch.
+
+            hidden_state:
+                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+
+            encoder_outputs:
+                Variable, with size of (batch_size, sequence_length, hidden_size).
+
+            input_sequence_length:
+                This parameter is required only by the attentional version of this method.
         """
         output_sequence_length = targets.size(1) - 1
 
@@ -213,22 +249,33 @@ class RNNDecoder(Decoder):
         return predictions
 
     def _predictive_decode(self,
-                           max_length,
-                           batch_size,
-                           hidden_state,
-                           encoder_outputs,
-                           input_sequence_length):
+                           max_length:              int,
+                           batch_size:              int,
+                           hidden_state:            torch.autograd.Variable,
+                           encoder_outputs:         torch.autograd.Variable,
+                           input_sequence_length:   int = None) -> list:
         """
         This method is used during unforced training and evaluation. Targets are not provided, so the decoding
         will go on, until the length of the output reaches the given max_length, or the _max_length attribute.
         During the decoding iteration of the sequence, the input word of the decoder at time step (t) is the
         output word of the decoder from the time step (t-1).
-        :param max_length: int, maximum length for the decoded sequence. If None the max_length parameter's
-                           value will be used.
-        :param batch_size: int, size of the currently processed batch.
-        :param hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
-        :param input_sequence_length: This parameter is required only by the attentional version of this method.
+
+        Arguments:
+            max_length:
+                int, maximum length for the decoded sequence. If None the max_length parameter's
+                value will be used.
+
+            batch_size:
+                int, size of the currently processed batch.
+
+            hidden_state:
+                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+
+            encoder_outputs:
+                Variable, with size of (batch_size, sequence_length, hidden_size).
+
+            input_sequence_length:
+                This parameter is required only by the attentional version of this method.
         """
         output_sequence_length = max_length if max_length is not None else self._max_length
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
@@ -260,18 +307,16 @@ class RNNDecoder(Decoder):
         return predictions
 
     @property
-    def tokens(self):
+    def tokens(self) -> dict:
         """
         Property for the tokens of the decoder.
         """
         return self._tokens
 
     @tokens.setter
-    def tokens(self, tokens):
+    def tokens(self, tokens: dict):
         """
         Setter function for the tokens of the decoder.
-        :param tokens: dict, containing the keys <UNK>, <EOS> and <SOS> tokens with their current ids as values.
-        :raises ValueError: the dict doesn't contain the expected tokens.
         """
         try:
 
@@ -285,22 +330,20 @@ class RNNDecoder(Decoder):
             raise ValueError(f'{error} was not provided for the decoder.')
 
     @property
-    def output_types(self):
+    def output_types(self) -> dict:
         return {}
 
     @property
-    def optimizers(self):
+    def optimizers(self) -> list:
         """
         Property for the optimizers of the decoder.
-        :return: list, optimizers used by the decoder.
         """
         return [self._optimizer]
 
     @property
-    def state(self):
+    def state(self) -> dict:
         """
         Property for the optimizers of the decoder.
-        :return: list, optimizers used by the decoder.
         """
         return {
             'weights':      {k: v for k, v in self.state_dict().items() if k in self._recurrent_parameters},
@@ -308,10 +351,9 @@ class RNNDecoder(Decoder):
         }
 
     @state.setter
-    def state(self, state):
+    def state(self, state: dict):
         """
         Property for the state of the decoder.
-        :return: dict, containing the state of the weights, and the optimizer.
         """
         parameters = {k: v for k, v in state['weights'].items() if k in self._recurrent_parameters}
         self.load_state_dict(parameters, strict=False)
@@ -325,7 +367,7 @@ class AttentionRNNDecoder(RNNDecoder):
 
     abstract = True
 
-    def __init__(self, parameter_setter):
+    def __init__(self, parameter_setter: ParameterSetter):
         """
         An abstract base of a recurrent decoder with attention.
         """
@@ -339,9 +381,9 @@ class AttentionRNNDecoder(RNNDecoder):
         self._attention_parameters = None
         self._attention_optimizer = None
 
-    def init_optimizer(self):
+    def init_optimizer(self) -> Decoder:
         """
-
+        Initializes the optimizer for the decoder.
         """
         super().init_optimizer()
 
@@ -354,10 +396,10 @@ class AttentionRNNDecoder(RNNDecoder):
         return self
 
     def _calculate_context(self,
-                           decoder_state,
-                           encoder_outputs,
-                           batch_size,
-                           sequence_length):
+                           decoder_state:       torch.autograd.Variable,
+                           encoder_outputs:     torch.autograd.Variable,
+                           batch_size:          int,
+                           sequence_length:     int) -> tuple:
         """
         Calculates the context for the decoder, given the encoder outputs and a decoder hidden state.
         The algorithm iterates through the encoder outputs and scores each output based on the similarity
@@ -401,10 +443,10 @@ class AttentionRNNDecoder(RNNDecoder):
         return context, attn_weights
 
     def forward(self,
-                encoder_outputs,
-                hidden_state,
-                targets=None,
-                max_length=None):
+                encoder_outputs:    torch.autograd.Variable,
+                hidden_state:       torch.autograd.Variable,
+                targets:            torch.autograd.Variable = None,
+                max_length:         int = None) -> tuple:
         """
         Forward step of the attentional decoder unit. If the targets parameter is not None, then teacher forcing is
         used, so during decoding, the previous output word will be provided at time step t. If targets is None, decoding
@@ -450,12 +492,13 @@ class AttentionRNNDecoder(RNNDecoder):
 
         return self._outputs, predictions
 
+    # noinspection PyMethodOverriding
     def _forced_decode(self,
-                       targets,
-                       batch_size,
-                       hidden_state,
-                       encoder_outputs,
-                       input_sequence_length):
+                       targets:                 torch.autograd.Variable,
+                       batch_size:              int,
+                       hidden_state:            torch.autograd.Variable,
+                       encoder_outputs:         torch.autograd.Variable,
+                       input_sequence_length:   int) -> list:
         """
         This method is primarily used during training, when target outputs are provided to the decoder.
         These target sequences start with an <SOS> token, which will serve as the first input to the _decode
@@ -504,12 +547,13 @@ class AttentionRNNDecoder(RNNDecoder):
 
         return predictions
 
+    # noinspection PyMethodOverriding
     def _predictive_decode(self,
-                           max_length,
-                           batch_size,
-                           hidden_state,
-                           encoder_outputs,
-                           input_sequence_length):
+                           max_length:              int,
+                           batch_size:              int,
+                           hidden_state:            torch.autograd.Variable,
+                           encoder_outputs:         torch.autograd.Variable,
+                           input_sequence_length:   int) -> list:
         """
         This method is used during unforced training and evaluation. Targets are not provided, so the decoding
         will go on, until the length of the output reaches the given max_length, or the _max_length attribute.
@@ -570,23 +614,22 @@ class AttentionRNNDecoder(RNNDecoder):
         raise NotImplementedError
 
     @property
-    def output_types(self):
+    def output_types(self) -> dict:
         return {
             'attention': AttentionData
         }
 
     @property
-    def optimizers(self):
+    def optimizers(self) -> list:
         return [
             self._optimizer,
             self._attention_optimizer
         ]
 
     @property
-    def state(self):
+    def state(self) -> dict:
         """
         Property for the optimizers of the decoder.
-        :return: list, optimizers used by the decoder.
         """
         return {
             'weights':              {k: v for k, v in self.state_dict().items()
@@ -596,7 +639,7 @@ class AttentionRNNDecoder(RNNDecoder):
         }
 
     @state.setter
-    def state(self, state):
+    def state(self, state: dict):
         """
         Property for the state of the decoder.
         """
@@ -634,7 +677,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
     abstract = False
 
     @ParameterSetter.pack(interface)
-    def __init__(self, parameter_setter):
+    def __init__(self, parameter_setter: ParameterSetter):
         """
         An a bahdanau-type attentional RNN decoder instance.
         """
@@ -644,7 +687,7 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         self._attention_layer = None
         self._transformer = None
 
-    def init_parameters(self):
+    def init_parameters(self) -> Decoder:
         """
         Initializes the parameters for the decoder.
         """
@@ -667,23 +710,42 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
         return self
 
+    # noinspection PyMethodOverriding
     def _decode(self,
-                inputs,
-                hidden_state,
-                encoder_outputs,
-                batch_size,
-                sequence_length):
+                inputs:             torch.autograd.Variable,
+                hidden_state:       torch.autograd.Variable,
+                encoder_outputs:    torch.autograd.Variable,
+                batch_size:         int,
+                sequence_length:    int) -> tuple:
         """
         A decode step for the bahdanau variation of attentional decoder module. The computations are described
         in header docstring of the class.
-        :param inputs: Variable, with size of (batch_size, 1), containing word ids for step t.
-        :param hidden_state: Variable, with size of (num_layers * directions, batch_size, hidden_size).
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
-        :param batch_size: int, size of the input batches.
-        :param sequence_length: int, size of the sequence of the input batch.
-        :return output: Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
-        :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
-        :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
+
+        Arguments:
+            inputs:
+                Variable, with size of (batch_size, 1), containing word ids for step t.
+
+            hidden_state:
+                Variable, with size of (num_layers * directions, batch_size, hidden_size).
+
+            encoder_outputs:
+                Variable, with size of (batch_size, sequence_length, hidden_size).
+
+            batch_size:
+                int, size of the input batches.
+
+            sequence_length:
+                int, size of the sequence of the input batch.
+
+        Returns:
+            output:
+                Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
+
+            hidden_state: V
+                Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
+
+            attn_weights:
+                Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
         previous_state = hidden_state[0][-1] if isinstance(hidden_state, tuple) else hidden_state[-1]
 
@@ -702,14 +764,24 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
 
         return output, hidden_state, attn_weights
 
-    def _score(self, encoder_output, decoder_state):
+    def _score(self,
+               encoder_output:  torch.autograd.Variable,
+               decoder_state:   torch.autograd.Variable) -> torch.autograd.Variable:
         """
         Scoring function of the Bahdanau style attention. The states are concatenated and fed through
         a non-linear activation layer, and the multiplied by a vector to project the attention energies
         to the correct size.
-        :param encoder_output: Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
-        :param decoder_state: Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
-        :return energy: Variable, similarity between the decoder and encoder state.
+
+        Arguments:
+            encoder_output:
+                Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
+
+            decoder_state:
+                Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
+
+        Returns:
+            energy:
+                Variable, similarity between the decoder and encoder state.
         """
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)
@@ -731,7 +803,7 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
 
     """
 
-    def __init__(self, parameter_setter):
+    def __init__(self, parameter_setter: ParameterSetter):
         """
         Abstract base class for the Luong style attention mechanisms. The different types of this attention
         essentially have the same computational path, but they differ in the scoring mechanism of the
@@ -741,7 +813,7 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
 
         self._projection_layer = None
 
-    def init_parameters(self):
+    def init_parameters(self) -> Decoder:
         """
         Initializes the parameters for the decoder.
         """
@@ -754,24 +826,43 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
 
         return self
 
+    # noinspection PyMethodOverriding
     def _decode(self,
-                inputs,
-                hidden_state,
-                encoder_outputs,
-                batch_size,
-                sequence_length):
+                inputs:             torch.autograd.Variable,
+                hidden_state:       torch.autograd.Variable,
+                encoder_outputs:    torch.autograd.Variable,
+                batch_size:         int,
+                sequence_length:    int) -> tuple:
         """
         Decoding for the Luong style attentions. The context is calculated from the hidden state
         of the decoder at time step t, and is merged into the final output layer through a projection
         layer with linear activation.
-        :param inputs: Variable, with size of (batch_size, 1), containing word ids for step t.
-        :param hidden_state: Variable, with size of (num_layers * directions, batch_size, hidden_size).
-        :param encoder_outputs: Variable, with size of (batch_size, sequence_length, hidden_size).
-        :param batch_size: int, size of the input batches.
-        :param sequence_length: int, size of the sequence of the input batch.
-        :return output: Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
-        :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
-        :return attn_weights: Variable, (batch_size, 1, sequence_length) attention weights for visualization.
+
+        Arguments:
+            inputs:
+                Variable, with size of (batch_size, 1), containing word ids for step t.
+
+            hidden_state:
+                Variable, with size of (num_layers * directions, batch_size, hidden_size).
+
+            encoder_outputs:
+                Variable, with size of (batch_size, sequence_length, hidden_size).
+
+            batch_size:
+                int, size of the input batches.
+
+            sequence_length:
+                int, size of the sequence of the input batch.
+
+        Returns:
+            output:
+                Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
+
+            hidden_state:
+                Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
+
+            attn_weights:
+                Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
         self._recurrent_layer.flatten_parameters()
 
@@ -808,12 +899,12 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
     abstract = False
 
     @ParameterSetter.pack(interface)
-    def __init__(self, parameter_setter):
+    def __init__(self, parameter_setter: ParameterSetter):
         super().__init__(parameter_setter=parameter_setter)
 
         self._attention_layer = None
 
-    def init_parameters(self):
+    def init_parameters(self) -> Decoder:
         """
         Initializes the parameters for the decoder.
         """
@@ -829,7 +920,9 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         return self
 
-    def _score(self, encoder_output, decoder_state):
+    def _score(self,
+               encoder_output:  torch.autograd.Variable,
+               decoder_state:   torch.autograd.Variable) -> torch.autograd.Variable:
         """
         The score computation is as follows:
 
@@ -837,9 +930,17 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         where h_d is the decoder hidden state, W_a is a linear layer and h_eT is
         the transpose of encoder output at time step t.
-        :param encoder_output: Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
-        :param decoder_state: Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
-        :return energy: Variable, similarity between the decoder and encoder state.
+
+        Arguments:
+            encoder_output:
+                Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
+
+            decoder_state:
+                Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
+
+        Returns:
+            energy:
+                Variable, similarity between the decoder and encoder state.
         """
         energy = self._attention_layer(encoder_output)
         energy = torch.bmm(decoder_state.unsqueeze(1), energy.unsqueeze(1).transpose(1, 2)).squeeze(-1)
@@ -859,10 +960,10 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
     abstract = False
 
     @ParameterSetter.pack(interface)
-    def __init__(self, parameter_setter):
+    def __init__(self, parameter_setter: ParameterSetter):
         super().__init__(parameter_setter=parameter_setter)
 
-    def init_parameters(self):
+    def init_parameters(self) -> Decoder:
         """
         Initializes the parameters for the decoder.
         """
@@ -873,16 +974,28 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         return self
 
-    def _score(self, encoder_output, decoder_state):
+    def _score(self,
+               encoder_output:  torch.autograd.Variable,
+               decoder_state:   torch.autograd.Variable) -> torch.autograd.Variable:
         """
         The score computation is as follows:
 
             h_d * h_eT
 
         where h_d is the decoder hidden state, and h_eT is the transpose of encoder output at time step t.
-        :param encoder_output: Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
-        :param decoder_state: Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
-        :return energy: Variable, similarity between the decoder and encoder state.
+
+        Arguments:
+
+        Arguments:
+            encoder_output:
+                Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
+
+            decoder_state:
+                Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
+
+        Returns:
+            energy:
+                Variable, similarity between the decoder and encoder state.
         """
         return torch.bmm(decoder_state.unsqueeze(1), encoder_output.unsqueeze(1).transpose(1, 2)).squeeze(-1)
 
@@ -902,13 +1015,13 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
     abstract = False
 
     @ParameterSetter.pack(interface)
-    def __init__(self, parameter_setter):
+    def __init__(self, parameter_setter: ParameterSetter):
         super().__init__(parameter_setter=parameter_setter)
 
         self._attention_layer = None
         self._transformer = None
 
-    def init_parameters(self):
+    def init_parameters(self) -> Decoder:
         """
         Initializes the parameters for the decoder.
         """
@@ -930,7 +1043,9 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         return self
 
-    def _score(self, encoder_output, decoder_state):
+    def _score(self,
+               encoder_output: torch.autograd.Variable,
+               decoder_state:   torch.autograd.Variable) -> torch.autograd.Variable:
         """
         The score computation is as follows:
 
@@ -938,9 +1053,17 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         where v_t is a vector, that transform the output to the correct size, h_d is the decoder hidden state,
         W_a is a weight matrix and h_e is the encoder output at time step t.
-        :param encoder_output: Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
-        :param decoder_state: Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
-        :return energy: Variable, similarity between the decoder and encoder state.
+
+        Arguments:
+            encoder_output:
+                Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
+
+            decoder_state:
+                Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
+
+        Returns:
+            energy:
+                Variable, similarity between the decoder and encoder state.
         """
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)

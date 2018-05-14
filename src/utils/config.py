@@ -49,10 +49,18 @@ class Config:
     def _apply_operator(args, op):
         """
         Applies the operator on the given arguments.
-        :param args: tuple, which elements will serve as the operands.
-        :param op: str, the operator.
-        :raises: ValueError: if the operator is not defined.
-        :return: result of the operation.
+
+        Arguments:
+            args:
+                tuple, which elements will serve as the operands.
+            op:
+                str, the operator.
+        Raises:
+            ValueError:
+                if the operator is not defined.
+
+        Returns:
+            result of the operation.
         """
         if op == '+':
             return args[0] + args[1]
@@ -71,7 +79,10 @@ class Config:
         """
         An instance of a configuration parser. The provided file is
         parsed and stored as a dictionary object.
-        :param config_path: str, path of the task configuration file.
+
+        Arguments:
+            config_path:
+                str, path of the task configuration file.
         """
         self._config = json.load(open(config_path, 'r'))
         self._registered_params = OrderedDict()
@@ -82,7 +93,11 @@ class Config:
         Assembles the components, described by the interface of the task from the configuration file.
 
         Return:
+            experiment:
+                The initialized experiment object.
 
+            model_dir:
+                The location of the experiment outputs.
         """
         try:
 
@@ -96,14 +111,14 @@ class Config:
                                 filename=os.path.join(model_dir, Session.LOG_DIR),
                                 filemode='w')
 
-            task_type = self._experiments[self._config['type']]
-            task = self._create_node(task_type, self._config['params'], 'Experiment')
+            experiment_type = self._experiments[self._config['type']]
+            experiment = self._create_node(experiment_type, self._config['params'], 'Experiment')
 
         except RuntimeError as error:
             logging.error(f'{error}')
             sys.exit()
 
-        return task, model_dir
+        return experiment, model_dir
 
     def _build_params(self, param_dict, interface_dict, config, lookup_id):
         """
@@ -249,9 +264,13 @@ class Config:
     def _get_key(self, pattern):
         """
         Returns the key from the dictionary of registered parameters, that matches the given pattern.
-        :param pattern: str, regexp that matches a single key from the dictionary.
-        :raises: ValueError: if the regexp matches too many, or zero keys from the dictionary.
-        :return: str, the matching key
+
+        Arguments:
+            pattern:
+                str, regexp that matches a single key from the dictionary.
+
+        Returns:
+            str, the matching key
         """
         keys = [key for key in list(self._registered_params.keys()) if re.search(pattern, key) is not None]
         if len(keys) > 1:
@@ -268,11 +287,19 @@ class Config:
         """
         Resolves the parameter references. This method is called, when a parameter is not present
         in the configuration file, so it must be calculated based on the provided description.
-        :param description: str, the method of creating the parameter's value. The description may
-                            reference parameters, that have already been created, and may also apply
-                            operators on them. The operators are defined in the apply_operator function.
-        :raises ValueError: if the description was incorrect.
-        :return: The value of the parameter, that was created by the interpretation of the description.
+
+        Arguments:
+            description:
+                str, the method of creating the parameter's value. The description may
+                reference parameters, that have already been created, and may also apply
+                operators on them. The operators are defined in the apply_operator function.
+
+        Raises:
+            ValueError:
+                if the description was incorrect.
+
+        Returns:
+            The value of the parameter, that was created by the interpretation of the description.
         """
         def is_number(s):
             try:

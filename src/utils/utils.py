@@ -62,17 +62,8 @@ class Interface:
 
 
 class ModelWrapper:
-    """
-
-    """
 
     def __init__(self, model, tokens):
-        """
-
-
-        Args:
-
-        """
         self._model = model
         self._tokens = tokens
 
@@ -91,12 +82,6 @@ class ModelWrapper:
         return self._model(*args, **kwargs)
 
     def init_table(self, lookups):
-        """
-
-
-        Args:
-
-        """
         self._table['encoder_inputs'] = lookups['encoder_inputs']
         self._table['decoder_inputs'] = lookups['decoder_inputs']
         self._table['decoder_outputs'] = lookups['decoder_outputs']
@@ -113,7 +98,7 @@ class ModelWrapper:
         """
         Sets the lookups (embeddings) for the encoder and decoder.
 
-        Args:
+        Arguments:
             lookups:
                 A dictionary, that yields the new embeddings for the decoder and encoder.
                 The dictionary has to contain 3 keys, E_I, D_I, and D_O. The values of the keys
@@ -492,9 +477,7 @@ class Policy(Component):
 
 
 class UNMTPolicy(Policy):
-    """
 
-    """
     interface = Interface(**{
         **Policy.interface.dictionary,
         'add_language_token': (Interface.last_key(Policy.interface.dictionary) + 1, None),
@@ -508,19 +491,6 @@ class UNMTPolicy(Policy):
                  test,
                  add_language_token,
                  cuda):
-        """
-
-
-        Args:
-            train:
-
-            validation:
-
-            test:
-
-            cuda:
-
-        """
         super().__init__(train, validation, test, cuda)
 
         try:

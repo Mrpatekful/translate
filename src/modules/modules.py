@@ -12,53 +12,16 @@ from src.utils.utils import Component, ModelWrapper, Interface
 
 
 class NoiseModel:
-    """
-
-    """
 
     def __init__(self, use_cuda, p=0.1, k=3):
-        """
-
-
-        Args:
-            p:
-
-            k:
-
-        """
         self._use_cuda = use_cuda
         self._p = p
         self._k = k
 
     def __call__(self, inputs, padding):
-        """
-
-
-        Args:
-            inputs:
-
-        Returns:
-            noisy_inputs:
-
-        """
-
         return self._drop_out(inputs, padding)
 
     def _drop_out(self, inputs, padding_value):
-        """
-
-
-        Args:
-            inputs:
-
-            padding_value:
-
-        Returns:
-            outputs:
-
-            lengths:
-
-        """
         inputs = inputs.cpu().numpy()
         noisy_inputs = numpy.zeros((inputs.shape[0], inputs.shape[1] + 1))
         mask = numpy.array(numpy.random.rand(inputs.shape[0], inputs.shape[1] - 1) > self._p, dtype=numpy.int32)
@@ -77,7 +40,7 @@ class NoiseModel:
 
 class _STSModule:
     """
-
+    A base class for the sequence-to-sequence type modules.
     """
 
     def __init__(self,
@@ -89,9 +52,29 @@ class _STSModule:
                  cuda:                  bool,
                  language_identifiers:  list):
         """
+        An instance of an sts module.
 
-        Args:
+        Arguments:
+            model:
+                ModelWrapper, that holds a sequence-to-sequence type model.
 
+            vocabularies:
+                list, containing the vocabularies for the languages.
+
+            loss_functions:
+                list, containing the loss functions for the languages.
+
+            tokens:
+                list, containing the <EOS>, <PAD> .. token ids for the languages.
+
+            add_language_token:
+                bool, determines, whether the language identifier should be added to the inputs sequence.
+
+            cuda:
+                bool, signals the availability of CUDA.
+
+            language_identifiers:
+                list, containing the identifiers of the languages.
         """
         self._model = model
         self._vocabularies = vocabularies
@@ -102,7 +85,7 @@ class _STSModule:
         self._cuda = cuda
         self._language_identifiers = language_identifiers
 
-    def _iterate_model(self, inputs, targets=None, forced_targets=False):
+    def _iterate_model(self, inputs: dict, targets: dict = None, forced_targets: bool = False):
         """
         Performs a single iteration on the model of the task. Inputs are propagated forward, and the
         losses are produced according to the provided targets, by the defined loss function. This method
@@ -110,13 +93,13 @@ class _STSModule:
 
         Args:
             inputs:
-                A Variable type object, that contains a batch of ids, which will be processed by the model.
+                A dict object, that contains a batch of ids, which will be processed by the model.
                 The tensor must have a shape of (batch_size, sequence_length). Each input contain a special
                 language token, that indicates the target language of the decoding. In case of different sequence
                 lengths, the inputs to this function must already be padded.
 
             targets:
-                A Variable type object, that contains the target values for the corresponding input.
+                A dict object, that contains the target values for the corresponding input.
 
             forced_targets:
                 A boolean value, that represents the chance of using teacher forcing. If
@@ -168,7 +151,7 @@ class _STSModule:
 
         return loss, outputs
 
-    def _add_language_token(self, batch, token):
+    def _add_language_token(self, batch: numpy.ndarray, token: int):
         """
         Adds the provided tokens into the inputs. The inputs yield an <LNG> token, which
         will be replaced by the one that is provided in the parameter.
@@ -207,7 +190,7 @@ class _STSModule:
 
 class AutoEncoder(_STSModule):
     """
-
+    Auto-encoder module for a sequence-to-sequence type model.
     """
 
     def __init__(self,
@@ -220,23 +203,29 @@ class AutoEncoder(_STSModule):
                  language_identifiers:  list = None,
                  noise_model:           NoiseModel = None):
         """
+        An instance of an auto encoder module.
 
-
-        Args:
+        Arguments:
             model:
+                ModelWrapper, that holds a sequence-to-sequence type model.
 
             vocabularies:
+                list, containing the vocabularies for the languages.
 
             loss_functions:
+                list, containing the loss functions for the languages.
 
             tokens:
+                list, containing the <EOS>, <PAD> .. token ids for the languages.
+
+            add_language_token:
+                bool, determines, whether the language identifier should be added to the inputs sequence.
 
             cuda:
+                bool, signals the availability of CUDA.
 
             language_identifiers:
-
-            noise_model:
-
+                list, containing the identifiers of the languages.
         """
         super().__init__(model=model,
                          vocabularies=vocabularies,
@@ -561,9 +550,6 @@ class Discriminator:
 
 
 class WordTranslator(Component):
-    """
-
-    """
 
     abstract = False
 

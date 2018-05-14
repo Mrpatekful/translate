@@ -642,15 +642,17 @@ class FileInput(InputPipeline):
                 )
                 yield batch
 
-    def _measure_length(self):
+    def _measure_length(self) -> int:
+        """
+        Measures the length of the corpora.
+        """
         data_length = self._data_reader.measure_length()
-        num_iterations = int((data_length / self._data_reader.MAX_SEGMENT) *\
-                             (self._data_reader.MAX_SEGMENT / self._max_segment_size) *\
+        num_iterations = int((data_length / self._data_reader.MAX_SEGMENT) *
+                             (self._data_reader.MAX_SEGMENT / self._max_segment_size) *
                              (self._max_segment_size // self._batch_size))
 
         return num_iterations
 
-    # noinspection PyTypeChecker
     def _segment_generator(self):
         """
         Divides the data to segments of size MAX_SEGMENT_SIZE.
@@ -717,7 +719,10 @@ class DataQueue:
             logging.info(f'Creating {self._id_data_path} as data source')
             self._generate_id_file()
 
-    def measure_length(self):
+    def measure_length(self) -> int:
+        """
+        Measures the length of the corpora file.
+        """
         line = 0
         with tqdm.tqdm() as p_bar:
             with open(self._data_path, 'r', encoding='utf-8') as file:
@@ -740,7 +745,7 @@ class DataQueue:
                         ids = ids_from_sentence(self._corpora.vocabulary, line)
                         id_file.write('%s %d\n' % (' '.join(list(map(str, ids))), len(ids)))
 
-    def generator(self):
+    def generator(self) -> list:
         """
         Data is retrieved directly from a file, and loaded into data chunks of size MAX_CHUNK_SIZE.
         """
@@ -773,6 +778,14 @@ class ParallelDataQueue:  # TODO
                  corpora:           Corpora,
                  max_segment_size:  int = MAX_SEGMENT):
         """
+        A parallel data queue instance.
+
+        Arguments:
+            corpora:
+                Corpora, the instance that will be provided with data.
+
+            max_segment_size:
+                int, size of a data segment.
 
         """
         self._data_path = corpora.data_path
@@ -790,7 +803,7 @@ class ParallelDataQueue:  # TODO
 
     def _generate_id_file(self):
         """
-
+        Generates an ID representation of the provided text corpora.
         """
         with open(self._data_path, 'r', encoding='utf-8') as text_file:
             with open(self._id_data_path, 'w', encoding='utf-8') as id_file:
@@ -798,7 +811,7 @@ class ParallelDataQueue:  # TODO
                     ids = ids_from_sentence(self._corpora.vocabulary, line)
                     id_file.write('%s %d\n' % (' '.join(list(map(str, ids))), len(ids)))
 
-    def generator(self):
+    def generator(self) -> list:
         """
         Data is retrieved directly from a file, and loaded into data chunks of size MAX_CHUNK_SIZE.
         """
@@ -821,17 +834,16 @@ class Padding:
 
     abstract = True
 
-    def __init__(self,
-                 vocabulary,
-                 max_segment_size):
+    def __init__(self, vocabulary: Vocabulary, max_segment_size: int):
         """
-        A padding type object
+        A padding type object.
 
-        Args:
+        Arguments:
             vocabulary:
+                Vocabulary, that will be used for the ID conversion.
 
             max_segment_size:
-
+                int, size of the segment, that will be padded to the same length.
         """
         self._vocabulary = vocabulary
         self._max_segment_size = max_segment_size
@@ -848,33 +860,29 @@ class PostPadding(Padding):
 
     abstract = False
 
-    def create_batch(self, data):
-        """
-        Creates a sorted batch from the data. Each line of the data is padded to the
-        length of the longest sequence in the batch.
-        :param data:
-        :return:
-        """
-        sorted_data = sorted(data, key=lambda x: x[-1], reverse=True)
-        batch_length = sorted_data[0][-1]
-        for index in range(len(sorted_data)):
-            while len(sorted_data[index]) - 1 < batch_length:
-                sorted_data[index].insert(-1, self._vocabulary.tokens['<PAD>'])
-
-        return numpy.array(sorted_data, dtype='int')
-
-    def __init__(self, vocabulary, max_segment_size):
+    def __init__(self, vocabulary: Vocabulary, max_segment_size: int):
         """
         An instance of a post-padder object.
-        :param vocabulary: Vocabulary, instance of the used language object.
+
+        Arguments:
+            vocabulary:
+                Vocabulary, instance of the used language object.
+
+            max_segment_size:
+                int, size of the segment, that will be padded to the same length.
         """
         super().__init__(vocabulary, max_segment_size)
 
-    def __call__(self, data):
+    def __call__(self, data: list) -> list:
         """
         Converts the data of (string) sentences to ids of the words.
-        :param data: list, strings of the sentences.
-        :return: list, list of (int) ids of the words in the sentences.
+
+        Arguments:
+            data:
+                list, strings of the sentences.
+
+        Returns:
+            list, list of (int) ids of the words in the sentences.
         """
         data_to_ids = []
         for index in range(0, len(data), self._max_segment_size):
@@ -883,6 +891,26 @@ class PostPadding(Padding):
                 ids.append(len(ids))
                 data_to_ids.append(ids)
         return data_to_ids
+
+    def create_batch(self, data: list) -> numpy.ndarray:
+        """
+        Creates a sorted batch from the data. Each line of the data is padded to the
+        length of the longest sequence in the batch.
+
+        Arguments:
+            data:
+                list, of IDs.
+
+        Returns:
+            ndarray, the padded list of ids.
+        """
+        sorted_data = sorted(data, key=lambda x: x[-1], reverse=True)
+        batch_length = sorted_data[0][-1]
+        for index in range(len(sorted_data)):
+            while len(sorted_data[index]) - 1 < batch_length:
+                sorted_data[index].insert(-1, self._vocabulary.tokens['<PAD>'])
+
+        return numpy.array(sorted_data, dtype='int')
 
 
 class PrePadding(Padding):
@@ -893,29 +921,46 @@ class PrePadding(Padding):
 
     abstract = False
 
-    def create_batch(self, data):
+    def create_batch(self, data: list) -> numpy.ndarray:
         """
-        Creates the batch, by sorting the elements in descending order with respect to the
-        lengths of the sequences.
-        :param data: list, containing lists of the ids.
-        :return: Numpy Array, sorted batch.
+        Creates a sorted batch from the data. Each line of the data is padded to the
+        length of the longest sequence in the batch.
+
+        Arguments:
+            data:
+                list, of IDs.
+
+        Returns:
+            ndarray, the padded list of ids.
         """
         return numpy.array(sorted(data, key=lambda x: x[-1], reverse=True))
 
-    def __init__(self, vocabulary, max_segment_size):
+    def __init__(self, vocabulary: Vocabulary, max_segment_size: int):
         """
         An instance of a pre-padder object.
-        :param vocabulary: Vocabulary, instance of the used language object.
+
+        Arguments:
+            vocabulary:
+                Vocabulary, instance of the used language object.
+
+            max_segment_size:
+                int, size of the segment, that will be padded to the same length.
         """
         super().__init__(vocabulary, max_segment_size)
 
-    def __call__(self, data):
+    def __call__(self, data: list) -> list:
         """
         Converts the data of (string) sentences to ids of the words.
         Sentences are padded to the length of the longest sentence in the data segment.
         Length of a segment is determined by MAX_SEGMENT_SIZE.
-        :param data: list, strings of the sentences.
-        :return: list, list of (int) ids of the words in the sentences.
+
+        Arguments:
+            data:
+                list, strings of the sentences.
+
+        Returns:
+            data_to_ids:
+                list of (int) ids of the words in the sentences.
         """
         data_to_ids = []
         for index in range(0, len(data), self._max_segment_size):
@@ -935,7 +980,8 @@ class PrePadding(Padding):
 
 class Language(Component):
     """
-
+    An abstract representation of ta language in an experiment. This class holds all relevant
+    information about a given language, its vocabulary, identifier and the corpus.
     """
 
     abstract = False
@@ -951,14 +997,18 @@ class Language(Component):
                  input_pipelines:   dict,
                  vocabulary:        Vocabulary):
         """
-
+        A language instance.
 
         Args:
             identifier:
+                str, <ENG> type identifier, that will mainly be used for visual output for the user.
 
             input_pipelines:
+                list, that contain the input pipeline objects, which hold monolingual text corpus, in
+                this language.
 
             vocabulary:
+                Vocabulary, that holds all of the tracked words for this language.
         """
 
         self._identifier = identifier
@@ -982,13 +1032,13 @@ class Language(Component):
         self._vocabulary = vocabulary
 
     @property
-    def identifier(self):
+    def identifier(self) -> str:
         return self._identifier
 
     @property
-    def input_pipelines(self):
+    def input_pipelines(self) -> dict:
         return self._input_pipelines
 
     @property
-    def vocabulary(self):
+    def vocabulary(self) -> Vocabulary:
         return self._vocabulary

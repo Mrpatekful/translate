@@ -16,7 +16,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from src.utils.utils import Component, Interface
 
 
-class Classifier(Module, Component):  # TODO states
+class Classifier(Module, Component):
     """
     Abstract base class for the discriminator modules, mainly used for the unsupervised
     translation task. Any newly added discriminator type module must inherit from this
@@ -40,19 +40,23 @@ class Classifier(Module, Component):  # TODO states
                  optimizer_type:    str,
                  cuda:              bool):
         """
+        An instance of a feed-forward discriminator.
 
+        Arguments:
+            input_size:
+                int, input size of the feed-forward network.
 
-        Args:
             hidden_size:
+                int, hidden size of the feed forward neural network.
 
             learning_rate:
+                float, learning rate of the optimizer.
 
             optimizer_type:
+                str, type of the optimizer.
 
             cuda:
-
-            input_size:
-
+                bool, true if cuda support is enabled.
         """
         super().__init__()
 
@@ -97,8 +101,7 @@ class FFClassifier(Classifier):
         """
         An instance of a feed-forward discriminator.
 
-        Args:
-
+        Arguments:
             input_size:
                 int, input size of the feed-forward network.
 
