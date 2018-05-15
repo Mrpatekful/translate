@@ -42,21 +42,20 @@ class Classifier(Module, Component):
         """
         An instance of a feed-forward discriminator.
 
-        Arguments:
-            input_size:
-                int, input size of the feed-forward network.
+        :param input_size:
+            int, input size of the feed-forward network.
 
-            hidden_size:
-                int, hidden size of the feed forward neural network.
+        :param hidden_size:
+            int, hidden size of the feed forward neural network.
 
-            learning_rate:
-                float, learning rate of the optimizer.
+        :param learning_rate:
+            float, learning rate of the optimizer.
 
-            optimizer_type:
-                str, type of the optimizer.
+        :param optimizer_type:
+            str, type of the optimizer.
 
-            cuda:
-                bool, true if cuda support is enabled.
+        :param cuda:
+            bool, true if cuda support is enabled.
         """
         super().__init__()
 
@@ -101,18 +100,17 @@ class FFClassifier(Classifier):
         """
         An instance of a feed-forward discriminator.
 
-        Arguments:
-            input_size:
-                int, input size of the feed-forward network.
+        :param input_size:
+            int, input size of the feed-forward network.
 
-            hidden_size:
-                int, hidden size of the feed forward neural network.
+        :param hidden_size:
+            int, hidden size of the feed forward neural network.
 
-            learning_rate:
-                float, learning rate of the optimizer.
+        :param learning_rate:
+            float, learning rate of the optimizer.
 
-            cuda:
-                bool, true if cuda support is enabled.
+        :param cuda:
+            bool, true if cuda support is enabled.
         """
         super().__init__(hidden_size=hidden_size,
                          output_size=output_size,
@@ -142,14 +140,12 @@ class FFClassifier(Classifier):
         """
         Forward step for the classifier.
 
-        Args:
-            inputs:
-                Variable, (batch_size, input_size), where input_size is equal to the encoder's
-                hidden_size.
+        :param inputs:
+            Variable, (batch_size, input_size), where input_size is equal to the encoder's
+            hidden_size.
 
-        Returns:
-            output:
-                Variable, (batch_size, 1).
+        :return output:
+            Variable, (batch_size, 1).
         """
         output = self._activation(self._input_layer(inputs))
         output = self._activation(self._hidden_layer(output))
@@ -187,18 +183,17 @@ class RNNClassifier(Classifier):
         """
         An instance of a recurrent discriminator.
 
-        Args:
-            input_size:
-                int, input size of the feed-forward network.
+        :param input_size:
+            int, input size of the feed-forward network.
 
-            hidden_size:
-                int, hidden size of the feed forward neural network.
+        :param hidden_size:
+            int, hidden size of the feed forward neural network.
 
-            learning_rate:
-                float, learning rate of the optimizer.
+        :param learning_rate:
+            float, learning rate of the optimizer.
 
-            cuda:
-                bool, true if cuda support is enabled.
+        :param cuda:
+            bool, true if cuda support is enabled.
         """
         super().__init__(hidden_size=hidden_size,
                          input_size=input_size,
@@ -229,16 +224,14 @@ class RNNClassifier(Classifier):
         """
         Forward step for the discriminator.
 
-        Args:
-            inputs:
-                Variable, (batch_size, input_size), where input_size is equal to the encoder's
-                hidden_size.
+        :param inputs:
+            Variable, (batch_size, input_size), where input_size is equal to the encoder's
+            hidden_size.
 
-            lengths:
+        :param lengths:
 
-        Returns:
-            final_output:
-                Variable, (batch_size, 1).
+        :return final_output:
+            Variable, (batch_size, 1).
         """
         initial_state = self._init_hidden(inputs.size(0))
         padded_sequence = pack_padded_sequence(inputs, lengths=lengths, batch_first=True)
@@ -257,7 +250,9 @@ class RNNClassifier(Classifier):
     def _init_hidden(self, batch_size):
         """
         Initializes the hidden state of the encoder module.
-        :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
+
+        :return:
+            Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
         """
         state = torch.autograd.Variable(torch.randn(self._num_layers, batch_size, self._hidden_size))
 
@@ -286,20 +281,19 @@ class Embedding(Module):
         """
         An embedding instance.
 
-        Args:
-            embedding_size:
-                Int, size of the word vectors.
+        :param embedding_size:
+            Int, size of the word vectors.
 
-            vocab_size:
-                Int, number of words in the vocab.
+        :param vocab_size:
+            Int, number of words in the vocab.
 
-            cuda:
-                Bool, true if cuda support is enabled.
+        :param cuda:
+            Bool, true if cuda support is enabled.
 
-            weights:
-                Tensor, if weights are provided, these will be used
+        :param weights:
+            Tensor, if weights are provided, these will be used
 
-            requires_grad:
+        :param requires_grad:
 
         """
         super().__init__()
@@ -325,13 +319,11 @@ class Embedding(Module):
         """
         Propagates the inputs through the embedding layer.
 
-        Args:
-            inputs:
-                Variable, word id-s, that will be translated to word vector representations.
+        :param inputs:
+            Variable, word id-s, that will be translated to word vector representations.
 
-        Returns:
-            outputs:
-                Variable, word vectors of the given input.
+        :return outputs:
+            Variable, word vectors of the given input.
         """
         return self._layer(inputs)
 
@@ -386,12 +378,11 @@ class Layer(Module):
         """
 
 
-        Args:
-            input_size:
+        :param input_size:
 
-            output_size:
+        :param output_size:
 
-            use_cuda:
+        :param use_cuda:
 
         """
         super().__init__()
@@ -411,11 +402,9 @@ class Layer(Module):
         """
 
 
-        Args:
-            inputs:
+        :param inputs:
 
-        Returns:
-            outputs:
+        :return outputs:
 
         """
         return self._weights(inputs)
@@ -479,19 +468,18 @@ class Optimizer:
         """
         Optimizer type object.
 
-        Args:
-            parameters:
-                Iterable, containing the parameters, that will be optimized by the provided
-                optimalization algorithm.
+        :param parameters:
+            Iterable, containing the parameters, that will be optimized by the provided
+            optimalization algorithm.
 
-            optimizer_type:
-                Str, type of the algorithm to be used for optimalization.
+        :param optimizer_type:
+            Str, type of the algorithm to be used for optimalization.
 
-            scheduler_type:
-                Str, type of the scheduler to be used for learning rate adjustments.
+        :param scheduler_type:
+            Str, type of the scheduler to be used for learning rate adjustments.
 
-            learning_rate:
-                Float, the initial learning rate.
+        :param learning_rate:
+            Float, the initial learning rate.
         """
         try:
 

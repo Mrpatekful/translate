@@ -158,11 +158,19 @@ class UnidirectionalRNNEncoder(RNNEncoder):
         """
         A forward step of the encoder. The batch of sequences with word ids are
         packed into padded_sequence object, which are processed by the recurrent layer.
-        :param inputs: Variable, (batch_size, sequence_length) containing the ids of the words.
-        :param lengths: Ndarray, containing the real lengths of the sequences in the batch (prior to padding).
-        :return outputs: Variable, (batch_size, sequence_length, vocab_size) the output at each time
-                         step of the encoder.
-        :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
+
+        :param inputs:
+            Variable, (batch_size, sequence_length) containing the ids of the words.
+
+        :param lengths:
+            Ndarray, containing the real lengths of the sequences in the batch (prior to padding).
+
+        :return outputs:
+            Variable, (batch_size, sequence_length, vocab_size) the output at each time
+            step of the encoder.
+
+        :return hidden_state:
+            Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
         """
         initial_state = self._init_hidden(inputs.size(0))
         embedded_inputs = self.embedding(inputs)
@@ -178,7 +186,9 @@ class UnidirectionalRNNEncoder(RNNEncoder):
     def _init_hidden(self, batch_size):
         """
         Initializes the hidden state of the encoder module.
-        :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
+
+        :return:
+            Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
         """
         state = torch.randn(self._num_layers, batch_size, self._hidden_size)
 
@@ -250,11 +260,19 @@ class BidirectionalRNNEncoder(RNNEncoder):
         """
         A forward step of the encoder. The batch of sequences with word ids are
         packed into padded_sequence object, which are processed by the recurrent layer.
-        :param inputs: Variable, (batch_size, sequence_length) containing the ids of the words.
-        :param lengths: Ndarray, containing the real lengths of the sequences in the batch (prior to padding).
-        :return outputs: Variable, (batch_size, sequence_length, vocab_size) the output at each time
-                         step of the encoder.
-        :return hidden_state: Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
+
+        :param inputs:
+            Variable, (batch_size, sequence_length) containing the ids of the words.
+
+        :param lengths:
+            Ndarray, containing the real lengths of the sequences in the batch (prior to padding).
+
+        :return outputs:
+            Variable, (batch_size, sequence_length, vocab_size) the output at each time
+            step of the encoder.
+
+        :return hidden_state:
+            Variable, (num_layers * directions, batch_size, hidden_size) the final hidden state.
         """
         initial_state = self._init_hidden(inputs.size(0))
         embedded_inputs = self.embedding(inputs)
@@ -273,7 +291,9 @@ class BidirectionalRNNEncoder(RNNEncoder):
     def _init_hidden(self, batch_size):
         """
         Initializes the hidden state of the encoder module.
-        :return: Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
+
+        :return:
+            Variable, (num_layers*directions, batch_size, hidden_dim) with zeros as initial values.
         """
         state = torch.randn(self._num_layers*2, batch_size, self._hidden_size)
 

@@ -40,16 +40,15 @@ class RNNDecoder(Decoder):
         """
         A recurrent decoder module for the sequence to sequence model.
 
-        Arguments:
-            parameter_setter:
-                required parameters for the setter object.
-                hidden_size: int, size of recurrent layer of the LSTM/GRU.
-                embedding_size: int, dimension of the word embeddings.
-                recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
-                num_layers: int, number of stacked RNN layers.
-                learning_rate: float, learning rate.
-                max_length: int, maximum length of the sequence decoding.
-                cuda: bool, True if the device has cuda support.
+        :param parameter_setter:
+            required parameters for the setter object.
+            hidden_size: int, size of recurrent layer of the LSTM/GRU.
+            embedding_size: int, dimension of the word embeddings.
+            recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
+            num_layers: int, number of stacked RNN layers.
+            learning_rate: float, learning rate.
+            max_length: int, maximum length of the sequence decoding.
+            cuda: bool, True if the device has cuda support.
         """
         super().__init__()
         self._parameter_setter = parameter_setter
@@ -119,24 +118,23 @@ class RNNDecoder(Decoder):
         """
         Decoding of a given input. It can be a single time step or a full sequence as well.
 
-        Arguments:
-            inputs:
-                Variable, with size of (batch_size, X), containing word ids for time step t.
+        :param inputs:
+            Variable, with size of (batch_size, X), containing word ids for time step t.
 
-            hidden_state:
-                Variable, with size of (num_layers * directions, batch_size, hidden_size).
+        :param hidden_state:
+            Variable, with size of (num_layers * directions, batch_size, hidden_size).
 
-            encoder_outputs:
-                Variable, with size of (batch_size, sequence_length, hidden_size). This
-                parameter is redundant for the standard type of decoding.
+        :param encoder_outputs:
+            Variable, with size of (batch_size, sequence_length, hidden_size). This
+            parameter is redundant for the standard type of decoding.
 
-            batch_size:
-                int, size of the input batches.
+        :param batch_size:
+            int, size of the input batches.
 
-            sequence_length:
-                int, length of the sequence of the input batch.
+        :param sequence_length:
+            int, length of the sequence of the input batch.
 
-        Returns:
+        :return:
             tuple, (num_layers * directions, batch_size, hidden_size) the final state at time t.
         """
         output, hidden_state = self._recurrent_layer(inputs, hidden_state)
@@ -156,27 +154,25 @@ class RNNDecoder(Decoder):
         follows the general method, when the input word for the recurrent unit at time step t, is the output word at
         time step t-1.
 
-        Arguments:
-            targets:
-                Variable, (batch_size, sequence_length) a batch of word ids. If None, then normal teacher
-                forcing is not applied.
+        :param targets:
+            Variable, (batch_size, sequence_length) a batch of word ids. If None, then normal teacher
+            forcing is not applied.
 
-            max_length:
-                int, maximum length of the decoded sequence. If None, the maximum length parameter from
-                the configuration file will be used as maximum length. This parameter has no effect, if
-                targets parameter is provided, because in that case, the length of the target sequence
-                will be decoding length.
+        :param max_length:
+            int, maximum length of the decoded sequence. If None, the maximum length parameter from
+            the configuration file will be used as maximum length. This parameter has no effect, if
+            targets parameter is provided, because in that case, the length of the target sequence
+            will be decoding length.
 
-            encoder_outputs:
-                Variable, with size of (batch_size, sequence_length, hidden_size). This parameter
-                is redundant for the standard decoder unit.
+        :param encoder_outputs:
+            Variable, with size of (batch_size, sequence_length, hidden_size). This parameter
+            is redundant for the standard decoder unit.
 
-            hidden_state:
-                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param hidden_state:
+            Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
 
-        Returns:
-            decoder_outputs:
-                dict, containing two string keys, symbols: Ndarray, the decoded word ids.
+        :return decoder_outputs:
+            dict, containing two string keys, symbols: Ndarray, the decoded word ids.
         """
         batch_size = encoder_outputs.size(0)
 
@@ -211,21 +207,20 @@ class RNNDecoder(Decoder):
         measure the loss, so the input for the (t)-th time step will be the (t-1)-th element of the provided
         targets.
 
-        Arguments:
-            targets:
-                Variable, (batch_size, sequence_length) a batch of word ids.
+        :param targets:
+            Variable, (batch_size, sequence_length) a batch of word ids.
 
-            batch_size:
-                int, size of the currently processed batch.
+        :param batch_size:
+            int, size of the currently processed batch.
 
-            hidden_state:
-                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param hidden_state:
+            Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
 
-            encoder_outputs:
-                Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param encoder_outputs:
+            Variable, with size of (batch_size, sequence_length, hidden_size).
 
-            input_sequence_length:
-                This parameter is required only by the attentional version of this method.
+        :param input_sequence_length:
+            This parameter is required only by the attentional version of this method.
         """
         output_sequence_length = targets.size(1) - 1
 
@@ -260,22 +255,21 @@ class RNNDecoder(Decoder):
         During the decoding iteration of the sequence, the input word of the decoder at time step (t) is the
         output word of the decoder from the time step (t-1).
 
-        Arguments:
-            max_length:
-                int, maximum length for the decoded sequence. If None the max_length parameter's
-                value will be used.
+        :param max_length:
+            int, maximum length for the decoded sequence. If None the max_length parameter's
+            value will be used.
 
-            batch_size:
-                int, size of the currently processed batch.
+        :param batch_size:
+            int, size of the currently processed batch.
 
-            hidden_state:
-                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param hidden_state:
+            Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
 
-            encoder_outputs:
-                Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param encoder_outputs:
+            Variable, with size of (batch_size, sequence_length, hidden_size).
 
-            input_sequence_length:
-                This parameter is required only by the attentional version of this method.
+        :param input_sequence_length:
+            This parameter is required only by the attentional version of this method.
         """
         output_sequence_length = max_length if max_length is not None else self._max_length
         self._outputs['symbols'] = numpy.zeros((batch_size, output_sequence_length), dtype='int')
@@ -405,26 +399,24 @@ class AttentionRNNDecoder(RNNDecoder):
         The algorithm iterates through the encoder outputs and scores each output based on the similarity
         with the decoder state. The scoring functions are implemented in the child nodes of this class.
 
-        Args:
-            decoder_state:
-                Variable, (batch_size, 1, hidden_size) the state of the decoder.
+        :param decoder_state:
+            Variable, (batch_size, 1, hidden_size) the state of the decoder.
 
-            encoder_outputs:
-                Variable, (batch_size, sequence_length, hidden_size) the output of
-                each time step of the encoder.
+        :param encoder_outputs:
+            Variable, (batch_size, sequence_length, hidden_size) the output of
+            each time step of the encoder.
 
-            batch_size:
-                int, size of the input batch.
+        :param batch_size:
+            int, size of the input batch.
 
-            sequence_length:
-                int, size of the sequence.
+        :param sequence_length:
+            int, size of the sequence.
 
-        Returns:
-            context:
+        :return context:
                 Variable, the weighted sum of the encoder outputs.
 
-            attn_weights:
-                Variable, weights used in the calculation of the context.
+        :return attn_weights:
+            Variable, weights used in the calculation of the context.
         """
         attn_energies = torch.zeros([batch_size, sequence_length])
 
@@ -453,23 +445,21 @@ class AttentionRNNDecoder(RNNDecoder):
         follows the general method, when the input word for the recurrent unit at time step t, is the output word at
         time step t-1.
 
-        Args:
-            targets:
-                Variable, (batch_size, sequence_length) a batch of word ids.
+        :param targets:
+            Variable, (batch_size, sequence_length) a batch of word ids.
 
-            max_length:
-                int, maximum length for the decoded sequence. If None the max_length parameter's
-                value will be used.
+        :param max_length:
+            int, maximum length for the decoded sequence. If None the max_length parameter's
+            value will be used.
 
-            encoder_outputs:
-                Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param encoder_outputs:
+            Variable, with size of (batch_size, sequence_length, hidden_size).
 
-            hidden_state:
-                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param hidden_state:
+            Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
 
-        Returns:
-            outputs: dict, containing three string keys, symbols: Ndarray, the decoded word ids,
-                     alignment_weights:
+        :return outputs: dict, containing three string keys, symbols: Ndarray, the decoded word ids,
+                 alignment_weights:
         """
         batch_size = encoder_outputs.size(0)
         input_sequence_length = encoder_outputs.size(1)
@@ -506,21 +496,20 @@ class AttentionRNNDecoder(RNNDecoder):
         measure the loss, so the input for the (t)-th time step will be the (t-1)-th element of the provided
         targets.
 
-        Args:
-            targets:
-                Variable, (batch_size, sequence_length) a batch of word ids.
+        :param targets:
+            Variable, (batch_size, sequence_length) a batch of word ids.
 
-            batch_size:
-                int, size of the currently processed batch.
+        :param batch_size:
+            int, size of the currently processed batch.
 
-            hidden_state:
-                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param hidden_state:
+            Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
 
-            encoder_outputs:
-                Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param encoder_outputs:
+            Variable, with size of (batch_size, sequence_length, hidden_size).
 
-            input_sequence_length:
-                int, length of the input (for the encoder) sequence.
+        :param input_sequence_length:
+            int, length of the input (for the encoder) sequence.
         """
         output_sequence_length = targets.size(1) - 1
 
@@ -560,22 +549,21 @@ class AttentionRNNDecoder(RNNDecoder):
         During the decoding iteration of the sequence, the input word of the decoder at time step (t) is the
         output word of the decoder from the time step (t-1).
 
-        Args:
-            max_length:
-                int, maximum length for the decoded sequence. If None the max_length parameter's
-                value will be used.
+        :param max_length:
+            int, maximum length for the decoded sequence. If None the max_length parameter's
+            value will be used.
 
-            batch_size:
-                int, size of the currently processed batch.
+        :param batch_size:
+            int, size of the currently processed batch.
 
-            hidden_state:
-                Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
+        :param hidden_state:
+            Variable, (num_layers * directions, batch_size, hidden_size) initial hidden state.
 
-            encoder_outputs:
-                Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param encoder_outputs:
+            Variable, with size of (batch_size, sequence_length, hidden_size).
 
-            input_sequence_length:
-                int, length of the input (for the encoder) sequence.
+        :param input_sequence_length:
+            int, length of the input (for the encoder) sequence.
         """
         output_sequence_length = max_length if max_length is not None else self._max_length
 
@@ -721,31 +709,29 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         A decode step for the bahdanau variation of attentional decoder module. The computations are described
         in header docstring of the class.
 
-        Arguments:
-            inputs:
-                Variable, with size of (batch_size, 1), containing word ids for step t.
+        :param inputs:
+            Variable, with size of (batch_size, 1), containing word ids for step t.
 
-            hidden_state:
-                Variable, with size of (num_layers * directions, batch_size, hidden_size).
+        :param hidden_state:
+            Variable, with size of (num_layers * directions, batch_size, hidden_size).
 
-            encoder_outputs:
-                Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param encoder_outputs:
+            Variable, with size of (batch_size, sequence_length, hidden_size).
 
-            batch_size:
-                int, size of the input batches.
+        :param batch_size:
+            int, size of the input batches.
 
-            sequence_length:
-                int, size of the sequence of the input batch.
+        :param sequence_length:
+            int, size of the sequence of the input batch.
 
-        Returns:
-            output:
-                Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
+        :return output:
+            Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
 
-            hidden_state: V
-                Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
+        :return hidden_state: V
+            Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
 
-            attn_weights:
-                Variable, (batch_size, 1, sequence_length) attention weights for visualization.
+        :return attn_weights:
+            Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
         previous_state = hidden_state[0][-1] if isinstance(hidden_state, tuple) else hidden_state[-1]
 
@@ -772,16 +758,14 @@ class BahdanauAttentionRNNDecoder(AttentionRNNDecoder):
         a non-linear activation layer, and the multiplied by a vector to project the attention energies
         to the correct size.
 
-        Arguments:
-            encoder_output:
-                Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
+        :param encoder_output:
+            Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
 
-            decoder_state:
-                Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
+        :param decoder_state:
+            Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
 
-        Returns:
-            energy:
-                Variable, similarity between the decoder and encoder state.
+        :return energy:
+            Variable, similarity between the decoder and encoder state.
         """
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)
@@ -838,31 +822,29 @@ class LuongAttentionRNNDecoder(AttentionRNNDecoder):
         of the decoder at time step t, and is merged into the final output layer through a projection
         layer with linear activation.
 
-        Arguments:
-            inputs:
-                Variable, with size of (batch_size, 1), containing word ids for step t.
+        :param inputs:
+            Variable, with size of (batch_size, 1), containing word ids for step t.
 
-            hidden_state:
-                Variable, with size of (num_layers * directions, batch_size, hidden_size).
+        :param hidden_state:
+            Variable, with size of (num_layers * directions, batch_size, hidden_size).
 
-            encoder_outputs:
-                Variable, with size of (batch_size, sequence_length, hidden_size).
+        :param encoder_outputs:
+            Variable, with size of (batch_size, sequence_length, hidden_size).
 
-            batch_size:
-                int, size of the input batches.
+        :param batch_size:
+            int, size of the input batches.
 
-            sequence_length:
-                int, size of the sequence of the input batch.
+        :param sequence_length:
+            int, size of the sequence of the input batch.
 
-        Returns:
-            output:
-                Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
+        :return output:
+            Variable, (batch_size, 1, vocab_size) distribution of probabilities over the words.
 
-            hidden_state:
-                Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
+        :return hidden_state:
+            Variable, (num_layers * directions, batch_size, hidden_size) the final state at time t.
 
-            attn_weights:
-                Variable, (batch_size, 1, sequence_length) attention weights for visualization.
+        :return attn_weights:
+            Variable, (batch_size, 1, sequence_length) attention weights for visualization.
         """
         self._recurrent_layer.flatten_parameters()
 
@@ -931,16 +913,14 @@ class GeneralAttentionRNNDecoder(LuongAttentionRNNDecoder):
         where h_d is the decoder hidden state, W_a is a linear layer and h_eT is
         the transpose of encoder output at time step t.
 
-        Arguments:
-            encoder_output:
-                Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
+        :param encoder_output:
+            Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
 
-            decoder_state:
-                Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
+        :param decoder_state:
+            Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
 
-        Returns:
-            energy:
-                Variable, similarity between the decoder and encoder state.
+        :return energy:
+            Variable, similarity between the decoder and encoder state.
         """
         energy = self._attention_layer(encoder_output)
         energy = torch.bmm(decoder_state.unsqueeze(1), energy.unsqueeze(1).transpose(1, 2)).squeeze(-1)
@@ -984,18 +964,14 @@ class DotAttentionRNNDecoder(LuongAttentionRNNDecoder):
 
         where h_d is the decoder hidden state, and h_eT is the transpose of encoder output at time step t.
 
-        Arguments:
+        :param encoder_output:
+            Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
 
-        Arguments:
-            encoder_output:
-                Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
+        :param decoder_state:
+            Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
 
-            decoder_state:
-                Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
-
-        Returns:
-            energy:
-                Variable, similarity between the decoder and encoder state.
+        :return energy:
+            Variable, similarity between the decoder and encoder state.
         """
         return torch.bmm(decoder_state.unsqueeze(1), encoder_output.unsqueeze(1).transpose(1, 2)).squeeze(-1)
 
@@ -1054,16 +1030,14 @@ class ConcatAttentionRNNDecoder(LuongAttentionRNNDecoder):
         where v_t is a vector, that transform the output to the correct size, h_d is the decoder hidden state,
         W_a is a weight matrix and h_e is the encoder output at time step t.
 
-        Arguments:
-            encoder_output:
-                Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
+        :param encoder_output:
+            Variable, (batch_size, 1, hidden_layer) output of the encoder at time step t.
 
-            decoder_state:
-                Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
+        :param decoder_state:
+            Variable, (batch_size, 1, hidden_layer) hidden state of the decoder at time step t.
 
-        Returns:
-            energy:
-                Variable, similarity between the decoder and encoder state.
+        :return energy:
+            Variable, similarity between the decoder and encoder state.
         """
         energy = functional.tanh(self._attention_layer(torch.cat((decoder_state, encoder_output), 1)))
         energy = torch.mm(energy, self._transformer)
