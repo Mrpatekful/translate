@@ -1,8 +1,0 @@
-<map id="rnn.AttentionRNNDecoder" name="rnn.AttentionRNNDecoder">
-<area shape="rect" id="node4" href="$classrnn_1_1BahdanauAttentionRNNDecoder.html" title="rnn.BahdanauAttentionRNNDecoder" alt="" coords="517,5,751,32"/>
-<area shape="rect" id="node5" href="$classrnn_1_1LuongAttentionRNNDecoder.html" title="rnn.LuongAttentionRNNDecoder" alt="" coords="529,56,739,83"/>
-<area shape="rect" id="node2" href="$classrnn_1_1RNNDecoder.html" title="rnn.RNNDecoder" alt="" coords="124,31,247,57"/>
-<area shape="rect" id="node6" href="$classrnn_1_1ConcatAttentionRNNDecoder.html" title="rnn.ConcatAttentionRNNDecoder" alt="" coords="800,5,1017,32"/>
-<area shape="rect" id="node7" href="$classrnn_1_1DotAttentionRNNDecoder.html" title="rnn.DotAttentionRNNDecoder" alt="" coords="811,56,1007,83"/>
-<area shape="rect" id="node8" href="$classrnn_1_1GeneralAttentionRNNDecoder.html" title="rnn.GeneralAttentionRNNDecoder" alt="" coords="799,107,1019,133"/>
-</map>

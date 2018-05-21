@@ -1,8 +1,0 @@
-<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$classanalysis_1_1Data.html" title="analysis.Data" alt="" coords="5,56,108,83"/>
-<area shape="rect" id="node2" href="$classanalysis_1_1AttentionData.html" title="analysis.AttentionData" alt="" coords="163,107,318,133"/>
-<area shape="rect" id="node3" href="$classanalysis_1_1LatentStateData.html" title="analysis.LatentStateData" alt="" coords="156,157,325,184"/>
-<area shape="rect" id="node4" href="$classanalysis_1_1ScalarData.html" title="analysis.ScalarData" alt="" coords="171,5,310,32"/>
-<area shape="rect" id="node5" href="$classanalysis_1_1TextData.html" title="analysis.TextData" alt="" coords="177,56,305,83"/>
-<area shape="rect" id="node6" href="$classanalysis_1_1Plot.html" title="analysis.Plot" alt="" coords="8,107,105,133"/>
-</map>

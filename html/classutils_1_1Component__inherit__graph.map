@@ -1,7 +1,0 @@
-<map id="utils.Component" name="utils.Component">
-<area shape="rect" id="node2" href="$classutils_1_1Classifier.html" title="utils.Classifier" alt="" coords="165,80,271,107"/>
-<area shape="rect" id="node5" href="$classutils_1_1Policy.html" title="utils.Policy" alt="" coords="312,80,399,107"/>
-<area shape="rect" id="node3" href="$classutils_1_1FFClassifier.html" title="utils.FFClassifier" alt="" coords="5,155,127,181"/>
-<area shape="rect" id="node4" href="$classutils_1_1RNNClassifier.html" title="utils.RNNClassifier" alt="" coords="151,155,285,181"/>
-<area shape="rect" id="node6" href="$classutils_1_1UNMTPolicy.html" title="utils.UNMTPolicy" alt="" coords="310,155,435,181"/>
-</map>
