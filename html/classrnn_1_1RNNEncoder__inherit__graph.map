@@ -1,0 +1,4 @@
+<map id="rnn.RNNEncoder" name="rnn.RNNEncoder">
+<area shape="rect" id="node3" href="$classrnn_1_1BidirectionalRNNEncoder.html" title="rnn.BidirectionalRNNEncoder" alt="" coords="5,155,199,181"/>
+<area shape="rect" id="node4" href="$classrnn_1_1UnidirectionalRNNEncoder.html" title="rnn.UnidirectionalRNNEncoder" alt="" coords="223,155,424,181"/>
+</map>
