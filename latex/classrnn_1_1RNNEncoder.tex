@@ -1,0 +1,144 @@
+\hypertarget{classrnn_1_1RNNEncoder}{}\section{rnn.\+R\+N\+N\+Encoder Class Reference}
+\label{classrnn_1_1RNNEncoder}\index{rnn.\+R\+N\+N\+Encoder@{rnn.\+R\+N\+N\+Encoder}}
+
+
+Inheritance diagram for rnn.\+R\+N\+N\+Encoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{classrnn_1_1RNNEncoder__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for rnn.\+R\+N\+N\+Encoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=172pt]{classrnn_1_1RNNEncoder__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def \hyperlink{classrnn_1_1RNNEncoder_a6343d431863b1f7a08e664936b6caaa7}{\+\_\+\+\_\+init\+\_\+\+\_\+} (self, parameter\+\_\+setter)
+\item 
+def {\bfseries forward} (self, args, kwargs)\hypertarget{classrnn_1_1RNNEncoder_a73ba73746a599e8b62a223e6e4b332cf}{}\label{classrnn_1_1RNNEncoder_a73ba73746a599e8b62a223e6e4b332cf}
+
+\item 
+def \hyperlink{classrnn_1_1RNNEncoder_a1965c444c4c8d86e0640af9f6edb4b34}{init\+\_\+optimizer} (self)
+\item 
+def {\bfseries output\+\_\+types} (self)\hypertarget{classrnn_1_1RNNEncoder_a5af31a1f2f83c840ff6f32a4991634c7}{}\label{classrnn_1_1RNNEncoder_a5af31a1f2f83c840ff6f32a4991634c7}
+
+\item 
+def \hyperlink{classrnn_1_1RNNEncoder_a42aee24e8b221841bd7deefef9b9dd5c}{optimizers} (self)
+\item 
+def \hyperlink{classrnn_1_1RNNEncoder_a837ba9ca05276126a3a258314f9dac33}{state} (self)
+\item 
+def \hyperlink{classrnn_1_1RNNEncoder_a8e1030a1cddb21b7ea4e95d11b3bd8f9}{state} (self, state)
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries embedding}\hypertarget{classrnn_1_1RNNEncoder_a76b87186f8433f0d9495d70c10a4fa76}{}\label{classrnn_1_1RNNEncoder_a76b87186f8433f0d9495d70c10a4fa76}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries interface}
+\item 
+bool {\bfseries abstract} = True\hypertarget{classrnn_1_1RNNEncoder_a73ce0d8e44e88bec684c3b8bd1536560}{}\label{classrnn_1_1RNNEncoder_a73ce0d8e44e88bec684c3b8bd1536560}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Recurrent encoder module of the sequence to sequence model.
+\end{DoxyVerb}
+ 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}!\+\_\+\+\_\+init\+\_\+\+\_\+@{\+\_\+\+\_\+init\+\_\+\+\_\+}}
+\index{\+\_\+\+\_\+init\+\_\+\+\_\+@{\+\_\+\+\_\+init\+\_\+\+\_\+}!rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}}
+\subsubsection[{\texorpdfstring{\+\_\+\+\_\+init\+\_\+\+\_\+(self, parameter\+\_\+setter)}{__init__(self, parameter_setter)}}]{\setlength{\rightskip}{0pt plus 5cm}def rnn.\+R\+N\+N\+Encoder.\+\_\+\+\_\+init\+\_\+\+\_\+ (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{parameter\+\_\+setter}
+\end{DoxyParamCaption}
+)}\hypertarget{classrnn_1_1RNNEncoder_a6343d431863b1f7a08e664936b6caaa7}{}\label{classrnn_1_1RNNEncoder_a6343d431863b1f7a08e664936b6caaa7}
+\begin{DoxyVerb}A recurrent encoder module for the sequence to sequence model.
+:param parameter_setter: ParameterSetter object, that requires the following parameters.
+    -:parameter hidden_size: int, size of recurrent layer of the LSTM/GRU.
+    -:parameter recurrent_layer: str, name of the recurrent layer ('GRU', 'LSTM').
+    -:parameter embedding_size: int, dimension of the word embeddings.
+    -:parameter optimizer: Optimizer, for parameter optimalization.
+    -:parameter learning_rate: float, learning rate.
+    -:parameter use_cuda: bool, True if the device has cuda support.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}!init\+\_\+optimizer@{init\+\_\+optimizer}}
+\index{init\+\_\+optimizer@{init\+\_\+optimizer}!rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}}
+\subsubsection[{\texorpdfstring{init\+\_\+optimizer(self)}{init_optimizer(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def rnn.\+R\+N\+N\+Encoder.\+init\+\_\+optimizer (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classrnn_1_1RNNEncoder_a1965c444c4c8d86e0640af9f6edb4b34}{}\label{classrnn_1_1RNNEncoder_a1965c444c4c8d86e0640af9f6edb4b34}
+\begin{DoxyVerb}Initializes the optimizer for the encoder.
+\end{DoxyVerb}
+ \index{rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}!optimizers@{optimizers}}
+\index{optimizers@{optimizers}!rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}}
+\subsubsection[{\texorpdfstring{optimizers(self)}{optimizers(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def rnn.\+R\+N\+N\+Encoder.\+optimizers (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classrnn_1_1RNNEncoder_a42aee24e8b221841bd7deefef9b9dd5c}{}\label{classrnn_1_1RNNEncoder_a42aee24e8b221841bd7deefef9b9dd5c}
+\begin{DoxyVerb}Property for the optimizers of the encoder.
+\end{DoxyVerb}
+ \index{rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}!state@{state}}
+\index{state@{state}!rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}}
+\subsubsection[{\texorpdfstring{state(self)}{state(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def rnn.\+R\+N\+N\+Encoder.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classrnn_1_1RNNEncoder_a837ba9ca05276126a3a258314f9dac33}{}\label{classrnn_1_1RNNEncoder_a837ba9ca05276126a3a258314f9dac33}
+\begin{DoxyVerb}Property for the state of the encoder.
+\end{DoxyVerb}
+ \index{rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}!state@{state}}
+\index{state@{state}!rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}}
+\subsubsection[{\texorpdfstring{state(self, state)}{state(self, state)}}]{\setlength{\rightskip}{0pt plus 5cm}def rnn.\+R\+N\+N\+Encoder.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{state}
+\end{DoxyParamCaption}
+)}\hypertarget{classrnn_1_1RNNEncoder_a8e1030a1cddb21b7ea4e95d11b3bd8f9}{}\label{classrnn_1_1RNNEncoder_a8e1030a1cddb21b7ea4e95d11b3bd8f9}
+\begin{DoxyVerb}Setter method for the weights of the encoder, and the optimizer.
+:param state: dict, containing the states.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Data Documentation}
+\index{rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}!interface@{interface}}
+\index{interface@{interface}!rnn\+::\+R\+N\+N\+Encoder@{rnn\+::\+R\+N\+N\+Encoder}}
+\subsubsection[{\texorpdfstring{interface}{interface}}]{\setlength{\rightskip}{0pt plus 5cm}rnn.\+R\+N\+N\+Encoder.\+interface\hspace{0.3cm}{\ttfamily [static]}}\hypertarget{classrnn_1_1RNNEncoder_af7dec32a918a710def1a5fc34b2cb5ed}{}\label{classrnn_1_1RNNEncoder_af7dec32a918a710def1a5fc34b2cb5ed}
+{\bfseries Initial value\+:}
+\begin{DoxyCode}
+1 = Interface(**\{
+2         \textcolor{stringliteral}{'hidden\_size'}:      (0, \textcolor{keywordtype}{None}),
+3         \textcolor{stringliteral}{'recurrent\_type'}:   (1, \textcolor{keywordtype}{None}),
+4         \textcolor{stringliteral}{'num\_layers'}:       (2, \textcolor{keywordtype}{None}),
+5         \textcolor{stringliteral}{'optimizer\_type'}:   (3, \textcolor{keywordtype}{None}),
+6         \textcolor{stringliteral}{'learning\_rate'}:    (4, \textcolor{keywordtype}{None}),
+7         \textcolor{stringliteral}{'cuda'}:             (5, \textcolor{stringliteral}{'Experiment:Policy:cuda$'}),
+8         \textcolor{stringliteral}{'embedding\_size'}:   (6, \textcolor{stringliteral}{'embedding\_size$'})
+9     \})
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/components/encoders/rnn.\+py\end{DoxyCompactItemize}

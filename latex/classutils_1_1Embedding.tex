@@ -1,0 +1,117 @@
+\hypertarget{classutils_1_1Embedding}{}\section{utils.\+Embedding Class Reference}
+\label{classutils_1_1Embedding}\index{utils.\+Embedding@{utils.\+Embedding}}
+
+
+Inheritance diagram for utils.\+Embedding\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=166pt]{classutils_1_1Embedding__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for utils.\+Embedding\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=166pt]{classutils_1_1Embedding__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classutils_1_1Embedding_a5022555fe31ce2e41e72c466362a3c01}{}\label{classutils_1_1Embedding_a5022555fe31ce2e41e72c466362a3c01}
+
+\item 
+def \hyperlink{classutils_1_1Embedding_ac21374958141a3f27191d873b107edf5}{forward} (self, inputs)
+\item 
+def \hyperlink{classutils_1_1Embedding_a7726f478edc24c481f103d71e92e1bf2}{freeze} (self)
+\item 
+def \hyperlink{classutils_1_1Embedding_afd03315bbaada52bbf08dd34a3353693}{unfreeze} (self)
+\item 
+def \hyperlink{classutils_1_1Embedding_a6e89544aab0d191a209558c5d93bd79f}{optimizer} (self)
+\item 
+def \hyperlink{classutils_1_1Embedding_a1a6284d9ed1ebba9515448b194d1c47f}{state} (self)
+\item 
+def \hyperlink{classutils_1_1Embedding_a68b81dd7e2446c7b7a7d17d9eb2c7f80}{state} (self, states)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Wrapper class for the embedding layers of the models. The optional training of the embeddings
+is done by a built-in optimizer.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{utils\+::\+Embedding@{utils\+::\+Embedding}!forward@{forward}}
+\index{forward@{forward}!utils\+::\+Embedding@{utils\+::\+Embedding}}
+\subsubsection[{\texorpdfstring{forward(self, inputs)}{forward(self, inputs)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Embedding.\+forward (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{inputs}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Embedding_ac21374958141a3f27191d873b107edf5}{}\label{classutils_1_1Embedding_ac21374958141a3f27191d873b107edf5}
+\begin{DoxyVerb}Propagates the inputs through the embedding layer.
+
+:param inputs:
+    Variable, word id-s, that will be translated to word vector representations.
+
+:return outputs:
+    Variable, word vectors of the given input.
+\end{DoxyVerb}
+ \index{utils\+::\+Embedding@{utils\+::\+Embedding}!freeze@{freeze}}
+\index{freeze@{freeze}!utils\+::\+Embedding@{utils\+::\+Embedding}}
+\subsubsection[{\texorpdfstring{freeze(self)}{freeze(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Embedding.\+freeze (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Embedding_a7726f478edc24c481f103d71e92e1bf2}{}\label{classutils_1_1Embedding_a7726f478edc24c481f103d71e92e1bf2}
+\begin{DoxyVerb}Freezes the parameters of the embedding layer. While frozen, the parameters can't be
+modified by the optimizer.
+\end{DoxyVerb}
+ \index{utils\+::\+Embedding@{utils\+::\+Embedding}!optimizer@{optimizer}}
+\index{optimizer@{optimizer}!utils\+::\+Embedding@{utils\+::\+Embedding}}
+\subsubsection[{\texorpdfstring{optimizer(self)}{optimizer(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Embedding.\+optimizer (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Embedding_a6e89544aab0d191a209558c5d93bd79f}{}\label{classutils_1_1Embedding_a6e89544aab0d191a209558c5d93bd79f}
+\begin{DoxyVerb}Property for the optimizer of the embedding.
+\end{DoxyVerb}
+ \index{utils\+::\+Embedding@{utils\+::\+Embedding}!state@{state}}
+\index{state@{state}!utils\+::\+Embedding@{utils\+::\+Embedding}}
+\subsubsection[{\texorpdfstring{state(self)}{state(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Embedding.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Embedding_a1a6284d9ed1ebba9515448b194d1c47f}{}\label{classutils_1_1Embedding_a1a6284d9ed1ebba9515448b194d1c47f}
+\begin{DoxyVerb}Property for the state of the embedding.
+\end{DoxyVerb}
+ \index{utils\+::\+Embedding@{utils\+::\+Embedding}!state@{state}}
+\index{state@{state}!utils\+::\+Embedding@{utils\+::\+Embedding}}
+\subsubsection[{\texorpdfstring{state(self, states)}{state(self, states)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Embedding.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{states}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Embedding_a68b81dd7e2446c7b7a7d17d9eb2c7f80}{}\label{classutils_1_1Embedding_a68b81dd7e2446c7b7a7d17d9eb2c7f80}
+\begin{DoxyVerb}Setter method for the state of the embedding.
+\end{DoxyVerb}
+ \index{utils\+::\+Embedding@{utils\+::\+Embedding}!unfreeze@{unfreeze}}
+\index{unfreeze@{unfreeze}!utils\+::\+Embedding@{utils\+::\+Embedding}}
+\subsubsection[{\texorpdfstring{unfreeze(self)}{unfreeze(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Embedding.\+unfreeze (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Embedding_afd03315bbaada52bbf08dd34a3353693}{}\label{classutils_1_1Embedding_afd03315bbaada52bbf08dd34a3353693}
+\begin{DoxyVerb}       Unfreezes the parameters of the optimizers. By calling this method, the optimizer will
+       be able to modify the weights of the embedding layer.\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/components/utils/utils.\+py\end{DoxyCompactItemize}

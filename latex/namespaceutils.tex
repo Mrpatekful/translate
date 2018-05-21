@@ -1,0 +1,199 @@
+\hypertarget{namespaceutils}{}\section{utils Namespace Reference}
+\label{namespaceutils}\index{utils@{utils}}
+\subsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+class \hyperlink{classutils_1_1Classifier}{Classifier}
+\item 
+class \hyperlink{classutils_1_1Component}{Component}
+\item 
+class \hyperlink{classutils_1_1Embedding}{Embedding}
+\item 
+class \hyperlink{classutils_1_1FFClassifier}{F\+F\+Classifier}
+\item 
+class \hyperlink{classutils_1_1Interface}{Interface}
+\item 
+class \hyperlink{classutils_1_1Layer}{Layer}
+\item 
+class \hyperlink{classutils_1_1Logger}{Logger}
+\item 
+class \hyperlink{classutils_1_1ModelWrapper}{Model\+Wrapper}
+\item 
+class \hyperlink{classutils_1_1Optimizer}{Optimizer}
+\item 
+class \hyperlink{classutils_1_1ParameterSetter}{Parameter\+Setter}
+\item 
+class \hyperlink{classutils_1_1Policy}{Policy}
+\item 
+class \hyperlink{classutils_1_1RNNClassifier}{R\+N\+N\+Classifier}
+\item 
+class \hyperlink{classutils_1_1UNMTPolicy}{U\+N\+M\+T\+Policy}
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+def \hyperlink{namespaceutils_a922f4aa89a77cb4f15f389dc948c1baa}{subclasses} (base\+\_\+cls)
+\item 
+def \hyperlink{namespaceutils_acd3c6169245c003a613f1950b2bc2598}{copy\+\_\+dict\+\_\+hierarchy} (dictionary, fill\+\_\+value=None)
+\item 
+def \hyperlink{namespaceutils_a0d85856fd9e05d271a285dd7475d0444}{merge\+\_\+dicts} (create\+\_\+dict, iterable)
+\item 
+def \hyperlink{namespaceutils_abd6e7ecfe8f01c883e250abe18761bbe}{create\+\_\+leaf\+\_\+dict} (dictionary)
+\item 
+def \hyperlink{namespaceutils_a8e73d42d570349ce513fb05cf6050348}{reduce\+\_\+parameters} (func, parameters)
+\item 
+def \hyperlink{namespaceutils_a3ed746707b8523e57f3469dfc89ac6ea}{create\+\_\+intersection} (whole\+\_\+dict, sub\+\_\+dict)
+\item 
+def \hyperlink{namespaceutils_a754f49497d24103d4cd3bb8647967e0d}{subtract\+\_\+dict} (whole\+\_\+dict, sub\+\_\+dict)
+\item 
+def {\bfseries call} (func, iterable, params=None)\hypertarget{namespaceutils_a86e29e79ca8f768dd36fd4decd1b7bb9}{}\label{namespaceutils_a86e29e79ca8f768dd36fd4decd1b7bb9}
+
+\item 
+def {\bfseries format\+\_\+outputs} (inputs, targets, outputs)\hypertarget{namespaceutils_a16c1901df9198850894534c365194fbe}{}\label{namespaceutils_a16c1901df9198850894534c365194fbe}
+
+\item 
+def \hyperlink{namespaceutils_aec05c74db04e719df2cd5cea6b24ecad}{ids\+\_\+from\+\_\+sentence} (vocabulary, sentence)
+\item 
+def \hyperlink{namespaceutils_ad0eaf7c3c6b0e35289a74b3c9945bd82}{sentence\+\_\+from\+\_\+ids} (vocabulary, ids)
+\item 
+def \hyperlink{namespaceutils_acd5842115fa191b8cd6100485d22ace4}{logging} (logger)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}\end{DoxyVerb}
+ 
+
+\subsection{Function Documentation}
+\index{utils@{utils}!copy\+\_\+dict\+\_\+hierarchy@{copy\+\_\+dict\+\_\+hierarchy}}
+\index{copy\+\_\+dict\+\_\+hierarchy@{copy\+\_\+dict\+\_\+hierarchy}!utils@{utils}}
+\subsubsection[{\texorpdfstring{copy\+\_\+dict\+\_\+hierarchy(dictionary, fill\+\_\+value=\+None)}{copy_dict_hierarchy(dictionary, fill_value=None)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+copy\+\_\+dict\+\_\+hierarchy (
+\begin{DoxyParamCaption}
+\item[{}]{dictionary, }
+\item[{}]{fill\+\_\+value = {\ttfamily None}}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_acd3c6169245c003a613f1950b2bc2598}{}\label{namespaceutils_acd3c6169245c003a613f1950b2bc2598}
+\begin{DoxyVerb}Copies the a dictionary, that may have multiple embedded dictionaries. The values
+of the dictionary are replaced with the provided fill value.
+:param dictionary: dict, which structure will be copied.
+:param fill_value: the value that will be used to fill the copied dictionary.
+:return: dict, the copied dictionary.
+\end{DoxyVerb}
+ \index{utils@{utils}!create\+\_\+intersection@{create\+\_\+intersection}}
+\index{create\+\_\+intersection@{create\+\_\+intersection}!utils@{utils}}
+\subsubsection[{\texorpdfstring{create\+\_\+intersection(whole\+\_\+dict, sub\+\_\+dict)}{create_intersection(whole_dict, sub_dict)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+create\+\_\+intersection (
+\begin{DoxyParamCaption}
+\item[{}]{whole\+\_\+dict, }
+\item[{}]{sub\+\_\+dict}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_a3ed746707b8523e57f3469dfc89ac6ea}{}\label{namespaceutils_a3ed746707b8523e57f3469dfc89ac6ea}
+\begin{DoxyVerb}Reduces a dictionary to have the same keys as an another dict.
+:param whole_dict: dict, the dictionary to be reduced.
+:param sub_dict: dict, the dictionary with the required keys.
+:return: dict, the reduced dict.
+\end{DoxyVerb}
+ \index{utils@{utils}!create\+\_\+leaf\+\_\+dict@{create\+\_\+leaf\+\_\+dict}}
+\index{create\+\_\+leaf\+\_\+dict@{create\+\_\+leaf\+\_\+dict}!utils@{utils}}
+\subsubsection[{\texorpdfstring{create\+\_\+leaf\+\_\+dict(dictionary)}{create_leaf_dict(dictionary)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+create\+\_\+leaf\+\_\+dict (
+\begin{DoxyParamCaption}
+\item[{}]{dictionary}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_abd6e7ecfe8f01c883e250abe18761bbe}{}\label{namespaceutils_abd6e7ecfe8f01c883e250abe18761bbe}
+\begin{DoxyVerb}Creates a flattened dictionary, from a dictionary, that has multiple dictionaries as
+values.
+:param dictionary: dict, that may have multiple layers of dictionaries as values.
+:return: dict, the flattened dictionary.
+\end{DoxyVerb}
+ \index{utils@{utils}!ids\+\_\+from\+\_\+sentence@{ids\+\_\+from\+\_\+sentence}}
+\index{ids\+\_\+from\+\_\+sentence@{ids\+\_\+from\+\_\+sentence}!utils@{utils}}
+\subsubsection[{\texorpdfstring{ids\+\_\+from\+\_\+sentence(vocabulary, sentence)}{ids_from_sentence(vocabulary, sentence)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+ids\+\_\+from\+\_\+sentence (
+\begin{DoxyParamCaption}
+\item[{}]{vocabulary, }
+\item[{}]{sentence}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_aec05c74db04e719df2cd5cea6b24ecad}{}\label{namespaceutils_aec05c74db04e719df2cd5cea6b24ecad}
+\begin{DoxyVerb}Convenience method, for converting a sequence of words to ids.
+:param vocabulary: Language, object of the language to use the look up of.
+:param sentence: string, a tokenized sequence of words.
+:return: list, containing the ids (int) of the sentence in the same order.
+\end{DoxyVerb}
+ \index{utils@{utils}!logging@{logging}}
+\index{logging@{logging}!utils@{utils}}
+\subsubsection[{\texorpdfstring{logging(logger)}{logging(logger)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+logging (
+\begin{DoxyParamCaption}
+\item[{}]{logger}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_acd5842115fa191b8cd6100485d22ace4}{}\label{namespaceutils_acd5842115fa191b8cd6100485d22ace4}
+\begin{DoxyVerb}Decorator for the functions to get logs from. The function which is decorated
+with logging must return its values as a dictionary.
+:param logger: Logger object, which handles the data.
+:return: wrapper of the function.
+\end{DoxyVerb}
+ \index{utils@{utils}!merge\+\_\+dicts@{merge\+\_\+dicts}}
+\index{merge\+\_\+dicts@{merge\+\_\+dicts}!utils@{utils}}
+\subsubsection[{\texorpdfstring{merge\+\_\+dicts(create\+\_\+dict, iterable)}{merge_dicts(create_dict, iterable)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+merge\+\_\+dicts (
+\begin{DoxyParamCaption}
+\item[{}]{create\+\_\+dict, }
+\item[{}]{iterable}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_a0d85856fd9e05d271a285dd7475d0444}{}\label{namespaceutils_a0d85856fd9e05d271a285dd7475d0444}
+\begin{DoxyVerb}Merges multiple dictionaries, which are created by the output of a function and
+an iterable. The function is applied to the values of the iterable, that creates dictionaries
+:param create_dict: function, that given a parameter, outputs a dictionary.
+:param iterable: iterable, on which the function will be applied.
+:return: dict, the created dictionary.
+\end{DoxyVerb}
+ \index{utils@{utils}!reduce\+\_\+parameters@{reduce\+\_\+parameters}}
+\index{reduce\+\_\+parameters@{reduce\+\_\+parameters}!utils@{utils}}
+\subsubsection[{\texorpdfstring{reduce\+\_\+parameters(func, parameters)}{reduce_parameters(func, parameters)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+reduce\+\_\+parameters (
+\begin{DoxyParamCaption}
+\item[{}]{func, }
+\item[{}]{parameters}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_a8e73d42d570349ce513fb05cf6050348}{}\label{namespaceutils_a8e73d42d570349ce513fb05cf6050348}
+\begin{DoxyVerb}Reduce a set of parameters, given in a form of dictionary, to the
+set of parameters, that are required by the function.
+:param func: Function, that requires a subset of parameters given as second argument.
+:param parameters: dict, a set of parameters, that yields a subset of parameters,
+                   that is required by the func parameter.
+:return: dict, the subset of parameters for the 'func' function.
+\end{DoxyVerb}
+ \index{utils@{utils}!sentence\+\_\+from\+\_\+ids@{sentence\+\_\+from\+\_\+ids}}
+\index{sentence\+\_\+from\+\_\+ids@{sentence\+\_\+from\+\_\+ids}!utils@{utils}}
+\subsubsection[{\texorpdfstring{sentence\+\_\+from\+\_\+ids(vocabulary, ids)}{sentence_from_ids(vocabulary, ids)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+sentence\+\_\+from\+\_\+ids (
+\begin{DoxyParamCaption}
+\item[{}]{vocabulary, }
+\item[{}]{ids}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_ad0eaf7c3c6b0e35289a74b3c9945bd82}{}\label{namespaceutils_ad0eaf7c3c6b0e35289a74b3c9945bd82}
+\begin{DoxyVerb}Convenience method, for converting a sequence of ids to words.
+:param vocabulary: Language, object of the language to use the look up of.
+:param ids: ids, representations of words.
+:return: list, containing the ids (int) of the sentence in the same order.
+\end{DoxyVerb}
+ \index{utils@{utils}!subclasses@{subclasses}}
+\index{subclasses@{subclasses}!utils@{utils}}
+\subsubsection[{\texorpdfstring{subclasses(base\+\_\+cls)}{subclasses(base_cls)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+subclasses (
+\begin{DoxyParamCaption}
+\item[{}]{base\+\_\+cls}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_a922f4aa89a77cb4f15f389dc948c1baa}{}\label{namespaceutils_a922f4aa89a77cb4f15f389dc948c1baa}
+\begin{DoxyVerb}Discovers the inheritance tree of a given class. The class must have an abstract() method. A class of the
+hierarchy will only be the part of the returned classes, if it's abstract() method returns False.
+:param base_cls: type, root of the inheritance hierarchy.
+:return: dict, classes that are part of the hierarchy, with their str names as keys, and type references as values.
+\end{DoxyVerb}
+ \index{utils@{utils}!subtract\+\_\+dict@{subtract\+\_\+dict}}
+\index{subtract\+\_\+dict@{subtract\+\_\+dict}!utils@{utils}}
+\subsubsection[{\texorpdfstring{subtract\+\_\+dict(whole\+\_\+dict, sub\+\_\+dict)}{subtract_dict(whole_dict, sub_dict)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+subtract\+\_\+dict (
+\begin{DoxyParamCaption}
+\item[{}]{whole\+\_\+dict, }
+\item[{}]{sub\+\_\+dict}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceutils_a754f49497d24103d4cd3bb8647967e0d}{}\label{namespaceutils_a754f49497d24103d4cd3bb8647967e0d}
+\begin{DoxyVerb}Creates a dictionary with a set of keys, that only present in the 'greater' dictionary.
+:param whole_dict: dict, the dictionary to be reduced.
+:param sub_dict: dict, the dictionary with the required keys.
+:return: dict, the reduced dict.
+\end{DoxyVerb}
+ 

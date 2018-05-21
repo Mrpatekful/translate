@@ -1,0 +1,114 @@
+Components are the main building blocks of the models. In particular, the sequence-\/to-\/sequence type models are well-\/suited for these modular elements. In the current state of the A\+PI, there are two distinct versions of the components, encoders and decoders. Each of these have 3 different methods\+:
+
+
+\begin{DoxyEnumerate}
+\item Recurrent
+\item Convolutional
+\item Quasi-\/\+Recurrent
+\end{DoxyEnumerate}
+
+
+
+
+
+
+
+\subsection*{Encoders}
+
+\subsubsection*{Recurrent}
+
+
+\begin{DoxyEnumerate}
+\item Unidirectional encoder
+\item Bidirectional encoder
+\end{DoxyEnumerate}
+
+Unidirectional type encoders could be considered as the regular recurrent units, which may yield different methods for calculations. The currently implemented features are the L\+S\+T\+M-\/type units and G\+R\+Us. The problem with these type of architectures, is the ability to preserve references in long sequences. Even the L\+S\+T\+Ms and G\+R\+Us can\textquotesingle{}t seem to resolve dependencies in longer, 40-\/50 unit length sequences. As a solution Bidirectional encoders start their operations from the end of the sentence, going \textquotesingle{}backward\textquotesingle{} in time, as well as from the start of the sequence. This way there are 2 hidden states, one for each direction, which will then be concatenated, and fed to the upcoming layer. This method shortens the path between dependencies, and performs considerably better in numerous tasks.
+
+\subsubsection*{Convolutional}
+
+{\itshape C\+O\+M\+I\+NG S\+O\+ON}
+
+\subsubsection*{Quasi-\/\+Recurrent}
+
+{\itshape C\+O\+M\+I\+NG S\+O\+ON}
+
+
+
+
+
+\subsection*{Decoders}
+
+\subsubsection*{Recurrent}
+
+
+\begin{DoxyEnumerate}
+\item Regular decoder
+\item Attentional decoder
+\begin{DoxyEnumerate}
+\item Bahdanau-\/style
+\item Luong-\/style
+\begin{DoxyEnumerate}
+\item Dot Attention Decoder
+\item General Attention Decoder
+\item Concat Attention Decoder
+\end{DoxyEnumerate}
+\end{DoxyEnumerate}
+\end{DoxyEnumerate}
+
+\paragraph*{Regular}
+
+Similarly to the encoders, the basic recurrent decoders also operate with an L\+S\+TM or G\+RU. The encoder provides the starting hidden state for the component, that contains the encoded latent representation of the source language. The decoder then starts to unfold this hidden state by predicting the first word of the target sentence, which will be then fed to the decoder at the next time step. This phase goes until the decoder predicts an $<$\+E\+O\+S$>$ token. Although this simple method is the fastest, there are other techniques, which provide much better performance.
+
+\paragraph*{Bahdanau-\/style Attention Decoder}
+
+Considering the method of translation from a human viewpoint, the encoder-\/decoder method of machine translation may not be a very intuitive approach, since when the decoder tries to predict the most probable word at the first position, it takes the whole encoded sentence into account. It would be much more natural, if the decoder would only consider those parts of the source sentence, which highly correlate to the currently decoded word of the target sentence. \href{https://arxiv.org/abs/1409.0473}{\tt Neural Machine Translation by Jointly Learning to Align and Translate} introduces a method for this approach, that is called attention, which is an existing techniques in image related machine learning tasks, but has not been applied to natural language processing yet.
+
+The main idea is to integrate another layer between the decoder and encoder, which will operate this mechanism. At each decoding step this layer calculates a weight distribution over the outputs of the encoder at each encoding time step. The new encoded latent state will come from the linear combination of the encoder hidden states, with their corresponding weights.
+
+
+
+Although the core concept of attention is the same, there are different methods for calculating the weights for the encoder outputs. The already mentioned Bahdanau-\/style method uses a trainable layer, which takes the concatenation of the investigated encoder state and the decoder state the at the previous time step. The output of this operation is a single scalar value (or a vector of values in case of batched calculations), that will be the weight for the used encoder state. After each of the encoder output states have been weighted, the recurrent layer receives the weighted sum of these vectors.
+
+\paragraph*{Luong-\/style Attention Decoder}
+
+Another approach has been introduced by \href{https://arxiv.org/abs/1508.04025}{\tt Effective Approaches to Attention-\/based Neural Machine Translation}, which alters the order of weight calculation, and defines several alternative techniques for the scoring mechanism. Compared to the Bahdanau method {\ttfamily recurrent(score(h\+\_\+t-\/1), i\+\_\+t)} where i\+\_\+t is the output of the previous decoding time step, and h\+\_\+t-\/1 is the hidden state of the previous time step, the Luong method calculates {\ttfamily score(recurrent(h\+\_\+t-\/1, i\+\_\+t))}. The scoring of hidden state with respect to the encoder outputs, happens at the t-\/th time step, which will be used by a final output layer, that projects the hidden state to the vocabulary, with a softmax activation.
+
+As mentioned above, Luong introduced 2 new methods for weight calculation (score function) additional to the method used in Bahdanau\textquotesingle{}s work.
+
+
+\begin{DoxyEnumerate}
+\item {\itshape Dot Attention Decoder}
+\end{DoxyEnumerate}
+
+The simplest and fastest scoring function, which according to my experience, helps the convergence of the model, better than any other scoring methods. The weight simply comes from the dot product of the encoder state and the hidden state. \begin{DoxyVerb}h_d * h_eT
+\end{DoxyVerb}
+
+
+
+\begin{DoxyEnumerate}
+\item {\itshape General Attention Decoder}
+\end{DoxyEnumerate}
+
+This method uses a trainable layer similar to the concatenative methods, but instead of concatenation, it takes the dot product of the weight layer, with the encoder output state, and then the dot product with the decoder hidden state. \begin{DoxyVerb}h_d * (W_a * h_eT)
+\end{DoxyVerb}
+
+
+The positive impact of this method compared to the simple dot product, is the constrain of creating a good attention weight distribution over the encoder output states is the responsibility of the attention weight layer, instead of the encoder and decoder recurrent layers.
+
+
+\begin{DoxyEnumerate}
+\item {\itshape Concat Attention Decoder}
+\end{DoxyEnumerate}
+
+This method is the same as the one used in Bahdanau\textquotesingle{}s experiments, which takes the concatenation of the decoder hidden state and encoder output state, with a dedicated attention weight layer. \begin{DoxyVerb}v_t * tanh(W_a * [h_d ; h_e])
+\end{DoxyVerb}
+
+
+\subsubsection*{Convolutional}
+
+{\itshape C\+O\+M\+I\+NG S\+O\+ON}
+
+\subsubsection*{Quasi-\/\+Recurrent}
+
+{\itshape C\+O\+M\+I\+NG S\+O\+ON} 

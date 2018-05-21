@@ -1,0 +1,78 @@
+\hypertarget{classmodules_1_1Translator}{}\section{modules.\+Translator Class Reference}
+\label{classmodules_1_1Translator}\index{modules.\+Translator@{modules.\+Translator}}
+
+
+Inheritance diagram for modules.\+Translator\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=193pt]{classmodules_1_1Translator__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for modules.\+Translator\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=193pt]{classmodules_1_1Translator__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classmodules_1_1Translator_a30c4a8ab7e3e28fd21441c86a30796f8}{}\label{classmodules_1_1Translator_a30c4a8ab7e3e28fd21441c86a30796f8}
+
+\item 
+def \hyperlink{classmodules_1_1Translator_a05eeb6c9ef20ae52f77ec9643a5a1922}{\+\_\+\+\_\+call\+\_\+\+\_\+} (self, batch, input\+\_\+lang\+\_\+index, target\+\_\+lang\+\_\+index, forced\+\_\+targets=True)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{modules\+::\+Translator@{modules\+::\+Translator}!\+\_\+\+\_\+call\+\_\+\+\_\+@{\+\_\+\+\_\+call\+\_\+\+\_\+}}
+\index{\+\_\+\+\_\+call\+\_\+\+\_\+@{\+\_\+\+\_\+call\+\_\+\+\_\+}!modules\+::\+Translator@{modules\+::\+Translator}}
+\subsubsection[{\texorpdfstring{\+\_\+\+\_\+call\+\_\+\+\_\+(self, batch, input\+\_\+lang\+\_\+index, target\+\_\+lang\+\_\+index, forced\+\_\+targets=\+True)}{__call__(self, batch, input_lang_index, target_lang_index, forced_targets=True)}}]{\setlength{\rightskip}{0pt plus 5cm}def modules.\+Translator.\+\_\+\+\_\+call\+\_\+\+\_\+ (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{batch, }
+\item[{}]{input\+\_\+lang\+\_\+index, }
+\item[{}]{target\+\_\+lang\+\_\+index, }
+\item[{}]{forced\+\_\+targets = {\ttfamily True}}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodules_1_1Translator_a05eeb6c9ef20ae52f77ec9643a5a1922}{}\label{classmodules_1_1Translator_a05eeb6c9ef20ae52f77ec9643a5a1922}
+\begin{DoxyVerb}Implementation of a step of auto-encoding. The look up tables of the model are fitted to the
+provided inputs, and the <LNG> are substituted with the appropriate token. In this case the token
+is the source language token. The inputs are then transformed by a noise function, and then fed
+through the model. If reguralization is applied, the encoder outputs are fetched from the output
+of the model, which is used by the discriminator to apply an adversarial reguralization on these
+outputs.
+
+:param input_lang_index:
+    An int value, that represents the index of the language. This value will serve as
+    the index of the substitution token for the input batch.
+
+:param target_lang_index:
+
+:param batch:
+    A list, containing the batches from the input pipelines.
+
+:param forced_targets:
+
+:return loss:
+    A scalar loss value, indicating the average loss of the auto encoder.
+
+:return outputs:
+    A dictionary, that contains the outputs of the model. The types (keys) contained
+    by this dictionary depends on the model specifications.
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/modules/modules.\+py\end{DoxyCompactItemize}

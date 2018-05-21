@@ -1,0 +1,111 @@
+\hypertarget{classexperiments_1_1UnsupervisedTranslation}{}\section{experiments.\+Unsupervised\+Translation Class Reference}
+\label{classexperiments_1_1UnsupervisedTranslation}\index{experiments.\+Unsupervised\+Translation@{experiments.\+Unsupervised\+Translation}}
+
+
+Inheritance diagram for experiments.\+Unsupervised\+Translation\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{classexperiments_1_1UnsupervisedTranslation__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for experiments.\+Unsupervised\+Translation\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=213pt]{classexperiments_1_1UnsupervisedTranslation__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classexperiments_1_1UnsupervisedTranslation_aa973f096417bfd15e08aacc26de4da3e}{}\label{classexperiments_1_1UnsupervisedTranslation_aa973f096417bfd15e08aacc26de4da3e}
+
+\item 
+def {\bfseries train}\hypertarget{classexperiments_1_1UnsupervisedTranslation_ae399cb855f325153f82214c1c08f2912}{}\label{classexperiments_1_1UnsupervisedTranslation_ae399cb855f325153f82214c1c08f2912}
+
+\item 
+def {\bfseries validate} (self)\hypertarget{classexperiments_1_1UnsupervisedTranslation_a9715966368e74241b182e61725493780}{}\label{classexperiments_1_1UnsupervisedTranslation_a9715966368e74241b182e61725493780}
+
+\item 
+def {\bfseries test} (self)\hypertarget{classexperiments_1_1UnsupervisedTranslation_aaac7b1330f00c66d141228a5de52d4d3}{}\label{classexperiments_1_1UnsupervisedTranslation_aaac7b1330f00c66d141228a5de52d4d3}
+
+\item 
+def {\bfseries evaluate} (self)\hypertarget{classexperiments_1_1UnsupervisedTranslation_a585c7da65090b16621d7f94e8d6ca8e5}{}\label{classexperiments_1_1UnsupervisedTranslation_a585c7da65090b16621d7f94e8d6ca8e5}
+
+\item 
+def {\bfseries state} (self)\hypertarget{classexperiments_1_1UnsupervisedTranslation_a30dc3009b46c74ff628562ac90bdf8ec}{}\label{classexperiments_1_1UnsupervisedTranslation_a30dc3009b46c74ff628562ac90bdf8ec}
+
+\item 
+def {\bfseries state} (self, value)\hypertarget{classexperiments_1_1UnsupervisedTranslation_ab1d75dfc265611a33fff282a715f90ea}{}\label{classexperiments_1_1UnsupervisedTranslation_ab1d75dfc265611a33fff282a715f90ea}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries clear\+\_\+optimizers}\hypertarget{classexperiments_1_1UnsupervisedTranslation_a67b932d4da5744f2721f7f27b04596f9}{}\label{classexperiments_1_1UnsupervisedTranslation_a67b932d4da5744f2721f7f27b04596f9}
+
+\item 
+def {\bfseries step\+\_\+optimizers}\hypertarget{classexperiments_1_1UnsupervisedTranslation_a9f0126eb73903d5154d6050e8bfb94fe}{}\label{classexperiments_1_1UnsupervisedTranslation_a9f0126eb73903d5154d6050e8bfb94fe}
+
+\item 
+def {\bfseries freeze}\hypertarget{classexperiments_1_1UnsupervisedTranslation_ad04f4db2b0dca3c3f64362ceb5466778}{}\label{classexperiments_1_1UnsupervisedTranslation_ad04f4db2b0dca3c3f64362ceb5466778}
+
+\item 
+def {\bfseries unfreeze}\hypertarget{classexperiments_1_1UnsupervisedTranslation_a4ad4d9b7d70e919b6276e713e50b10b6}{}\label{classexperiments_1_1UnsupervisedTranslation_a4ad4d9b7d70e919b6276e713e50b10b6}
+
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries reguralize}\hypertarget{classexperiments_1_1UnsupervisedTranslation_a793362a50b18222e31315f2d3d0d7dbd}{}\label{classexperiments_1_1UnsupervisedTranslation_a793362a50b18222e31315f2d3d0d7dbd}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries interface}
+\item 
+bool {\bfseries abstract} = False\hypertarget{classexperiments_1_1UnsupervisedTranslation_a37ce0fbf10e633220376f45931830c29}{}\label{classexperiments_1_1UnsupervisedTranslation_a37ce0fbf10e633220376f45931830c29}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Translation experiment, without parallel corpus. The method follows the main principles described
+in this article:
+
+    https://arxiv.org/abs/1711.00043
+
+The main goal of this experiment is to train a denoising auto-encoder, that learns to map sentences to
+sentences in two ways. The first way is to transform a noisy version of the source sentence to it's
+original form, and the second way is to transform a translated version of a sentence to it's original form.
+There is an additional factor during training, which is an adversarial reguralization, that learns to
+discriminate the hidden representations of the source and target languages.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Data Documentation}
+\index{experiments\+::\+Unsupervised\+Translation@{experiments\+::\+Unsupervised\+Translation}!interface@{interface}}
+\index{interface@{interface}!experiments\+::\+Unsupervised\+Translation@{experiments\+::\+Unsupervised\+Translation}}
+\subsubsection[{\texorpdfstring{interface}{interface}}]{\setlength{\rightskip}{0pt plus 5cm}experiments.\+Unsupervised\+Translation.\+interface\hspace{0.3cm}{\ttfamily [static]}}\hypertarget{classexperiments_1_1UnsupervisedTranslation_a9eb273dbcdf5d811b88187c53808d708}{}\label{classexperiments_1_1UnsupervisedTranslation_a9eb273dbcdf5d811b88187c53808d708}
+{\bfseries Initial value\+:}
+\begin{DoxyCode}
+1 = Interface(**\{
+2         \textcolor{stringliteral}{'policy'}:               (0, Policy),
+3         \textcolor{stringliteral}{'language\_identifiers'}: (1, \textcolor{keywordtype}{None}),
+4         \textcolor{stringliteral}{'languages'}:            (2, Language),
+5         \textcolor{stringliteral}{'model'}:                (3, Model),
+6         \textcolor{stringliteral}{'initial\_translator'}:   (4, WordTranslator),
+7         \textcolor{stringliteral}{'reguralizer'}:          (5, Classifier)
+8     \})
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/experiments/experiments.\+py\end{DoxyCompactItemize}

@@ -1,0 +1,78 @@
+\hypertarget{classutils_1_1UNMTPolicy}{}\section{utils.\+U\+N\+M\+T\+Policy Class Reference}
+\label{classutils_1_1UNMTPolicy}\index{utils.\+U\+N\+M\+T\+Policy@{utils.\+U\+N\+M\+T\+Policy}}
+
+
+Inheritance diagram for utils.\+U\+N\+M\+T\+Policy\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=174pt]{classutils_1_1UNMTPolicy__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for utils.\+U\+N\+M\+T\+Policy\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=174pt]{classutils_1_1UNMTPolicy__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+} (self, train, validation, test, add\+\_\+language\+\_\+token, cuda)\hypertarget{classutils_1_1UNMTPolicy_aa7771fd099101d3c163ee9eb789c7c66}{}\label{classutils_1_1UNMTPolicy_aa7771fd099101d3c163ee9eb789c7c66}
+
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries train\+\_\+tf\+\_\+ratio}\hypertarget{classutils_1_1UNMTPolicy_af319b45c28de3ce3f89d7c909c1e6a24}{}\label{classutils_1_1UNMTPolicy_af319b45c28de3ce3f89d7c909c1e6a24}
+
+\item 
+{\bfseries train\+\_\+noise}\hypertarget{classutils_1_1UNMTPolicy_ac5ff7c811b3ac5271831caf38d371efb}{}\label{classutils_1_1UNMTPolicy_ac5ff7c811b3ac5271831caf38d371efb}
+
+\item 
+{\bfseries validation\+\_\+tf\+\_\+ratio}\hypertarget{classutils_1_1UNMTPolicy_abd56fc27231a1c32bb5faa79ff49b5e8}{}\label{classutils_1_1UNMTPolicy_abd56fc27231a1c32bb5faa79ff49b5e8}
+
+\item 
+{\bfseries validation\+\_\+noise}\hypertarget{classutils_1_1UNMTPolicy_a3ab4aec3b6603f62e06b371159017c21}{}\label{classutils_1_1UNMTPolicy_a3ab4aec3b6603f62e06b371159017c21}
+
+\item 
+{\bfseries test\+\_\+tf\+\_\+ratio}\hypertarget{classutils_1_1UNMTPolicy_a54444b59f860127d126830ecfb01c5dd}{}\label{classutils_1_1UNMTPolicy_a54444b59f860127d126830ecfb01c5dd}
+
+\item 
+{\bfseries test\+\_\+noise}\hypertarget{classutils_1_1UNMTPolicy_aa5d1c62dffce70284859cc89210cc728}{}\label{classutils_1_1UNMTPolicy_aa5d1c62dffce70284859cc89210cc728}
+
+\item 
+{\bfseries add\+\_\+language\+\_\+token}\hypertarget{classutils_1_1UNMTPolicy_a42030b477f0a58ff1369985a076197ab}{}\label{classutils_1_1UNMTPolicy_a42030b477f0a58ff1369985a076197ab}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries interface}
+\item 
+bool {\bfseries abstract} = False\hypertarget{classutils_1_1UNMTPolicy_a57bef07dc42f2b80ccc8fb1a1860fc47}{}\label{classutils_1_1UNMTPolicy_a57bef07dc42f2b80ccc8fb1a1860fc47}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Member Data Documentation}
+\index{utils\+::\+U\+N\+M\+T\+Policy@{utils\+::\+U\+N\+M\+T\+Policy}!interface@{interface}}
+\index{interface@{interface}!utils\+::\+U\+N\+M\+T\+Policy@{utils\+::\+U\+N\+M\+T\+Policy}}
+\subsubsection[{\texorpdfstring{interface}{interface}}]{\setlength{\rightskip}{0pt plus 5cm}utils.\+U\+N\+M\+T\+Policy.\+interface\hspace{0.3cm}{\ttfamily [static]}}\hypertarget{classutils_1_1UNMTPolicy_aeb3df2eb6c8c25f7c429e2b393028036}{}\label{classutils_1_1UNMTPolicy_aeb3df2eb6c8c25f7c429e2b393028036}
+{\bfseries Initial value\+:}
+\begin{DoxyCode}
+1 = Interface(**\{
+2         **Policy.interface.dictionary,
+3         \textcolor{stringliteral}{'add\_language\_token'}: (Interface.last\_key(Policy.interface.dictionary) + 1, \textcolor{keywordtype}{None}),
+4     \})
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/utils/utils.\+py\end{DoxyCompactItemize}

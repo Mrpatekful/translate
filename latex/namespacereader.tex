@@ -1,0 +1,149 @@
+\hypertarget{namespacereader}{}\section{reader Namespace Reference}
+\label{namespacereader}\index{reader@{reader}}
+\subsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+class \hyperlink{classreader_1_1Bilingual}{Bilingual}
+\item 
+class \hyperlink{classreader_1_1Corpora}{Corpora}
+\item 
+class \hyperlink{classreader_1_1DataQueue}{Data\+Queue}
+\item 
+class \hyperlink{classreader_1_1FileInput}{File\+Input}
+\item 
+class \hyperlink{classreader_1_1InputPipeline}{Input\+Pipeline}
+\item 
+class \hyperlink{classreader_1_1Language}{Language}
+\item 
+class \hyperlink{classreader_1_1MemoryInput}{Memory\+Input}
+\item 
+class \hyperlink{classreader_1_1Monolingual}{Monolingual}
+\item 
+class \hyperlink{classreader_1_1Padding}{Padding}
+\item 
+class \hyperlink{classreader_1_1ParallelDataQueue}{Parallel\+Data\+Queue}
+\item 
+class \hyperlink{classreader_1_1PostPadding}{Post\+Padding}
+\item 
+class \hyperlink{classreader_1_1PrePadding}{Pre\+Padding}
+\item 
+class \hyperlink{classreader_1_1Vocabulary}{Vocabulary}
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{namespacereader_a24cd9e6d360f39f1e93d2ffe5a6a3d94}{}\label{namespacereader_a24cd9e6d360f39f1e93d2ffe5a6a3d94}
+
+\item 
+def \hyperlink{namespacereader_a252ff9835d10a3f4286036fd3d644575}{initialize\+\_\+corpus} (self)
+\item 
+def \hyperlink{namespacereader_aeba8470d82605c8e8d6d70ace35a4e72}{source\+\_\+vocabulary} (self)
+\item 
+def \hyperlink{namespacereader_a8cdfdd07f53f15ea3472528cc1860093}{target\+\_\+vocabulary} (self)
+\item 
+def \hyperlink{namespacereader_ab428a30ed4624cee95a4b41e8d462fb7}{source\+\_\+vocab\+\_\+size} (self)
+\item 
+def \hyperlink{namespacereader_accdcc0ae0f482d31890579d9dc15cd24}{target\+\_\+vocab\+\_\+size} (self)
+\item 
+def \hyperlink{namespacereader_a78392f924ab3df83b6a32130fe1a6d6b}{generator} (self)
+\end{DoxyCompactItemize}
+\subsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\hyperlink{namespacereader_a5660381a161b51169b78262c799b9e5e}{interface}
+\item 
+bool {\bfseries abstract} = False\hypertarget{namespacereader_af3898177cc26b035369ada5119bbc576}{}\label{namespacereader_af3898177cc26b035369ada5119bbc576}
+
+\item 
+int \hyperlink{namespacereader_aa21cb0dad4e0cc8083f3bae694b15835}{M\+A\+X\+\_\+\+S\+E\+G\+M\+E\+NT} = 50000
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}\end{DoxyVerb}
+ 
+
+\subsection{Function Documentation}
+\index{reader@{reader}!generator@{generator}}
+\index{generator@{generator}!reader@{reader}}
+\subsubsection[{\texorpdfstring{generator(self)}{generator(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def reader.\+generator (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{list}
+\end{DoxyParamCaption}
+)}\hypertarget{namespacereader_a78392f924ab3df83b6a32130fe1a6d6b}{}\label{namespacereader_a78392f924ab3df83b6a32130fe1a6d6b}
+\begin{DoxyVerb}Data is retrieved directly from a file, and loaded into data chunks of size MAX_CHUNK_SIZE.
+\end{DoxyVerb}
+ \index{reader@{reader}!initialize\+\_\+corpus@{initialize\+\_\+corpus}}
+\index{initialize\+\_\+corpus@{initialize\+\_\+corpus}!reader@{reader}}
+\subsubsection[{\texorpdfstring{initialize\+\_\+corpus(self)}{initialize_corpus(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def reader.\+initialize\+\_\+corpus (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{namespacereader_a252ff9835d10a3f4286036fd3d644575}{}\label{namespacereader_a252ff9835d10a3f4286036fd3d644575}
+\begin{DoxyVerb}\end{DoxyVerb}
+ \index{reader@{reader}!source\+\_\+vocab\+\_\+size@{source\+\_\+vocab\+\_\+size}}
+\index{source\+\_\+vocab\+\_\+size@{source\+\_\+vocab\+\_\+size}!reader@{reader}}
+\subsubsection[{\texorpdfstring{source\+\_\+vocab\+\_\+size(self)}{source_vocab_size(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def reader.\+source\+\_\+vocab\+\_\+size (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{namespacereader_ab428a30ed4624cee95a4b41e8d462fb7}{}\label{namespacereader_ab428a30ed4624cee95a4b41e8d462fb7}
+\begin{DoxyVerb}Property for the vocab size of the source language.
+:return: int, number of words in the source language.
+\end{DoxyVerb}
+ \index{reader@{reader}!source\+\_\+vocabulary@{source\+\_\+vocabulary}}
+\index{source\+\_\+vocabulary@{source\+\_\+vocabulary}!reader@{reader}}
+\subsubsection[{\texorpdfstring{source\+\_\+vocabulary(self)}{source_vocabulary(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def reader.\+source\+\_\+vocabulary (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{namespacereader_aeba8470d82605c8e8d6d70ace35a4e72}{}\label{namespacereader_aeba8470d82605c8e8d6d70ace35a4e72}
+\begin{DoxyVerb}Property for the source language of the text corpora.
+:return: Language, instance of the wrapper class for the source language.
+\end{DoxyVerb}
+ \index{reader@{reader}!target\+\_\+vocab\+\_\+size@{target\+\_\+vocab\+\_\+size}}
+\index{target\+\_\+vocab\+\_\+size@{target\+\_\+vocab\+\_\+size}!reader@{reader}}
+\subsubsection[{\texorpdfstring{target\+\_\+vocab\+\_\+size(self)}{target_vocab_size(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def reader.\+target\+\_\+vocab\+\_\+size (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{namespacereader_accdcc0ae0f482d31890579d9dc15cd24}{}\label{namespacereader_accdcc0ae0f482d31890579d9dc15cd24}
+\begin{DoxyVerb}Property for the vocab size of the target language.
+:return: int, number of words in the target language.
+\end{DoxyVerb}
+ \index{reader@{reader}!target\+\_\+vocabulary@{target\+\_\+vocabulary}}
+\index{target\+\_\+vocabulary@{target\+\_\+vocabulary}!reader@{reader}}
+\subsubsection[{\texorpdfstring{target\+\_\+vocabulary(self)}{target_vocabulary(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def reader.\+target\+\_\+vocabulary (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{namespacereader_a8cdfdd07f53f15ea3472528cc1860093}{}\label{namespacereader_a8cdfdd07f53f15ea3472528cc1860093}
+\begin{DoxyVerb}Property for the target language of the text corpora.
+:return: Language, instance of the wrapper class for the target language.
+\end{DoxyVerb}
+ 
+
+\subsection{Variable Documentation}
+\index{reader@{reader}!interface@{interface}}
+\index{interface@{interface}!reader@{reader}}
+\subsubsection[{\texorpdfstring{interface}{interface}}]{\setlength{\rightskip}{0pt plus 5cm}reader.\+interface}\hypertarget{namespacereader_a5660381a161b51169b78262c799b9e5e}{}\label{namespacereader_a5660381a161b51169b78262c799b9e5e}
+{\bfseries Initial value\+:}
+\begin{DoxyCode}
+1 = Interface(**\{
+2         \textcolor{stringliteral}{'data\_path'}:          (0, \textcolor{keywordtype}{None}),
+3         \textcolor{stringliteral}{'separator'}:          (1, \textcolor{keywordtype}{None}),
+4         \textcolor{stringliteral}{'vocabulary'}:         (2, \textcolor{stringliteral}{'Vocabulary$'}),
+5         \textcolor{stringliteral}{'cuda'}:               (3, \textcolor{stringliteral}{'Experiment:Policy:cuda$'})
+6     \})
+\end{DoxyCode}
+\begin{DoxyVerb}Wrapper class for the corpora, that yields two languages. The languages are paired, and
+are separated by a special separator token.
+\end{DoxyVerb}
+ \index{reader@{reader}!M\+A\+X\+\_\+\+S\+E\+G\+M\+E\+NT@{M\+A\+X\+\_\+\+S\+E\+G\+M\+E\+NT}}
+\index{M\+A\+X\+\_\+\+S\+E\+G\+M\+E\+NT@{M\+A\+X\+\_\+\+S\+E\+G\+M\+E\+NT}!reader@{reader}}
+\subsubsection[{\texorpdfstring{M\+A\+X\+\_\+\+S\+E\+G\+M\+E\+NT}{MAX_SEGMENT}}]{\setlength{\rightskip}{0pt plus 5cm}int reader.\+M\+A\+X\+\_\+\+S\+E\+G\+M\+E\+NT = 50000}\hypertarget{namespacereader_aa21cb0dad4e0cc8083f3bae694b15835}{}\label{namespacereader_aa21cb0dad4e0cc8083f3bae694b15835}
+\begin{DoxyVerb}A queue object for the data feed. This can be later configured to load the data to
+memory asynchronously.
+\end{DoxyVerb}
+ 

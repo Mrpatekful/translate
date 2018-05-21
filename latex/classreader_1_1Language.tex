@@ -1,0 +1,70 @@
+\hypertarget{classreader_1_1Language}{}\section{reader.\+Language Class Reference}
+\label{classreader_1_1Language}\index{reader.\+Language@{reader.\+Language}}
+
+
+Inheritance diagram for reader.\+Language\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=169pt]{classreader_1_1Language__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for reader.\+Language\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=169pt]{classreader_1_1Language__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classreader_1_1Language_a87c8088c36f415a49becda5c8a8f4f4a}{}\label{classreader_1_1Language_a87c8088c36f415a49becda5c8a8f4f4a}
+
+\item 
+def {\bfseries identifier} (self)\hypertarget{classreader_1_1Language_a94fbcfc6afd461253b63357051fcd415}{}\label{classreader_1_1Language_a94fbcfc6afd461253b63357051fcd415}
+
+\item 
+def {\bfseries input\+\_\+pipelines} (self)\hypertarget{classreader_1_1Language_af63b52231f647db16c3068f059b6b7cf}{}\label{classreader_1_1Language_af63b52231f647db16c3068f059b6b7cf}
+
+\item 
+def {\bfseries vocabulary} (self)\hypertarget{classreader_1_1Language_af8ce0fcb143b103f8ed8960ca29aa327}{}\label{classreader_1_1Language_af8ce0fcb143b103f8ed8960ca29aa327}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+bool {\bfseries abstract} = False\hypertarget{classreader_1_1Language_ae7b2a09ef605c3ea7317a22928af120d}{}\label{classreader_1_1Language_ae7b2a09ef605c3ea7317a22928af120d}
+
+\item 
+{\bfseries interface}
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}An abstract representation of ta language in an experiment. This class holds all relevant
+information about a given language, its vocabulary, identifier and the corpus.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Data Documentation}
+\index{reader\+::\+Language@{reader\+::\+Language}!interface@{interface}}
+\index{interface@{interface}!reader\+::\+Language@{reader\+::\+Language}}
+\subsubsection[{\texorpdfstring{interface}{interface}}]{\setlength{\rightskip}{0pt plus 5cm}reader.\+Language.\+interface\hspace{0.3cm}{\ttfamily [static]}}\hypertarget{classreader_1_1Language_abb22a3a50e7636396663c49211fd97b3}{}\label{classreader_1_1Language_abb22a3a50e7636396663c49211fd97b3}
+{\bfseries Initial value\+:}
+\begin{DoxyCode}
+1 = Interface(**\{
+2         \textcolor{stringliteral}{'identifier'}:           (0, \textcolor{keywordtype}{None}),
+3         \textcolor{stringliteral}{'vocabulary'}:           (1, Vocabulary),
+4         \textcolor{stringliteral}{'input\_pipelines'}:      (2, InputPipeline),
+5     \})
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/utils/reader.\+py\end{DoxyCompactItemize}

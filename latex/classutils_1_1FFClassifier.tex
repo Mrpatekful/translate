@@ -1,0 +1,71 @@
+\hypertarget{classutils_1_1FFClassifier}{}\section{utils.\+F\+F\+Classifier Class Reference}
+\label{classutils_1_1FFClassifier}\index{utils.\+F\+F\+Classifier@{utils.\+F\+F\+Classifier}}
+
+
+Inheritance diagram for utils.\+F\+F\+Classifier\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=234pt]{classutils_1_1FFClassifier__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for utils.\+F\+F\+Classifier\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=234pt]{classutils_1_1FFClassifier__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classutils_1_1FFClassifier_ad062320ee3630de6390d22b5d341ce4e}{}\label{classutils_1_1FFClassifier_ad062320ee3630de6390d22b5d341ce4e}
+
+\item 
+def \hyperlink{classutils_1_1FFClassifier_a13e7dc081218b4da11d413dcfe492ab7}{forward} (self, args, inputs, kwargs)
+\item 
+def {\bfseries optimizer} (self)\hypertarget{classutils_1_1FFClassifier_a372b0bea964edaf06d05b897a5d53b53}{}\label{classutils_1_1FFClassifier_a372b0bea964edaf06d05b897a5d53b53}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+bool {\bfseries abstract} = False\hypertarget{classutils_1_1FFClassifier_ac92dc5e5ff81ee98204a267e52b09091}{}\label{classutils_1_1FFClassifier_ac92dc5e5ff81ee98204a267e52b09091}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Feed-forward classifier module for the unsupervised neural translation task.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{utils\+::\+F\+F\+Classifier@{utils\+::\+F\+F\+Classifier}!forward@{forward}}
+\index{forward@{forward}!utils\+::\+F\+F\+Classifier@{utils\+::\+F\+F\+Classifier}}
+\subsubsection[{\texorpdfstring{forward(self, args, inputs, kwargs)}{forward(self, args, inputs, kwargs)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+F\+F\+Classifier.\+forward (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{args, }
+\item[{}]{inputs, }
+\item[{}]{kwargs}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1FFClassifier_a13e7dc081218b4da11d413dcfe492ab7}{}\label{classutils_1_1FFClassifier_a13e7dc081218b4da11d413dcfe492ab7}
+\begin{DoxyVerb}Forward step for the classifier.
+
+:param inputs:
+    Variable, (batch_size, input_size), where input_size is equal to the encoder's
+    hidden_size.
+
+:return output:
+    Variable, (batch_size, 1).
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/components/utils/utils.\+py\end{DoxyCompactItemize}

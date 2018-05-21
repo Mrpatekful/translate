@@ -1,0 +1,52 @@
+\hypertarget{classreader_1_1DataQueue}{}\section{reader.\+Data\+Queue Class Reference}
+\label{classreader_1_1DataQueue}\index{reader.\+Data\+Queue@{reader.\+Data\+Queue}}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classreader_1_1DataQueue_ab9a2c9d3fef5991b47b2c5e4ada7a4e8}{}\label{classreader_1_1DataQueue_ab9a2c9d3fef5991b47b2c5e4ada7a4e8}
+
+\item 
+def \hyperlink{classreader_1_1DataQueue_af6e14dd0a81e37dcff0a69044f3c9a01}{measure\+\_\+length} (self)
+\item 
+def \hyperlink{classreader_1_1DataQueue_a4b4fd15ec3b96973451d120c8f8afcbf}{generator} (self)
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+int {\bfseries M\+A\+X\+\_\+\+S\+E\+G\+M\+E\+NT} = 500000\hypertarget{classreader_1_1DataQueue_a786dc7054b64a7a3aac0f9a23cdd6bf0}{}\label{classreader_1_1DataQueue_a786dc7054b64a7a3aac0f9a23cdd6bf0}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}A queue object for the data feed. This can be later configured to load the data to
+memory asynchronously.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{reader\+::\+Data\+Queue@{reader\+::\+Data\+Queue}!generator@{generator}}
+\index{generator@{generator}!reader\+::\+Data\+Queue@{reader\+::\+Data\+Queue}}
+\subsubsection[{\texorpdfstring{generator(self)}{generator(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def reader.\+Data\+Queue.\+generator (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{list}
+\end{DoxyParamCaption}
+)}\hypertarget{classreader_1_1DataQueue_a4b4fd15ec3b96973451d120c8f8afcbf}{}\label{classreader_1_1DataQueue_a4b4fd15ec3b96973451d120c8f8afcbf}
+\begin{DoxyVerb}Data is retrieved directly from a file, and loaded into data chunks of size MAX_CHUNK_SIZE.
+\end{DoxyVerb}
+ \index{reader\+::\+Data\+Queue@{reader\+::\+Data\+Queue}!measure\+\_\+length@{measure\+\_\+length}}
+\index{measure\+\_\+length@{measure\+\_\+length}!reader\+::\+Data\+Queue@{reader\+::\+Data\+Queue}}
+\subsubsection[{\texorpdfstring{measure\+\_\+length(self)}{measure_length(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def reader.\+Data\+Queue.\+measure\+\_\+length (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{int}
+\end{DoxyParamCaption}
+)}\hypertarget{classreader_1_1DataQueue_af6e14dd0a81e37dcff0a69044f3c9a01}{}\label{classreader_1_1DataQueue_af6e14dd0a81e37dcff0a69044f3c9a01}
+\begin{DoxyVerb}Measures the length of the corpora file.
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/utils/reader.\+py\end{DoxyCompactItemize}

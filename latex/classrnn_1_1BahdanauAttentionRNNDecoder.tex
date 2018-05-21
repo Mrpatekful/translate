@@ -1,0 +1,90 @@
+\hypertarget{classrnn_1_1BahdanauAttentionRNNDecoder}{}\section{rnn.\+Bahdanau\+Attention\+R\+N\+N\+Decoder Class Reference}
+\label{classrnn_1_1BahdanauAttentionRNNDecoder}\index{rnn.\+Bahdanau\+Attention\+R\+N\+N\+Decoder@{rnn.\+Bahdanau\+Attention\+R\+N\+N\+Decoder}}
+
+
+Inheritance diagram for rnn.\+Bahdanau\+Attention\+R\+N\+N\+Decoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=255pt]{classrnn_1_1BahdanauAttentionRNNDecoder__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for rnn.\+Bahdanau\+Attention\+R\+N\+N\+Decoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=255pt]{classrnn_1_1BahdanauAttentionRNNDecoder__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classrnn_1_1BahdanauAttentionRNNDecoder_a0c718fa50c4707dc06ed5612aec9ae8a}{}\label{classrnn_1_1BahdanauAttentionRNNDecoder_a0c718fa50c4707dc06ed5612aec9ae8a}
+
+\item 
+def \hyperlink{classrnn_1_1BahdanauAttentionRNNDecoder_af01d308f26b7f7ae728c1df16cbe574a}{init\+\_\+parameters} (self)
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries interface}
+\item 
+bool {\bfseries abstract} = False\hypertarget{classrnn_1_1BahdanauAttentionRNNDecoder_addf7d4bd064d2f44da26829091293820}{}\label{classrnn_1_1BahdanauAttentionRNNDecoder_addf7d4bd064d2f44da26829091293820}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Global attention mechanism for the recurrent decoder module. The algorithm is based on:
+
+    https://arxiv.org/pdf/1409.0473.pdf
+
+The computational path of the method differs from the Luong style, since
+the context vector contributes to the calculation of the hidden state as well, created
+by the recurrent unit at time step t.
+
+    h(t-1) -> a(t) -> c(t) -> h(t)
+
+The attention weights are derived from the similarity scores of the previous recurrent hidden
+state (from time step t-1) and the encoder outputs. The created context vector is then merged with
+the output of the recurrent unit as well, to get the final output of a softmax layer, providing the
+probability distribution over the word ids.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{rnn\+::\+Bahdanau\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+Bahdanau\+Attention\+R\+N\+N\+Decoder}!init\+\_\+parameters@{init\+\_\+parameters}}
+\index{init\+\_\+parameters@{init\+\_\+parameters}!rnn\+::\+Bahdanau\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+Bahdanau\+Attention\+R\+N\+N\+Decoder}}
+\subsubsection[{\texorpdfstring{init\+\_\+parameters(self)}{init_parameters(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def rnn.\+Bahdanau\+Attention\+R\+N\+N\+Decoder.\+init\+\_\+parameters (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{Decoder}
+\end{DoxyParamCaption}
+)}\hypertarget{classrnn_1_1BahdanauAttentionRNNDecoder_af01d308f26b7f7ae728c1df16cbe574a}{}\label{classrnn_1_1BahdanauAttentionRNNDecoder_af01d308f26b7f7ae728c1df16cbe574a}
+\begin{DoxyVerb}Initializes the parameters for the decoder.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Data Documentation}
+\index{rnn\+::\+Bahdanau\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+Bahdanau\+Attention\+R\+N\+N\+Decoder}!interface@{interface}}
+\index{interface@{interface}!rnn\+::\+Bahdanau\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+Bahdanau\+Attention\+R\+N\+N\+Decoder}}
+\subsubsection[{\texorpdfstring{interface}{interface}}]{\setlength{\rightskip}{0pt plus 5cm}rnn.\+Bahdanau\+Attention\+R\+N\+N\+Decoder.\+interface\hspace{0.3cm}{\ttfamily [static]}}\hypertarget{classrnn_1_1BahdanauAttentionRNNDecoder_ac0c8ea546f7e3bf096e8e5815a887c80}{}\label{classrnn_1_1BahdanauAttentionRNNDecoder_ac0c8ea546f7e3bf096e8e5815a887c80}
+{\bfseries Initial value\+:}
+\begin{DoxyCode}
+1 = Interface(**\{
+2         **subtract\_dict(RNNDecoder.interface.dictionary, \{\textcolor{stringliteral}{'input\_size'}: \textcolor{keywordtype}{None}\}),
+3         \textcolor{stringliteral}{'input\_size'}: (Interface.last\_key(subtract\_dict(RNNDecoder.interface.dictionary, \{\textcolor{stringliteral}{'input\_size'}: \textcolor{keywordtype}{
+      None}\})) + 1,
+4                        \textcolor{stringliteral}{'Decoder:embedding\_size$ + Decoder:hidden\_size$'})
+5     \})
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/components/decoders/rnn.\+py\end{DoxyCompactItemize}

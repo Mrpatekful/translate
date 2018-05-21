@@ -1,0 +1,51 @@
+\hypertarget{classmodules_1_1Discriminator}{}\section{modules.\+Discriminator Class Reference}
+\label{classmodules_1_1Discriminator}\index{modules.\+Discriminator@{modules.\+Discriminator}}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classmodules_1_1Discriminator_ae79430af96ad263034049ba01e1e2c8f}{}\label{classmodules_1_1Discriminator_ae79430af96ad263034049ba01e1e2c8f}
+
+\item 
+def \hyperlink{classmodules_1_1Discriminator_ad8ff9ec051ea2b440af48108d2e5bfdb}{\+\_\+\+\_\+call\+\_\+\+\_\+} (self, args, inputs, targets, kwargs)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{modules\+::\+Discriminator@{modules\+::\+Discriminator}!\+\_\+\+\_\+call\+\_\+\+\_\+@{\+\_\+\+\_\+call\+\_\+\+\_\+}}
+\index{\+\_\+\+\_\+call\+\_\+\+\_\+@{\+\_\+\+\_\+call\+\_\+\+\_\+}!modules\+::\+Discriminator@{modules\+::\+Discriminator}}
+\subsubsection[{\texorpdfstring{\+\_\+\+\_\+call\+\_\+\+\_\+(self, args, inputs, targets, kwargs)}{__call__(self, args, inputs, targets, kwargs)}}]{\setlength{\rightskip}{0pt plus 5cm}def modules.\+Discriminator.\+\_\+\+\_\+call\+\_\+\+\_\+ (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{args, }
+\item[{}]{inputs, }
+\item[{}]{targets, }
+\item[{}]{kwargs}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodules_1_1Discriminator_ad8ff9ec051ea2b440af48108d2e5bfdb}{}\label{classmodules_1_1Discriminator_ad8ff9ec051ea2b440af48108d2e5bfdb}
+\begin{DoxyVerb}This function implements the discrimination mechanism, where the inputs and the targets - which
+are required for the evaluation and training of the discriminator - are created. The inputs are
+fed into the discriminator and evaluated based on the cross entropy loss, that is defined in the
+init function. The targets are either one-hot coded vectors, or their inverse. This depends on
+whether the loss is calculated for the discriminator or model loss.
+
+:param inputs:
+    A list, containing the batches from the input pipelines.
+
+:param targets:
+    An int value, that represents the index of the encoder's input language.
+
+:param lengths:
+
+:return loss:
+    A scalar loss value, indicating the average loss of the discriminator for either the
+    inverse or normal target vector.
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/modules/modules.\+py\end{DoxyCompactItemize}

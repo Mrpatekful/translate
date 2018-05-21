@@ -1,0 +1,68 @@
+\hypertarget{classrnn_1_1ConcatAttentionRNNDecoder}{}\section{rnn.\+Concat\+Attention\+R\+N\+N\+Decoder Class Reference}
+\label{classrnn_1_1ConcatAttentionRNNDecoder}\index{rnn.\+Concat\+Attention\+R\+N\+N\+Decoder@{rnn.\+Concat\+Attention\+R\+N\+N\+Decoder}}
+
+
+Inheritance diagram for rnn.\+Concat\+Attention\+R\+N\+N\+Decoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=243pt]{classrnn_1_1ConcatAttentionRNNDecoder__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for rnn.\+Concat\+Attention\+R\+N\+N\+Decoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=243pt]{classrnn_1_1ConcatAttentionRNNDecoder__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classrnn_1_1ConcatAttentionRNNDecoder_aeac71794a63879580d75c06622c54194}{}\label{classrnn_1_1ConcatAttentionRNNDecoder_aeac71794a63879580d75c06622c54194}
+
+\item 
+def \hyperlink{classrnn_1_1ConcatAttentionRNNDecoder_ac69bf078fd13962611eecf184ae8a6bc}{init\+\_\+parameters} (self)
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries interface} = R\+N\+N\+Decoder.\+interface\hypertarget{classrnn_1_1ConcatAttentionRNNDecoder_adb33ad797040b58dcb38bf8bd62437d1}{}\label{classrnn_1_1ConcatAttentionRNNDecoder_adb33ad797040b58dcb38bf8bd62437d1}
+
+\item 
+bool {\bfseries abstract} = False\hypertarget{classrnn_1_1ConcatAttentionRNNDecoder_a02c21a92b263ee91427642efa4b63699}{}\label{classrnn_1_1ConcatAttentionRNNDecoder_a02c21a92b263ee91427642efa4b63699}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Global attention mechanism for the recurrent decoder module. The algorithm is a specific case
+of Luong style attention, where the scoring is based off of the concatenation of the encoder
+and decoder states, which is then passed through a non-linear layer with tanh activation.
+The result is then multiplied by a vector to transform the final result to the correct size.
+The scoring of similarity between encoder and decoder states is essentially the same as Bahdanau's
+method, however the computation path follows the Luong style.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{rnn\+::\+Concat\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+Concat\+Attention\+R\+N\+N\+Decoder}!init\+\_\+parameters@{init\+\_\+parameters}}
+\index{init\+\_\+parameters@{init\+\_\+parameters}!rnn\+::\+Concat\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+Concat\+Attention\+R\+N\+N\+Decoder}}
+\subsubsection[{\texorpdfstring{init\+\_\+parameters(self)}{init_parameters(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def rnn.\+Concat\+Attention\+R\+N\+N\+Decoder.\+init\+\_\+parameters (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{Decoder}
+\end{DoxyParamCaption}
+)}\hypertarget{classrnn_1_1ConcatAttentionRNNDecoder_ac69bf078fd13962611eecf184ae8a6bc}{}\label{classrnn_1_1ConcatAttentionRNNDecoder_ac69bf078fd13962611eecf184ae8a6bc}
+\begin{DoxyVerb}Initializes the parameters for the decoder.
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/components/decoders/rnn.\+py\end{DoxyCompactItemize}

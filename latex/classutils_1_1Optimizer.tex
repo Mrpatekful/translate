@@ -1,0 +1,107 @@
+\hypertarget{classutils_1_1Optimizer}{}\section{utils.\+Optimizer Class Reference}
+\label{classutils_1_1Optimizer}\index{utils.\+Optimizer@{utils.\+Optimizer}}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def \hyperlink{classutils_1_1Optimizer_a9693d3a786237221b7a1dc00044026c6}{\+\_\+\+\_\+init\+\_\+\+\_\+} (self, parameters, optimizer\+\_\+type, scheduler\+\_\+type, learning\+\_\+rate)
+\item 
+def \hyperlink{classutils_1_1Optimizer_aa7dc63c97100388e23595095a5d77445}{step} (self)
+\item 
+def \hyperlink{classutils_1_1Optimizer_a8bd8dd05cc991c21b8700240858d0354}{clear} (self)
+\item 
+def \hyperlink{classutils_1_1Optimizer_a59eb009f0b2e04804497863266cc4dd4}{adjust} (self, metric)
+\item 
+def \hyperlink{classutils_1_1Optimizer_a21d5dad1145a246b6ff6c24730f09fc5}{state} (self)
+\item 
+def \hyperlink{classutils_1_1Optimizer_aa0ddbbf808474fd2f63bad79b69a9a4c}{state} (self, state)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Wrapper class for the optimizers. Additionally to the optimizers provided by torch,
+this type has built-in learning rate scheduling.
+\end{DoxyVerb}
+ 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{utils\+::\+Optimizer@{utils\+::\+Optimizer}!\+\_\+\+\_\+init\+\_\+\+\_\+@{\+\_\+\+\_\+init\+\_\+\+\_\+}}
+\index{\+\_\+\+\_\+init\+\_\+\+\_\+@{\+\_\+\+\_\+init\+\_\+\+\_\+}!utils\+::\+Optimizer@{utils\+::\+Optimizer}}
+\subsubsection[{\texorpdfstring{\+\_\+\+\_\+init\+\_\+\+\_\+(self, parameters, optimizer\+\_\+type, scheduler\+\_\+type, learning\+\_\+rate)}{__init__(self, parameters, optimizer_type, scheduler_type, learning_rate)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Optimizer.\+\_\+\+\_\+init\+\_\+\+\_\+ (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{parameters, }
+\item[{}]{optimizer\+\_\+type, }
+\item[{}]{scheduler\+\_\+type, }
+\item[{}]{learning\+\_\+rate}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Optimizer_a9693d3a786237221b7a1dc00044026c6}{}\label{classutils_1_1Optimizer_a9693d3a786237221b7a1dc00044026c6}
+\begin{DoxyVerb}Optimizer type object.
+
+:param parameters:
+    Iterable, containing the parameters, that will be optimized by the provided
+    optimalization algorithm.
+
+:param optimizer_type:
+    Str, type of the algorithm to be used for optimalization.
+
+:param scheduler_type:
+    Str, type of the scheduler to be used for learning rate adjustments.
+
+:param learning_rate:
+    Float, the initial learning rate.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{utils\+::\+Optimizer@{utils\+::\+Optimizer}!adjust@{adjust}}
+\index{adjust@{adjust}!utils\+::\+Optimizer@{utils\+::\+Optimizer}}
+\subsubsection[{\texorpdfstring{adjust(self, metric)}{adjust(self, metric)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Optimizer.\+adjust (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{metric}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Optimizer_a59eb009f0b2e04804497863266cc4dd4}{}\label{classutils_1_1Optimizer_a59eb009f0b2e04804497863266cc4dd4}
+\begin{DoxyVerb}Adjust the learning rate, given a metric.
+\end{DoxyVerb}
+ \index{utils\+::\+Optimizer@{utils\+::\+Optimizer}!clear@{clear}}
+\index{clear@{clear}!utils\+::\+Optimizer@{utils\+::\+Optimizer}}
+\subsubsection[{\texorpdfstring{clear(self)}{clear(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Optimizer.\+clear (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Optimizer_a8bd8dd05cc991c21b8700240858d0354}{}\label{classutils_1_1Optimizer_a8bd8dd05cc991c21b8700240858d0354}
+\begin{DoxyVerb}Clears the gradients of the parameters, which are being optimized by the algorithm.
+\end{DoxyVerb}
+ \index{utils\+::\+Optimizer@{utils\+::\+Optimizer}!state@{state}}
+\index{state@{state}!utils\+::\+Optimizer@{utils\+::\+Optimizer}}
+\subsubsection[{\texorpdfstring{state(self)}{state(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Optimizer.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Optimizer_a21d5dad1145a246b6ff6c24730f09fc5}{}\label{classutils_1_1Optimizer_a21d5dad1145a246b6ff6c24730f09fc5}
+\begin{DoxyVerb}Property for the state of the optimizer.
+\end{DoxyVerb}
+ \index{utils\+::\+Optimizer@{utils\+::\+Optimizer}!state@{state}}
+\index{state@{state}!utils\+::\+Optimizer@{utils\+::\+Optimizer}}
+\subsubsection[{\texorpdfstring{state(self, state)}{state(self, state)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Optimizer.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{state}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Optimizer_aa0ddbbf808474fd2f63bad79b69a9a4c}{}\label{classutils_1_1Optimizer_aa0ddbbf808474fd2f63bad79b69a9a4c}
+\begin{DoxyVerb}Setter method for the state of the optimizer.
+\end{DoxyVerb}
+ \index{utils\+::\+Optimizer@{utils\+::\+Optimizer}!step@{step}}
+\index{step@{step}!utils\+::\+Optimizer@{utils\+::\+Optimizer}}
+\subsubsection[{\texorpdfstring{step(self)}{step(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Optimizer.\+step (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1Optimizer_aa7dc63c97100388e23595095a5d77445}{}\label{classutils_1_1Optimizer_aa7dc63c97100388e23595095a5d77445}
+\begin{DoxyVerb}Executes the optimalization step on the parameters, that have benn provided to the optimizer.
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/components/utils/utils.\+py\end{DoxyCompactItemize}

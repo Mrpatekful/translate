@@ -1,0 +1,43 @@
+\hypertarget{classconfig_1_1Config}{}\section{config.\+Config Class Reference}
+\label{classconfig_1_1Config}\index{config.\+Config@{config.\+Config}}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classconfig_1_1Config_a2c77f4b64c0bf70b283cdb4af4c93fa1}{}\label{classconfig_1_1Config_a2c77f4b64c0bf70b283cdb4af4c93fa1}
+
+\item 
+def \hyperlink{classconfig_1_1Config_a4eaf8d72011aefb5237cd29bdbf659b3}{assemble} (self)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Class for handling configurations of models and tasks.
+The configs are defined in JSON format files, which are parsed,
+and instantiated with the help of interface definitions of the components.
+Each node of the JSON file, that has a 'type' and 'params' key are Component type
+objects.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{config\+::\+Config@{config\+::\+Config}!assemble@{assemble}}
+\index{assemble@{assemble}!config\+::\+Config@{config\+::\+Config}}
+\subsubsection[{\texorpdfstring{assemble(self)}{assemble(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def config.\+Config.\+assemble (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{tuple}
+\end{DoxyParamCaption}
+)}\hypertarget{classconfig_1_1Config_a4eaf8d72011aefb5237cd29bdbf659b3}{}\label{classconfig_1_1Config_a4eaf8d72011aefb5237cd29bdbf659b3}
+\begin{DoxyVerb}Assembles the components, described by the interface of the task from the configuration file.
+
+:return experiment:
+    The initialized experiment object.
+
+:return model_dir:
+    The location of the experiment outputs.
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/utils/config.\+py\end{DoxyCompactItemize}

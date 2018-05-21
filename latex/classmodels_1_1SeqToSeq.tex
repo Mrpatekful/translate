@@ -1,0 +1,226 @@
+\hypertarget{classmodels_1_1SeqToSeq}{}\section{models.\+Seq\+To\+Seq Class Reference}
+\label{classmodels_1_1SeqToSeq}\index{models.\+Seq\+To\+Seq@{models.\+Seq\+To\+Seq}}
+
+
+Inheritance diagram for models.\+Seq\+To\+Seq\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=214pt]{classmodels_1_1SeqToSeq__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for models.\+Seq\+To\+Seq\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=214pt]{classmodels_1_1SeqToSeq__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_a0b60c54272e7d559194cef5d924aa5e7}{\+\_\+\+\_\+init\+\_\+\+\_\+} (self, encoder, decoder)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_ac254a8bd8244bc3eda4c0f2a61f01e3d}{forward} (self, inputs, lengths, targets, max\+\_\+length)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_ad21c67bc3bb798893b7cc588f233a6de}{freeze} (self)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_ac8d3de12ffa7524c2223b29742d71196}{unfreeze} (self)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_a5dcde3a4174987f934d6250112b4fb6c}{optimizers} (self)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_ae502f52e4adbd9a0d6037a635531052d}{output\+\_\+size} (self)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_ac7d4da59af2d99e715b577840deba80f}{decoder\+\_\+tokens} (self)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_a1f9d544772bce628cfe0131391462fad}{decoder\+\_\+tokens} (self, tokens)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_aea607a3cbc3e1fe5c36b9a178711a016}{output\+\_\+types} (self)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_a0de756b7b636b74bff9b5069caa7122d}{state} (self)
+\item 
+def \hyperlink{classmodels_1_1SeqToSeq_af4130038b2f20880186c8732b08a1fd5}{state} (self, state)
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries encoder}\hypertarget{classmodels_1_1SeqToSeq_a818388aa10b96e0dd0578f27138ad271}{}\label{classmodels_1_1SeqToSeq_a818388aa10b96e0dd0578f27138ad271}
+
+\item 
+{\bfseries decoder}\hypertarget{classmodels_1_1SeqToSeq_affda4e3f0a70a5577b9460ef89af8a9d}{}\label{classmodels_1_1SeqToSeq_affda4e3f0a70a5577b9460ef89af8a9d}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries interface}
+\item 
+bool {\bfseries abstract} = False\hypertarget{classmodels_1_1SeqToSeq_a4f323f631e6c89b54fe3e90eddee94e8}{}\label{classmodels_1_1SeqToSeq_a4f323f631e6c89b54fe3e90eddee94e8}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Sequence to sequence model according to the one described in:
+
+    https://arxiv.org/abs/1409.3215
+
+The model has two main components, an encoder and a decoder, which may be
+implemented as recurrent or convolutional units. The main principle of this technique
+is to map a sequence - in case of translation - a sentence to another sentence,
+by encoding it to a fixed size representation, and then decoding this latent meaning
+vector to the desired sequence.
+\end{DoxyVerb}
+ 
+
+\subsection{Constructor \& Destructor Documentation}
+\index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!\+\_\+\+\_\+init\+\_\+\+\_\+@{\+\_\+\+\_\+init\+\_\+\+\_\+}}
+\index{\+\_\+\+\_\+init\+\_\+\+\_\+@{\+\_\+\+\_\+init\+\_\+\+\_\+}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{\+\_\+\+\_\+init\+\_\+\+\_\+(self, encoder, decoder)}{__init__(self, encoder, decoder)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+\_\+\+\_\+init\+\_\+\+\_\+ (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{encoder, }
+\item[{}]{decoder}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_a0b60c54272e7d559194cef5d924aa5e7}{}\label{classmodels_1_1SeqToSeq_a0b60c54272e7d559194cef5d924aa5e7}
+\begin{DoxyVerb}An instance of ta sequence to sequence model.
+
+:param encoder:
+    Encoder, an encoder instance.
+
+:param decoder:
+    Decoder, a decoder instance.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!decoder\+\_\+tokens@{decoder\+\_\+tokens}}
+\index{decoder\+\_\+tokens@{decoder\+\_\+tokens}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{decoder\+\_\+tokens(self)}{decoder_tokens(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+decoder\+\_\+tokens (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_ac7d4da59af2d99e715b577840deba80f}{}\label{classmodels_1_1SeqToSeq_ac7d4da59af2d99e715b577840deba80f}
+\begin{DoxyVerb}Tokens used by the decoder, for special outputs.
+\end{DoxyVerb}
+ \index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!decoder\+\_\+tokens@{decoder\+\_\+tokens}}
+\index{decoder\+\_\+tokens@{decoder\+\_\+tokens}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{decoder\+\_\+tokens(self, tokens)}{decoder_tokens(self, tokens)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+decoder\+\_\+tokens (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{tokens}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_a1f9d544772bce628cfe0131391462fad}{}\label{classmodels_1_1SeqToSeq_a1f9d544772bce628cfe0131391462fad}
+\begin{DoxyVerb}Setter for the tokens, that will be used by the decoder.
+\end{DoxyVerb}
+ \index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!forward@{forward}}
+\index{forward@{forward}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{forward(self, inputs, lengths, targets, max\+\_\+length)}{forward(self, inputs, lengths, targets, max_length)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+forward (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{inputs, }
+\item[{}]{lengths, }
+\item[{}]{targets, }
+\item[{}]{max\+\_\+length}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_ac254a8bd8244bc3eda4c0f2a61f01e3d}{}\label{classmodels_1_1SeqToSeq_ac254a8bd8244bc3eda4c0f2a61f01e3d}
+\begin{DoxyVerb}Forward step of the sequence to sequence model.
+
+:param inputs:
+    Variable, containing the ids of the tokens for the input sequence.
+
+:param targets:
+    Variable, containing the ids of the tokens for the target sequence.
+
+:param max_length:
+    int, the maximum length of the decoded sequence.
+
+:param lengths:
+    Ndarray, containing the lengths of the original sequences.
+
+:return outputs:
+    dict, containing the concatenated outputs of the encoder and decoder.
+\end{DoxyVerb}
+ \index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!freeze@{freeze}}
+\index{freeze@{freeze}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{freeze(self)}{freeze(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+freeze (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_ad21c67bc3bb798893b7cc588f233a6de}{}\label{classmodels_1_1SeqToSeq_ad21c67bc3bb798893b7cc588f233a6de}
+\begin{DoxyVerb}\end{DoxyVerb}
+ \index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!optimizers@{optimizers}}
+\index{optimizers@{optimizers}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{optimizers(self)}{optimizers(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+optimizers (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_a5dcde3a4174987f934d6250112b4fb6c}{}\label{classmodels_1_1SeqToSeq_a5dcde3a4174987f934d6250112b4fb6c}
+\begin{DoxyVerb}Convenience function for the optimizers of the encoder and decoder.
+:return: dict, containing the names and instances of optimizers for the encoder/decoder
+ and the currently used embeddings.
+\end{DoxyVerb}
+ \index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!output\+\_\+size@{output\+\_\+size}}
+\index{output\+\_\+size@{output\+\_\+size}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{output\+\_\+size(self)}{output_size(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+output\+\_\+size (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_ae502f52e4adbd9a0d6037a635531052d}{}\label{classmodels_1_1SeqToSeq_ae502f52e4adbd9a0d6037a635531052d}
+\begin{DoxyVerb}THe dimension of the decoder's output layer.
+\end{DoxyVerb}
+ \index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!output\+\_\+types@{output\+\_\+types}}
+\index{output\+\_\+types@{output\+\_\+types}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{output\+\_\+types(self)}{output_types(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+output\+\_\+types (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_aea607a3cbc3e1fe5c36b9a178711a016}{}\label{classmodels_1_1SeqToSeq_aea607a3cbc3e1fe5c36b9a178711a016}
+\begin{DoxyVerb}\end{DoxyVerb}
+ \index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!state@{state}}
+\index{state@{state}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{state(self)}{state(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_a0de756b7b636b74bff9b5069caa7122d}{}\label{classmodels_1_1SeqToSeq_a0de756b7b636b74bff9b5069caa7122d}
+\begin{DoxyVerb}\end{DoxyVerb}
+ \index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!state@{state}}
+\index{state@{state}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{state(self, state)}{state(self, state)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{state}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_af4130038b2f20880186c8732b08a1fd5}{}\label{classmodels_1_1SeqToSeq_af4130038b2f20880186c8732b08a1fd5}
+\begin{DoxyVerb}\end{DoxyVerb}
+ \index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!unfreeze@{unfreeze}}
+\index{unfreeze@{unfreeze}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{unfreeze(self)}{unfreeze(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def models.\+Seq\+To\+Seq.\+unfreeze (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{classmodels_1_1SeqToSeq_ac8d3de12ffa7524c2223b29742d71196}{}\label{classmodels_1_1SeqToSeq_ac8d3de12ffa7524c2223b29742d71196}
+\begin{DoxyVerb}\end{DoxyVerb}
+ 
+
+\subsection{Member Data Documentation}
+\index{models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}!interface@{interface}}
+\index{interface@{interface}!models\+::\+Seq\+To\+Seq@{models\+::\+Seq\+To\+Seq}}
+\subsubsection[{\texorpdfstring{interface}{interface}}]{\setlength{\rightskip}{0pt plus 5cm}models.\+Seq\+To\+Seq.\+interface\hspace{0.3cm}{\ttfamily [static]}}\hypertarget{classmodels_1_1SeqToSeq_a32da252c54cb7a4e7a1dd4366f5bc33d}{}\label{classmodels_1_1SeqToSeq_a32da252c54cb7a4e7a1dd4366f5bc33d}
+{\bfseries Initial value\+:}
+\begin{DoxyCode}
+1 = Interface(**\{
+2         \textcolor{stringliteral}{'encoder'}:    (0, Encoder),
+3         \textcolor{stringliteral}{'decoder'}:    (1, Decoder)
+4     \})
+\end{DoxyCode}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/models/models.\+py\end{DoxyCompactItemize}

@@ -1,0 +1,61 @@
+\hypertarget{classrnn_1_1LuongAttentionRNNDecoder}{}\section{rnn.\+Luong\+Attention\+R\+N\+N\+Decoder Class Reference}
+\label{classrnn_1_1LuongAttentionRNNDecoder}\index{rnn.\+Luong\+Attention\+R\+N\+N\+Decoder@{rnn.\+Luong\+Attention\+R\+N\+N\+Decoder}}
+
+
+Inheritance diagram for rnn.\+Luong\+Attention\+R\+N\+N\+Decoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{classrnn_1_1LuongAttentionRNNDecoder__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for rnn.\+Luong\+Attention\+R\+N\+N\+Decoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=238pt]{classrnn_1_1LuongAttentionRNNDecoder__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classrnn_1_1LuongAttentionRNNDecoder_adb0e81a64d832a59a658bf7980c6b0d9}{}\label{classrnn_1_1LuongAttentionRNNDecoder_adb0e81a64d832a59a658bf7980c6b0d9}
+
+\item 
+def \hyperlink{classrnn_1_1LuongAttentionRNNDecoder_a83e3361b531de2b9cbf2a6d775b6a350}{init\+\_\+parameters} (self)
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Attention mechanism for the recurrent decoder module. The algorithm is based on:
+
+    https://arxiv.org/pdf/1508.04025.pdf
+
+The computational path of the method differs from the Bahdanau style, since
+here the context vector contributes to the calculation of the hidden state, after the
+computations of the recurrent layer.
+
+    h(t) -> a(t) -> c(t) -> h*(t)\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{rnn\+::\+Luong\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+Luong\+Attention\+R\+N\+N\+Decoder}!init\+\_\+parameters@{init\+\_\+parameters}}
+\index{init\+\_\+parameters@{init\+\_\+parameters}!rnn\+::\+Luong\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+Luong\+Attention\+R\+N\+N\+Decoder}}
+\subsubsection[{\texorpdfstring{init\+\_\+parameters(self)}{init_parameters(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def rnn.\+Luong\+Attention\+R\+N\+N\+Decoder.\+init\+\_\+parameters (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{Decoder}
+\end{DoxyParamCaption}
+)}\hypertarget{classrnn_1_1LuongAttentionRNNDecoder_a83e3361b531de2b9cbf2a6d775b6a350}{}\label{classrnn_1_1LuongAttentionRNNDecoder_a83e3361b531de2b9cbf2a6d775b6a350}
+\begin{DoxyVerb}Initializes the parameters for the decoder.
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/components/decoders/rnn.\+py\end{DoxyCompactItemize}

@@ -1,0 +1,56 @@
+\hypertarget{classutils_1_1ModelWrapper}{}\section{utils.\+Model\+Wrapper Class Reference}
+\label{classutils_1_1ModelWrapper}\index{utils.\+Model\+Wrapper@{utils.\+Model\+Wrapper}}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+} (self, model, tokens)\hypertarget{classutils_1_1ModelWrapper_acc9526c703bb713b2b5498c11ed58b9f}{}\label{classutils_1_1ModelWrapper_acc9526c703bb713b2b5498c11ed58b9f}
+
+\item 
+def \hyperlink{classutils_1_1ModelWrapper_a66a672f97f19bbd9a0e37d0fc7aff29b}{\+\_\+\+\_\+call\+\_\+\+\_\+} (self, args, kwargs)
+\item 
+def {\bfseries init\+\_\+table} (self, lookups)\hypertarget{classutils_1_1ModelWrapper_a1a78994add85b8b95d95a56b5e0547ae}{}\label{classutils_1_1ModelWrapper_a1a78994add85b8b95d95a56b5e0547ae}
+
+\item 
+def {\bfseries switch\+\_\+lookups} (self, lookups)\hypertarget{classutils_1_1ModelWrapper_a594f4d5a1251fe417e648e267d29d096}{}\label{classutils_1_1ModelWrapper_a594f4d5a1251fe417e648e267d29d096}
+
+\item 
+def \hyperlink{classutils_1_1ModelWrapper_a753e0e038dcd5691189f885cfb5b859d}{set\+\_\+lookup} (self, lookups)
+\item 
+def {\bfseries encoder} (self)\hypertarget{classutils_1_1ModelWrapper_a93d7be08532ab533cb74b2e56066d0ec}{}\label{classutils_1_1ModelWrapper_a93d7be08532ab533cb74b2e56066d0ec}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Member Function Documentation}
+\index{utils\+::\+Model\+Wrapper@{utils\+::\+Model\+Wrapper}!\+\_\+\+\_\+call\+\_\+\+\_\+@{\+\_\+\+\_\+call\+\_\+\+\_\+}}
+\index{\+\_\+\+\_\+call\+\_\+\+\_\+@{\+\_\+\+\_\+call\+\_\+\+\_\+}!utils\+::\+Model\+Wrapper@{utils\+::\+Model\+Wrapper}}
+\subsubsection[{\texorpdfstring{\+\_\+\+\_\+call\+\_\+\+\_\+(self, args, kwargs)}{__call__(self, args, kwargs)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Model\+Wrapper.\+\_\+\+\_\+call\+\_\+\+\_\+ (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{args, }
+\item[{}]{kwargs}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1ModelWrapper_a66a672f97f19bbd9a0e37d0fc7aff29b}{}\label{classutils_1_1ModelWrapper_a66a672f97f19bbd9a0e37d0fc7aff29b}
+\begin{DoxyVerb}Forwards the call to the actual model.
+\end{DoxyVerb}
+ \index{utils\+::\+Model\+Wrapper@{utils\+::\+Model\+Wrapper}!set\+\_\+lookup@{set\+\_\+lookup}}
+\index{set\+\_\+lookup@{set\+\_\+lookup}!utils\+::\+Model\+Wrapper@{utils\+::\+Model\+Wrapper}}
+\subsubsection[{\texorpdfstring{set\+\_\+lookup(self, lookups)}{set_lookup(self, lookups)}}]{\setlength{\rightskip}{0pt plus 5cm}def utils.\+Model\+Wrapper.\+set\+\_\+lookup (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{lookups}
+\end{DoxyParamCaption}
+)}\hypertarget{classutils_1_1ModelWrapper_a753e0e038dcd5691189f885cfb5b859d}{}\label{classutils_1_1ModelWrapper_a753e0e038dcd5691189f885cfb5b859d}
+\begin{DoxyVerb}Sets the lookups (embeddings) for the encoder and decoder.
+
+Arguments:
+    lookups:
+A dictionary, that yields the new embeddings for the decoder and encoder.
+The dictionary has to contain 3 keys, E_I, D_I, and D_O. The values of the keys
+are ints, which represent the index of the languages.
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/utils/utils.\+py\end{DoxyCompactItemize}

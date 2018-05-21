@@ -1,0 +1,66 @@
+\hypertarget{classrnn_1_1GeneralAttentionRNNDecoder}{}\section{rnn.\+General\+Attention\+R\+N\+N\+Decoder Class Reference}
+\label{classrnn_1_1GeneralAttentionRNNDecoder}\index{rnn.\+General\+Attention\+R\+N\+N\+Decoder@{rnn.\+General\+Attention\+R\+N\+N\+Decoder}}
+
+
+Inheritance diagram for rnn.\+General\+Attention\+R\+N\+N\+Decoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=245pt]{classrnn_1_1GeneralAttentionRNNDecoder__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for rnn.\+General\+Attention\+R\+N\+N\+Decoder\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=245pt]{classrnn_1_1GeneralAttentionRNNDecoder__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{classrnn_1_1GeneralAttentionRNNDecoder_ab29146b7be0f310e74af03e63fee5a0d}{}\label{classrnn_1_1GeneralAttentionRNNDecoder_ab29146b7be0f310e74af03e63fee5a0d}
+
+\item 
+def \hyperlink{classrnn_1_1GeneralAttentionRNNDecoder_a396d1ccba6f18aaadfb8cda1a8c2da95}{init\+\_\+parameters} (self)
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries interface} = R\+N\+N\+Decoder.\+interface\hypertarget{classrnn_1_1GeneralAttentionRNNDecoder_aa2bca36c8dbcd5fa484c57327ccab46c}{}\label{classrnn_1_1GeneralAttentionRNNDecoder_aa2bca36c8dbcd5fa484c57327ccab46c}
+
+\item 
+bool {\bfseries abstract} = False\hypertarget{classrnn_1_1GeneralAttentionRNNDecoder_a3047fe7f55a476f80b964747c2dcf0b4}{}\label{classrnn_1_1GeneralAttentionRNNDecoder_a3047fe7f55a476f80b964747c2dcf0b4}
+
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}Global attention mechanism for the recurrent decoder module. The algorithm is a specific case
+of Luong style attention, where the scoring is based off of the linear activation
+of the encoder output, and the dot product of the decoder hidden state with the result of the
+activation from the linear layer.
+\end{DoxyVerb}
+ 
+
+\subsection{Member Function Documentation}
+\index{rnn\+::\+General\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+General\+Attention\+R\+N\+N\+Decoder}!init\+\_\+parameters@{init\+\_\+parameters}}
+\index{init\+\_\+parameters@{init\+\_\+parameters}!rnn\+::\+General\+Attention\+R\+N\+N\+Decoder@{rnn\+::\+General\+Attention\+R\+N\+N\+Decoder}}
+\subsubsection[{\texorpdfstring{init\+\_\+parameters(self)}{init_parameters(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def rnn.\+General\+Attention\+R\+N\+N\+Decoder.\+init\+\_\+parameters (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{Decoder}
+\end{DoxyParamCaption}
+)}\hypertarget{classrnn_1_1GeneralAttentionRNNDecoder_a396d1ccba6f18aaadfb8cda1a8c2da95}{}\label{classrnn_1_1GeneralAttentionRNNDecoder_a396d1ccba6f18aaadfb8cda1a8c2da95}
+\begin{DoxyVerb}Initializes the parameters for the decoder.
+\end{DoxyVerb}
+ 
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/components/decoders/rnn.\+py\end{DoxyCompactItemize}

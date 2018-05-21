@@ -1,0 +1,127 @@
+\hypertarget{namespaceexperiments}{}\section{experiments Namespace Reference}
+\label{namespaceexperiments}\index{experiments@{experiments}}
+\subsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+class \hyperlink{classexperiments_1_1DividedCurriculumTranslation}{Divided\+Curriculum\+Translation}
+\item 
+class \hyperlink{classexperiments_1_1Experiment}{Experiment}
+\item 
+class \hyperlink{classexperiments_1_1MergedCurriculumTranslation}{Merged\+Curriculum\+Translation}
+\item 
+class \hyperlink{classexperiments_1_1UnsupervisedTranslation}{Unsupervised\+Translation}
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+def {\bfseries \+\_\+\+\_\+init\+\_\+\+\_\+}\hypertarget{namespaceexperiments_aa9fc623b22f0221771b0125e119b8776}{}\label{namespaceexperiments_aa9fc623b22f0221771b0125e119b8776}
+
+\item 
+def {\bfseries train}\hypertarget{namespaceexperiments_a6144c0536ac5fe9144b1052e8f4ebf52}{}\label{namespaceexperiments_a6144c0536ac5fe9144b1052e8f4ebf52}
+
+\item 
+def \hyperlink{namespaceexperiments_aef86281a6e996d04892cc1e9b5996ff7}{validate} (self)
+\item 
+def {\bfseries test} (self)\hypertarget{namespaceexperiments_aeea9961f914a7e7dba8f70cf9a6fb26d}{}\label{namespaceexperiments_aeea9961f914a7e7dba8f70cf9a6fb26d}
+
+\item 
+def {\bfseries evaluate} (self)\hypertarget{namespaceexperiments_adaad6bc73e2e49ae9afc6f98b0e53e1b}{}\label{namespaceexperiments_adaad6bc73e2e49ae9afc6f98b0e53e1b}
+
+\item 
+def \hyperlink{namespaceexperiments_a7936737e034177325b64ae442a2f8390}{state} (self)
+\item 
+def \hyperlink{namespaceexperiments_a333f2fbb3650e732ed9566e2d65aff63}{state} (self, state)
+\end{DoxyCompactItemize}
+\subsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\hyperlink{namespaceexperiments_a13c0f96547027ac51391fa0dd065ca63}{interface} = Unsupervised\+Translation.\+interface
+\item 
+bool {\bfseries abstract} = False\hypertarget{namespaceexperiments_a5d361d0a78dad40b8043a2c2b78e1dc7}{}\label{namespaceexperiments_a5d361d0a78dad40b8043a2c2b78e1dc7}
+
+\item 
+{\bfseries reguralize}\hypertarget{namespaceexperiments_a9c0b829076513e4e35ecf1cd1505812d}{}\label{namespaceexperiments_a9c0b829076513e4e35ecf1cd1505812d}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{DoxyVerb}@package experiments\end{DoxyVerb}
+ 
+
+\subsection{Function Documentation}
+\index{experiments@{experiments}!state@{state}}
+\index{state@{state}!experiments@{experiments}}
+\subsubsection[{\texorpdfstring{state(self)}{state(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def experiments.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceexperiments_a7936737e034177325b64ae442a2f8390}{}\label{namespaceexperiments_a7936737e034177325b64ae442a2f8390}
+\begin{DoxyVerb}Property for the state of the task.
+\end{DoxyVerb}
+ \index{experiments@{experiments}!state@{state}}
+\index{state@{state}!experiments@{experiments}}
+\subsubsection[{\texorpdfstring{state(self, state)}{state(self, state)}}]{\setlength{\rightskip}{0pt plus 5cm}def experiments.\+state (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{state}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceexperiments_a333f2fbb3650e732ed9566e2d65aff63}{}\label{namespaceexperiments_a333f2fbb3650e732ed9566e2d65aff63}
+\begin{DoxyVerb}Setter function for the state of the task, and the embeddings.
+\end{DoxyVerb}
+ \index{experiments@{experiments}!validate@{validate}}
+\index{validate@{validate}!experiments@{experiments}}
+\subsubsection[{\texorpdfstring{validate(self)}{validate(self)}}]{\setlength{\rightskip}{0pt plus 5cm}def experiments.\+validate (
+\begin{DoxyParamCaption}
+\item[{}]{self, }
+\item[{}]{dict}
+\end{DoxyParamCaption}
+)}\hypertarget{namespaceexperiments_aef86281a6e996d04892cc1e9b5996ff7}{}\label{namespaceexperiments_aef86281a6e996d04892cc1e9b5996ff7}
+\begin{DoxyVerb}This function evaluates the model. Input data is propagated forward, and then the loss calculated
+based on the same loss function which was used during training. The weights however, are not modified
+in this function.
+
+:return logs:
+    A list of DataLog type objects, that contain the logging data for the languages. The number of
+    data logs equal to the number of languages, and each data log contains information about the
+    produced output for the whole data set of a language.
+
+        total_loss:
+            The total loss of the iteration, which is the same as the model loss during training.
+            The value contains the loss of translation, auto-encoding and reguralization loss. The
+            individual error of the discriminator is not included.
+
+        translation_loss:
+            The error, that is produced by the model, when translating a sentence.
+
+        auto_encoding_loss:
+            The error, that is produced by the model,
+            when restoring (auto-encoding) a sentence.
+
+        reguralization_loss:
+            The reguralization loss, that is produced by the discriminator.
+
+        discriminator_loss:
+            The error of the discriminator, which is the loss that is produced, when the
+            discriminator identifies a given latent vector.
+
+        translation_text:
+            The textual representation of the input, target and output symbols at the
+            translation phase. These texts are produced by the format outputs
+            utility function.
+
+        auto_encoding_text:
+            The textual representation of the input, target and output symbols at the
+            auto encoding phase. These texts are produced by the format outputs
+            utility function.
+
+        Additional outputs depend on the chosen model.
+\end{DoxyVerb}
+ 
+
+\subsection{Variable Documentation}
+\index{experiments@{experiments}!interface@{interface}}
+\index{interface@{interface}!experiments@{experiments}}
+\subsubsection[{\texorpdfstring{interface}{interface}}]{\setlength{\rightskip}{0pt plus 5cm}experiments.\+interface = Unsupervised\+Translation.\+interface}\hypertarget{namespaceexperiments_a13c0f96547027ac51391fa0dd065ca63}{}\label{namespaceexperiments_a13c0f96547027ac51391fa0dd065ca63}
+\begin{DoxyVerb}\end{DoxyVerb}
+ 
