@@ -93,14 +93,28 @@ def synchronize(vocab_path, new_vocab_path, corpora_path, new_corpora_path, oov_
     tqdm.tqdm.write(f'(Vocab) New size:                  {new_vocab_size}')
 
 
-def create_vocab(vocab_path, ordered_words, embedding_dim):
+def create_vocab(vocab_path, corpora_path, embedding_dim):
+
+
+    words = set()
+
+    with open(corpora_path, 'r', encoding='utf-8') as corpora:
+        with tqdm.tqdm() as p_bar:
+            p_bar.set_description('Reading corpora')
+            for line in corpora:
+                p_bar.update()
+                line_as_list = line.strip().split()
+                for word in line_as_list:
+                    words.add(word)
+
     tqdm.tqdm.write('Creating vocab with %d words, %d dimension embedding' %
-                    (len(ordered_words), embedding_dim))
+                    (len(words), embedding_dim))
+
     with open(vocab_path, 'w', encoding='utf-8') as vocab:
         with tqdm.tqdm() as p_bar:
             p_bar.set_description('Creating vocab')
-            vocab.write('%d %d\n' % (len(ordered_words), embedding_dim))
-            for word in ordered_words:
+            vocab.write('%d %d\n' % (len(words), embedding_dim))
+            for word in words:
                 p_bar.update()
                 vocab.write('%s %s\n' % (
                     word,
@@ -222,7 +236,7 @@ def align_vocabs(source_vocab_path, target_vocab_path, alignment_embedding_dimen
                 file=open(location_scheme(source_vocab_path, 'alignment'), 'wb'))
 
 
-def remove_unique(corpora_path, new_corpora_path, min_count, max_removed, min_length, max_vocab_size):
+def remove_unique(corpora_path, new_corpora_path, min_count, max_removed, min_length, max_vocab_size, max_corpora_size):
     word_frequency = {}
 
     with open(corpora_path, 'r', encoding='utf-8') as corpora:
@@ -241,7 +255,7 @@ def remove_unique(corpora_path, new_corpora_path, min_count, max_removed, min_le
         with open(new_corpora_path, 'w', encoding='utf-8') as new_corpora:
             with tqdm.tqdm() as p_bar:
                 p_bar.set_description('Creating new corpora')
-                for line in corpora:
+                for index, line in enumerate(corpora):
                     p_bar.update()
                     line_as_list = line.strip().split()
                     new_line = []
@@ -252,9 +266,9 @@ def remove_unique(corpora_path, new_corpora_path, min_count, max_removed, min_le
                         else:
                             unique_count += 1
                     if unique_count < max_removed and len(new_line) > min_length:
+                        if index > max_corpora_size:
+                            break
                         new_corpora.write('%s\n' % ' '.join(new_line))
-
-    return ordered_words
 
 
 def tokenize(word):
@@ -330,8 +344,9 @@ def main():
     #
     # arguments = parser.parse_args()
 
-    embedding_dim = 300
-    max_vocab_size = 60000
+    embedding_dim = 100
+    max_vocab_size = 30000
+    max_corpora_size = 3000000
 
     source_corpora = '/media/patrik/1EDB65B8599DD93E/data/test/eng/eng_raw'
     source_vocab = '/media/patrik/1EDB65B8599DD93E/data/test/eng/vectors-en.txt'
@@ -367,35 +382,33 @@ def main():
 
     reduced_source_corpora = location_scheme(source_corpora, 'reduced_data')
 
-    source_ordered_words = remove_unique(
+    remove_unique(
         corpora_path=synced_source_corpora,
         new_corpora_path=reduced_source_corpora,
         max_removed=2, min_count=4, min_length=3,
-        max_vocab_size=max_vocab_size
+        max_vocab_size=max_vocab_size,
+        max_corpora_size=max_corpora_size
     )
 
     reduced_source_vocab = location_scheme(source_corpora, 'reduced_vocab')
 
-    create_vocab(vocab_path=reduced_source_vocab, ordered_words=source_ordered_words,
+    create_vocab(vocab_path=reduced_source_vocab, corpora_path=reduced_source_corpora,
                  embedding_dim=embedding_dim)
-
-    del source_ordered_words
 
     reduced_target_corpora = location_scheme(target_corpora, 'reduced_data')
 
-    target_ordered_words = remove_unique(
+    remove_unique(
         corpora_path=synced_target_corpora,
         new_corpora_path=reduced_target_corpora,
         max_removed=2, min_count=4, min_length=3,
-        max_vocab_size=max_vocab_size
+        max_vocab_size=max_vocab_size,
+        max_corpora_size=max_corpora_size
     )
 
     reduced_target_vocab = location_scheme(target_corpora, 'reduced_vocab')
 
-    create_vocab(vocab_path=reduced_target_vocab, ordered_words=target_ordered_words,
+    create_vocab(vocab_path=reduced_target_vocab, corpora_path=reduced_target_corpora,
                  embedding_dim=embedding_dim)
-
-    del target_ordered_words
 
     tokenized_source_corpora = location_scheme(source_corpora, 'tokenized_data')
     tokenized_target_corpora = location_scheme(target_corpora, 'tokenized_data')
