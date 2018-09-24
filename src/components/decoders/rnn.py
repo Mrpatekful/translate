@@ -86,7 +86,7 @@ class RNNDecoder(Decoder):
         self._recurrent_layer = unit_type(input_size=self._input_size,
                                           hidden_size=self._hidden_size,
                                           num_layers=self._num_layers,
-                                          dropout=0.5,
+                                          dropout=0.2,
                                           bidirectional=False,
                                           batch_first=True)
 

@@ -61,15 +61,20 @@ class Experiment(Component):
 
 class UnsupervisedTranslation(Experiment):
     """
-    Translation experiment, without parallel corpus. The method follows the main principles described
+    Translation experiment, without parallel corpus. The method follows the
+    main principles described
     in this article:
 
         https://arxiv.org/abs/1711.00043
 
-    The main goal of this experiment is to train a denoising auto-encoder, that learns to map sentences to
-    sentences in two ways. The first way is to transform a noisy version of the source sentence to it's
-    original form, and the second way is to transform a translated version of a sentence to it's original form.
-    There is an additional factor during training, which is an adversarial reguralization, that learns to
+    The main goal of this experiment is to train a denoising auto-encoder, that
+    learns to map sentences to
+    sentences in two ways. The first way is to transform a noisy version of the
+    source sentence to it's
+    original form, and the second way is to transform a translated version of a
+    sentence to it's original form.
+    There is an additional factor during training, which is an adversarial
+    reguralization, that learns to
     discriminate the hidden representations of the source and target languages.
     """
 
@@ -87,7 +92,8 @@ class UnsupervisedTranslation(Experiment):
     @staticmethod
     def clear_optimizers(optimizers: list):
         """
-        Convenience function for the execution of the clear function on the provided optimizer.
+        Convenience function for the execution of the clear function on the
+        provided optimizer.
         Clear will reset the gradients of the optimized parameters.
 
         Args:
@@ -98,7 +104,8 @@ class UnsupervisedTranslation(Experiment):
     @staticmethod
     def step_optimizers(optimizers: list):
         """
-        Convenience function for the execution of the step function on the provided optimizer.
+        Convenience function for the execution of the step function on the
+        provided optimizer.
         Step will modify the values of the required parameters.
 
         Args:
@@ -109,7 +116,8 @@ class UnsupervisedTranslation(Experiment):
     @staticmethod
     def freeze(task_components: list):
         """
-        Convenience function for the freezing the given components of the task. The frozen
+        Convenience function for the freezing the given components of the task.
+         The frozen
         components won't receive any updates by the optimizers.
 
         Args:
@@ -120,7 +128,8 @@ class UnsupervisedTranslation(Experiment):
     @staticmethod
     def unfreeze(task_components: list):
         """
-        Convenience function for unfreezing the weights of the provided components. The
+        Convenience function for unfreezing the weights of the provided
+        components. The
         optimizers will be able to modify the weights of these components.
 
         Args:
@@ -136,9 +145,12 @@ class UnsupervisedTranslation(Experiment):
                  initial_translator:   WordTranslator,
                  reguralizer:          Classifier = None):
         """
-        Initialization of an unsupervised translation task. The embedding and output layers for the model
-        are created in this function as well. These modules have to be changeable during training,
-        so their references are kept in a list, where each index corresponds to the index of language.
+        Initialization of an unsupervised translation task. The embedding and
+        output layers for the model
+        are created in this function as well. These modules have to be
+        changeable during training,
+        so their references are kept in a list, where each index corresponds
+        to the index of language.
 
         :param model:
             A Model type instance, that will be used during the experiment.
@@ -146,32 +158,44 @@ class UnsupervisedTranslation(Experiment):
         :param languages:
 
         :param policy:
-            An UNMTPolicy object, that contains specific information about this particular task.
-            The information is divided into three segments, the train, validation and test policy.
+            An UNMTPolicy object, that contains specific information about this
+            particular task.
+            The information is divided into three segments, the train,
+            validation and test policy.
             The data contained in the segments are the following.
 
                 tf_ratio:
-                    A float scalar, that determines the rate of teacher forcing during training phase.
-                    A value of 0 will prevent teacher forcing, so the model will use predictive decoding.
-                    A value of 1 will force the model to use the targets as previous outputs and a value of
-                    0.5 will create a 50% chance of using either techniques. Default value is 1.
+                    A float scalar, that determines the rate of teacher forcing
+                    during training phase.
+                    A value of 0 will prevent teacher forcing, so the model
+                    will use predictive decoding.
+                    A value of 1 will force the model to use the targets as
+                    previous outputs and a value of
+                    0.5 will create a 50% chance of using either techniques.
+                    Default value is 1.
 
                 noise:
-                    A boolean value signaling the presence of noise in the input data. The characteristics
+                    A boolean value signaling the presence of noise in the
+                    input data. The characteristics
                     of the noise function is ...
 
         :param reguralizer:
-            Reguralization, that will be used as an adversarial reguralizer during training. Default
-            value is None, meaning there won't be any reguralization used during training.
+            Reguralization, that will be used as an adversarial reguralizer
+            during training. Default
+            value is None, meaning there won't be any reguralization used
+            during training.
 
         :raises ValueError:
-            If the corpora was not created with a Monolingual type Corpora object an
+            If the corpora was not created with a Monolingual type Corpora
+            object an
             exception is raised.
         """
         def initialize_embeddings() -> list:
             """
-            Initializer function for the embeddings of different languages. Each language uses a different
-            embedding layer, which have to be switched during training and evaluation.
+            Initializer function for the embeddings of different languages.
+            Each language uses a different
+            embedding layer, which have to be switched during training and
+            evaluation.
             """
             nonlocal languages
 
@@ -183,8 +207,10 @@ class UnsupervisedTranslation(Experiment):
 
         def initialize_loss_functions() -> list:
             """
-            Initializer function for the loss functions of different languages. Each loss is a negative loss
-            likelihood function. The difference is the padding value, that differs for the languages.
+            Initializer function for the loss functions of different languages.
+            Each loss is a negative loss
+            likelihood function. The difference is the padding value, that
+            differs for the languages.
             """
             nonlocal languages
 
@@ -198,8 +224,10 @@ class UnsupervisedTranslation(Experiment):
 
         def initialize_output_layers() -> list:
             """
-            Initializer function for the output layers of different languages. Each language uses a different
-            output layer, which have to be switched during training and evaluation.
+            Initializer function for the output layers of different languages.
+            Each language uses a different
+            output layer, which have to be switched during training and
+            evaluation.
             """
             nonlocal languages
             nonlocal self
@@ -215,8 +243,10 @@ class UnsupervisedTranslation(Experiment):
 
         def initialize_tokens() -> list:
             """
-            Initializer function for the tokens of the different languages. These tokens are the <EOS>, <SOS>
-            and <UNK> tokens. The returned 'tokens' list contains their ID representation, that is retrieved
+            Initializer function for the tokens of the different languages.
+            These tokens are the <EOS>, <SOS>
+            and <UNK> tokens. The returned 'tokens' list contains their ID
+            representation, that is retrieved
             from the vocabulary of the corresponding language.
             """
             nonlocal languages
@@ -229,8 +259,10 @@ class UnsupervisedTranslation(Experiment):
 
         def initialize_input_pipelines() -> tuple:
             """
-            Initializer function for the tokens of the different languages. These tokens are the <EOS>, <SOS>
-            and <UNK> tokens. The returned 'tokens' list contains their ID representation, that is retrieved
+            Initializer function for the tokens of the different languages.
+            These tokens are the <EOS>, <SOS>
+            and <UNK> tokens. The returned 'tokens' list contains their ID
+            representation, that is retrieved
             from the vocabulary of the corresponding language.
             """
             nonlocal languages
@@ -243,7 +275,9 @@ class UnsupervisedTranslation(Experiment):
                 validation_pipelines.append(language.input_pipelines['dev'])
                 test_pipelines.append(language.input_pipelines['test'])
 
-            assert all(list(map(lambda x: x.batch_size == train_pipelines[0].batch_size, train_pipelines))), \
+            assert all(list(map(
+                lambda x: x.batch_size == train_pipelines[0].batch_size,
+                train_pipelines))), \
                 'Invalid batch size'
 
             return train_pipelines, validation_pipelines, test_pipelines
@@ -263,23 +297,29 @@ class UnsupervisedTranslation(Experiment):
         self._initial_translator = initial_translator
         self._initial_translator.vocabs = self._vocabularies
         self._initial_translator.cuda = self._policy.cuda
-        self._initial_translator.language_tokens_required = self._add_language_token
+        self._initial_translator.language_tokens_required = \
+            self._add_language_token
 
         self._previous_translator = self._initial_translator
 
-        # Initialization of the parameters, which will be different for each language used in the experiment.
+        # Initialization of the parameters, which will be different
+        # for each language used in the experiment.
 
         self._tokens = initialize_tokens()
         self._embeddings = initialize_embeddings()
         self._loss_functions = initialize_loss_functions()
         self._output_layers = initialize_output_layers()
 
-        self._train_input, self._dev_input, self._test_input = initialize_input_pipelines()
+        self._train_input, self._dev_input, self._test_input = \
+            initialize_input_pipelines()
 
-        self._discriminator_loss_function = torch.nn.CrossEntropyLoss(reduce=False)
+        self._discriminator_loss_function = torch.nn.CrossEntropyLoss(
+            reduce=False)
 
-        # Initialization of the model wrapper object, that will be used by the modules, defined below.
-        # The modules do not have full control over the model, so they use this interface, to set the
+        # Initialization of the model wrapper object, that will be used by
+        # the modules, defined below.
+        # The modules do not have full control over the model, so they use
+        # this interface, to set the
         # correct look up tables for the given input.
 
         self._model_wrapper = ModelWrapper(self._model, self._tokens)
@@ -291,9 +331,12 @@ class UnsupervisedTranslation(Experiment):
 
         self._num_languages = len(languages)
 
-        # Initialization of the modules, which will be used during the experiment. These objects (modules)
-        # are at a higher abstraction level than the model, their responsibility is to iterate the given
-        # batch through the model, with the correct configuration of the model look up tables.
+        # Initialization of the modules, which will be used during the
+        # experiment. These objects (modules)
+        # are at a higher abstraction level than the model, their
+        # responsibility is to iterate the given
+        # batch through the model, with the correct configuration of the
+        #  model look up tables.
 
         self._auto_encoder = AutoEncoder(
             # --OPTIONAL PARAMS--
@@ -333,18 +376,23 @@ class UnsupervisedTranslation(Experiment):
 
         self._iteration = 0
         self._batch_size = self._train_input[0].batch_size
-        self._total_length = min(list(map(lambda x: x.total_length, self._train_input)))
+        self._total_length = min(list(map(lambda x: x.total_length,
+                                          self._train_input)))
 
-        # Convenience attributes, that will help freezing and unfreezing the parameters of the model
-        # or the discriminator during specific phases of the training or evaluation.
+        # Convenience attributes, that will help freezing and unfreezing
+        # the parameters of the model
+        # or the discriminator during specific phases of the training or
+        # evaluation.
 
         self._auto_encoder_outputs = dict(
-            zip(list(map(lambda x: f'auto_encoding_{str(x)}', self._model.output_types.keys())),
+            zip(list(map(lambda x: f'auto_encoding_{str(x)}',
+                         self._model.output_types.keys())),
                 self._model.output_types.values())
         )
 
         self._translator_outputs = dict(
-            zip(list(map(lambda x: f'translation_{str(x)}', self._model.output_types.keys())),
+            zip(list(map(lambda x: f'translation_{str(x)}',
+                         self._model.output_types.keys())),
                 self._model.output_types.values())
         )
 
@@ -362,29 +410,38 @@ class UnsupervisedTranslation(Experiment):
 
     def _format_auto_encoder_batch(self, batch: dict) -> dict:
         """
-        The special batch format, that is required by the task. This function is passed to the input_pipeline,
-        and will be used to produce batches and targets, in a way, that is convenient for this particular task.
+        The special batch format, that is required by the task. This function
+        is passed to the input_pipeline,
+        and will be used to produce batches and targets, in a way, that is
+        convenient for this particular task.
 
         :param batch:
-            An unprocessed batch, that contains an <SOS> at the 0. index, <LNG> at 1. index
-            and an <EOS> token at the -2. index. The element at the last index is the length of
+            An unprocessed batch, that contains an <SOS> at the 0. index,
+            <LNG> at 1. index
+            and an <EOS> token at the -2. index. The element at the last index
+            is the length of
             the sequence.
 
         :return Formatted batch:
-            A dictionary, that contains different types of formatted inputs for the model.
-            The batch is created from a monolingual corpora, so the only difference between
+            A dictionary, that contains different types of formatted inputs for
+            the model.
+            The batch is created from a monolingual corpora, so the only
+            difference between
             the inputs and targets, are the shifting, and the tokens.
 
                 inputs:
-                    A torch Variable, that is the input of the model. The <SOS> and <EOS> tokens are
+                    A torch Variable, that is the input of the model. The
+                    <SOS> and <EOS> tokens are
                     cut from the original input.
 
                 targets:
-                    A torch Variable, which will be the target of the model. The <LNG> token is removed
+                    A torch Variable, which will be the target of the model.
+                    The <LNG> token is removed
                     from the original batch.
 
                 lengths:
-                    A NumPy Array, the lengths of the inputs provided to the encoder. These are required
+                    A NumPy Array, the lengths of the inputs provided to the
+                    encoder. These are required
                     by the PaddedSequence PyTorch utility.
         """
         formatted_batch = {
@@ -394,14 +451,17 @@ class UnsupervisedTranslation(Experiment):
         }
 
         if self._add_language_token:
-            formatted_batch['input_lengths'] = formatted_batch['input_lengths'] - 1
+            formatted_batch['input_lengths'] = \
+                formatted_batch['input_lengths'] - 1
         else:
-            formatted_batch['input_lengths'] = formatted_batch['input_lengths'] - 2
+            formatted_batch['input_lengths'] = \
+                formatted_batch['input_lengths'] - 2
 
         if self._policy.cuda:
             formatted_batch['targets'] = formatted_batch['targets'].cuda()
 
-        formatted_batch['targets'] = torch.autograd.Variable(formatted_batch['targets'])
+        formatted_batch['targets'] = torch.autograd.Variable(
+            formatted_batch['targets'])
 
         return formatted_batch
 
@@ -440,7 +500,8 @@ class UnsupervisedTranslation(Experiment):
 
         discriminator_loss /= len(discriminator_inputs)
 
-        logs.add(DataLog.TRAIN_DATA_ID, 'discriminator_loss', discriminator_loss.data)
+        logs.add(DataLog.TRAIN_DATA_ID, 'discriminator_loss',
+                 discriminator_loss.data)
 
     def _eval_discriminator(self, batches, logs, identifier):
         """
@@ -506,81 +567,103 @@ class UnsupervisedTranslation(Experiment):
 
         return auto_encoding_loss, reguralization_loss
 
-    def _validate_auto_encoder(self, batches, logs, identifier, forced_targets=True):
+    def _validate_auto_encoder(self, batches, logs, identifier,
+                               forced_targets=True):
         """
-        Implementation of a step of auto-encoding. The look up tables of the model are fitted to the
-        provided inputs, and the <LNG> are substituted with the appropriate token. In this case the token
-        is the source language token. The inputs are then transformed by a noise function, and then fed
-        through the model. If reguralization is applied, the encoder outputs are fetched from the output
-        of the model, which is used by the discriminator to apply an adversarial reguralization on these
+        Implementation of a step of auto-encoding. The look up tables of the
+        model are fitted to the
+        provided inputs, and the <LNG> are substituted with the appropriate
+        token. In this case the token
+        is the source language token. The inputs are then transformed by a
+        noise function, and then fed
+        through the model. If reguralization is applied, the encoder outputs
+        are fetched from the output
+        of the model, which is used by the discriminator to apply an
+        adversarial reguralization on these
         outputs.
 
         :param batches:
             A list, containing the batches from the input pipelines.
 
         :return loss:
-            A scalar loss value, indicating the average loss of the auto encoder.
+            A scalar loss value, indicating the average loss of the auto
+            encoder.
 
         :return outputs:
-            A dictionary, that contains the outputs of the model. The types (keys) contained
+            A dictionary, that contains the outputs of the model. The types
+            (keys) contained
             by this dictionary depends on the model specifications.
         """
         auto_encoding_loss = 0
         reguralization_loss = 0
 
         for language_index, batch in enumerate(batches):
-            loss, outputs, inputs = self._auto_encoder(batch=batch,
-                                                       lang_index=language_index,
-                                                       forced_targets=forced_targets,
-                                                       denoising=self._policy.validation_noise)
+            loss, outputs, inputs = self._auto_encoder(
+                batch=batch,
+                lang_index=language_index,
+                forced_targets=forced_targets,
+                denoising=self._policy.validation_noise)
 
             vocabulary = self._vocabularies[language_index]
 
-            outputs['input_text'] = sentence_from_ids(vocabulary=vocabulary, ids=inputs)
-            outputs['output_text'] = sentence_from_ids(vocabulary=vocabulary, ids=outputs['symbols'][0])
+            outputs['input_text'] = sentence_from_ids(vocabulary=vocabulary,
+                                                      ids=inputs)
+            outputs['output_text'] = sentence_from_ids(vocabulary=vocabulary,
+                                                       ids=outputs['symbols'][0])
 
             auto_encoding_loss += loss
 
-            logs[language_index].add(identifier, 'auto_encoding_loss', loss.data)
+            logs[language_index].add(identifier, 'auto_encoding_loss',
+                                     loss.data)
 
             logs[language_index].add(identifier, 'auto_encoding_text', {
                 'input_text': outputs['input_text'],
-                'target_text': sentence_from_ids(vocabulary=vocabulary, ids=batches[language_index]['targets']
-                                                 .data.cpu().squeeze(0)[1:].numpy()),
+                'target_text': sentence_from_ids(
+                    vocabulary=vocabulary,
+                    ids=batches[language_index]['targets']
+                    .data.cpu().squeeze(0)[1:].numpy()),
                 'output_text': outputs['output_text']
             })
 
             for key in self._auto_encoder_outputs.keys():
-                logs[language_index].add(identifier, key,
-                                         {key: outputs[key] for key in logs[language_index].get_required_keys(key)})
+                logs[language_index].add(
+                    identifier, key,
+                    {key: outputs[key] for key in
+                     logs[language_index].get_required_keys(key)})
 
             if self._reguralizer is not None and self.reguralize:
                 for _language_index in range(self._num_languages):
                     if _language_index != language_index:
-                        reguralization_loss += self._reguralize(outputs['encoder_outputs'], _language_index)
+                        reguralization_loss += self._reguralize(
+                            outputs['encoder_outputs'], _language_index)
 
         return auto_encoding_loss, reguralization_loss
 
     def _reguralize(self, encoder_outputs, lang_index):
         """
         This function implements the reguralization mechanism. The inputs are
-        fed into the discriminator and evaluated based on the cross entropy loss, that is defined in the
-        init function. The targets are either one-hot coded vectors, or their inverse. This depends on
+        fed into the discriminator and evaluated based on the cross entropy
+        loss, that is defined in the
+        init function. The targets are either one-hot coded vectors, or their
+        inverse. This depends on
         whether the loss is calculated for the discriminator or model loss.
 
         :param lang_index:
-            An int value, that represents the index of the target language. This value will serve as
+            An int value, that represents the index of the target language.
+            This value will serve as
             the index of the substitution token for the input batch.
 
         :param encoder_outputs:
             PyTorch Variable, containing the outputs of the encoder.
 
         :return loss:
-            A scalar loss value, indicating the average loss of the discriminator for either the
+            A scalar loss value, indicating the average loss of the
+            discriminator for either the
             inverse or normal target vector.
         """
         targets = numpy.array([lang_index]*encoder_outputs.size(0))
-        loss = self._discriminator(inputs=encoder_outputs[:, -1, :], targets=targets)
+        loss = self._discriminator(inputs=encoder_outputs[:, -1, :],
+                                   targets=targets)
 
         return loss
 
@@ -602,8 +685,9 @@ class UnsupervisedTranslation(Experiment):
 
         numpy.random.shuffle(concat_input)
 
-        return numpy.array([concat_input[index * batch_size:index * batch_size + batch_size]
-                            for index in range(len(batches))])
+        return numpy.array([
+            concat_input[index * batch_size:index * batch_size + batch_size]
+            for index in range(len(batches))])
 
     def _create_encoder_output(self, batch, lang_index):
         """
@@ -612,7 +696,8 @@ class UnsupervisedTranslation(Experiment):
         self._model_wrapper.set_lookup({'source': lang_index})
 
         if self._language_identifiers is not None and self._add_language_token:
-            inputs = self._add_random_language_token(batch['inputs'], lang_index)
+            inputs = self._add_random_language_token(batch['inputs'],
+                                                     lang_index)
         else:
             inputs = batch['inputs']
 
@@ -623,18 +708,22 @@ class UnsupervisedTranslation(Experiment):
 
         outputs = self._model.encoder(
             inputs=inputs,
-            lengths=batch['input_lengths'])['encoder_outputs'].data.cpu().numpy()
+            lengths=batch['input_lengths'])['encoder_outputs']\
+            .data.cpu().numpy()
 
-        return [(outputs[index, -1, :], lang_index) for index in range(len(outputs))]
+        return [(outputs[index, -1, :], lang_index) for index in range(len(
+            outputs))]
 
     def _add_random_language_token(self, batch, lang_index):
         """
 
         """
-        lang_tokens = numpy.random.uniform(0, self._num_languages, size=(batch.size(0)))
+        lang_tokens = numpy.random.uniform(0, self._num_languages,
+                                           size=(batch.size(0)))
 
         tokens = torch.from_numpy(numpy.array([
-            self._vocabularies[lang_index](self._language_identifiers[int(lang_tokens[token])])
+            self._vocabularies[lang_index](self._language_identifiers[int(
+                lang_tokens[token])])
             for token in range(len(lang_tokens))
         ])).view(-1, 1)
 
@@ -707,8 +796,10 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
 
         def initialize_input_pipelines() -> tuple:
             """
-            Initializer function for the tokens of the different languages. These tokens are the <EOS>, <SOS>
-            and <UNK> tokens. The returned 'tokens' list contains their ID representation, that is retrieved
+            Initializer function for the tokens of the different languages.
+            These tokens are the <EOS>, <SOS>
+            and <UNK> tokens. The returned 'tokens' list contains their ID
+            representation, that is retrieved
             from the vocabulary of the corresponding language.
             """
             nonlocal languages
@@ -716,8 +807,10 @@ class DividedCurriculumTranslation(UnsupervisedTranslation):  # TODO
             translated_train_pipelines = []
             translated_dev_pipelines = []
             for language in languages:
-                translated_train_pipelines.append(language.input_pipelines['translated_train'])
-                translated_dev_pipelines.append(language.input_pipelines['translated_dev'])
+                translated_train_pipelines.append(
+                    language.input_pipelines['translated_train'])
+                translated_dev_pipelines.append(
+                    language.input_pipelines['translated_dev'])
 
             return translated_train_pipelines, translated_dev_pipelines
 

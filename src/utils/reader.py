@@ -951,7 +951,9 @@ class PrePadding(Padding):
         """
         data_to_ids = []
         for index in range(0, len(data), self._max_segment_size):
-            segment_length = len(ids_from_sentence(self._vocabulary, data[index:index + self._max_segment_size][0]))
+            segment_length = len(ids_from_sentence(
+                self._vocabulary,
+                data[index:index + self._max_segment_size][0]))
             for line in data[index:index + self._max_segment_size]:
                 ids = ids_from_sentence(self._vocabulary, line)
                 ids_len = len(ids)
@@ -967,8 +969,10 @@ class PrePadding(Padding):
 
 class Language(Component):
     """
-    An abstract representation of ta language in an experiment. This class holds all relevant
-    information about a given language, its vocabulary, identifier and the corpus.
+    An abstract representation of ta language in an experiment.
+    This class holds all relevant
+    information about a given language, its vocabulary, identifier and the
+    corpus.
     """
 
     abstract = False

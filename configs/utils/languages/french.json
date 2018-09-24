@@ -5,7 +5,7 @@
         "vocabulary": {
             "type": "Vocabulary",
             "params": {
-                "vocab_path": "data/toy/fra/fra_voc",
+                "vocab_path": "/media/patrik/1EDB65B8599DD93E/data/unmt_data/fra/reduced_vocab",
                 "provided_embeddings": true,
                 "fixed_embeddings": false
             }
@@ -15,12 +15,12 @@
                 "type": "FileInput",
                 "params": {
                     "max_segment_size": 1000,
-                    "batch_size": 100,
+                    "batch_size": 75,
                     "shuffle": true,
                     "corpora": {
                         "type": "Monolingual",
                         "params": {
-                            "data_path": "data/toy/fra/fra_train"
+                            "data_path": "/media/patrik/1EDB65B8599DD93E/data/unmt_data/fra/train"
                         }
                     }
                 }
@@ -34,7 +34,7 @@
                     "corpora": {
                         "type": "Monolingual",
                         "params": {
-                            "data_path": "data/toy/fra/fra_dev"
+                            "data_path": "/media/patrik/1EDB65B8599DD93E/data/unmt_data/fra/validation"
                         }
                     }
                 }
@@ -48,7 +48,7 @@
                     "corpora": {
                         "type": "Monolingual",
                         "params": {
-                            "data_path": "data/toy/fra/fra_test"
+                            "data_path": "/media/patrik/1EDB65B8599DD93E/data/unmt_data/fra/test"
                         }
                     }
                 }

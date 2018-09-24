@@ -142,7 +142,7 @@ class UnidirectionalRNNEncoder(RNNEncoder):
 
         self._recurrent_layer = unit_type(input_size=self._embedding_size,
                                           hidden_size=self._hidden_size,
-                                          dropout=0.5,
+                                          dropout=0.2,
                                           num_layers=self._num_layers,
                                           bidirectional=False,
                                           batch_first=True)
@@ -237,7 +237,7 @@ class BidirectionalRNNEncoder(RNNEncoder):
         self._recurrent_layer = unit_type(input_size=self._embedding_size,
                                           hidden_size=self._hidden_size,
                                           num_layers=self._num_layers,
-                                          dropout=0.5,
+                                          dropout=0.2,
                                           bidirectional=True,
                                           batch_first=True)
 

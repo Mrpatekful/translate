@@ -2,8 +2,8 @@
     "type": "WordTranslator",
     "params": {
         "dictionaries": [
-          "data/toy/eng/alignment",
-          "data/toy/fra/alignment"
+          "/media/patrik/1EDB65B8599DD93E/data/unmt_data/eng/alignment",
+          "/media/patrik/1EDB65B8599DD93E/data/unmt_data/fra/alignment"
         ]
     }
 }

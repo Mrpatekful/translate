@@ -14,5 +14,5 @@
         "initial_translator": "configs/utils/translators/word.json",
         "reguralizer": "configs/components/reguralizers/mlp.json"
     },
-    "model_dir": "/media/patrik/1EDB65B8599DD93E/model_outputs/unmt_3"
+    "model_dir": "/media/patrik/1EDB65B8599DD93E/model_outputs/unmt"
 }
